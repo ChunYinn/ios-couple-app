@@ -8,6 +8,7 @@ const demoFavorites: ProfileFavorite[] = [
 ];
 
 export const demoPartnerProfile: PartnerProfile = {
+  uid: "demo-partner",
   displayName: "Bailey",
   status: "Excited!",
   avatarUrl:
@@ -15,7 +16,7 @@ export const demoPartnerProfile: PartnerProfile = {
   about:
     "Big-hearted creative fueled by playlists, surprise dates, and dreamy kitchen dance breaks.",
   accentColor: "#A2D2FF",
-  loveLanguages: ["Physical Touch", "Quality Time", "Receiving Gifts"],
+  loveLanguages: ["touch", "time", "gifts"],
   favorites: demoFavorites,
 };
 

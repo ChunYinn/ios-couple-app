@@ -126,49 +126,61 @@ export default function SharedGalleryScreen() {
         <CuteText weight="bold" style={{ fontSize: 22, marginBottom: 10 }}>
           On This Day...
         </CuteText>
-        {gallery.flashbacks.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              gap: 16,
-            }}
-          >
-            {gallery.flashbacks.map((memory, index) => (
-              <CuteCard
-                key={memory.id}
-                background={palette.card}
-                padding={0}
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            gap: 16,
+          }}
+        >
+          {gallery.flashbacks.map((flashback) => (
+            <Pressable
+              key={flashback.id}
+              style={{
+                width: 220,
+                borderRadius: 24,
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              <ImageBackground
+                source={{ uri: flashback.image }}
                 style={{
-                  minWidth: 200,
-                  transform: [{ rotate: `${index % 2 === 0 ? -2 : 2}deg` }],
+                  width: "100%",
+                  height: 140,
+                  justifyContent: "flex-end",
+                  padding: 16,
                 }}
+                imageStyle={{ borderRadius: 24 }}
               >
-                <ImageBackground
-                  source={{ uri: memory.image }}
-                  imageStyle={{ borderRadius: 24 }}
-                  style={{
-                    height: 160,
-                    borderRadius: 24,
-                    overflow: "hidden",
-                  }}
-                />
-                <View style={{ padding: 16 }}>
-                  <CuteText weight="semibold">{memory.subtitle}</CuteText>
-                  <CuteText tone="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                    {memory.title}
-                  </CuteText>
-                </View>
-              </CuteCard>
-            ))}
-          </ScrollView>
-        ) : (
-          <CuteCard background={palette.card} padding={18}>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Add your first memory to unlock On-This-Day flashbacks.
-            </CuteText>
-          </CuteCard>
-        )}
+                <CuteText weight="bold" style={{ color: "#fff", fontSize: 18 }}>
+                  {flashback.title}
+                </CuteText>
+                <CuteText style={{ color: "#fff", fontSize: 13 }}>
+                  {flashback.subtitle}
+                </CuteText>
+              </ImageBackground>
+            </Pressable>
+          ))}
+          {!gallery.flashbacks.length ? (
+            <CuteCard
+              background={palette.card}
+              padding={20}
+              style={{ width: 220, gap: 10 }}
+            >
+              <MaterialIcons
+                name="photo-camera"
+                size={32}
+                color={palette.primary}
+              />
+              <CuteText weight="bold">Flashbacks will appear here</CuteText>
+              <CuteText tone="muted" style={{ fontSize: 13 }}>
+                Add memories with dates to relive them on anniversaries and special days.
+              </CuteText>
+            </CuteCard>
+          ) : null}
+        </ScrollView>
       </View>
 
       <ScrollView

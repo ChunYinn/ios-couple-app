@@ -1,5 +1,5 @@
 import { FieldValue, Timestamp } from "firebase/firestore";
-import { PronounValue } from "../types/app";
+import { PronounValue, LoveLanguageValue } from "../types/app";
 
 // ============= USER TYPES =============
 export interface DBUser {
@@ -58,7 +58,7 @@ export interface DBProfile {
   about: string;
   accentColor: string;
   emoji: string;
-  loveLanguages: string[];
+  loveLanguages: LoveLanguageValue[];
   favorites: {
     category: string;
     label: string;
