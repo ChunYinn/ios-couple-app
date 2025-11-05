@@ -1,32 +1,64 @@
 import {
   createContext,
+  ReactNode,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
-  ReactNode,
+  useRef,
 } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { initialState } from "../data/initialState";
 import {
   AppAction,
   AppState,
+  ChatMessage,
+  Flashback,
+  GalleryItem,
+  Milestone,
   PartnerProfile,
   ProfileFavorite,
+  TodoCategory,
+  TodoItem,
 } from "../types/app";
 import {
-  demoPartnerProfile,
-  demoMilestones,
-  demoTodoCategories,
-  demoTodoItems,
-  demoChatMessages,
-  demoFlashbacks,
-  demoGalleryItems,
-} from "../data/demoContent";
+  coupleService,
+  memoryService,
+  milestoneService,
+  messageService,
+  profileService,
+  todoService,
+  userService,
+} from "../firebase/services";
+import {
+  DBMemory,
+  DBMilestone,
+  DBMessage,
+  DBProfile,
+  DBTodoCategory,
+  DBTodoItem,
+  timestampToDate,
+} from "../firebase/types";
+import { firebaseAuth } from "../firebase/config";
+import {
+  DEFAULT_LOVE_LANGUAGES,
+  LOVE_LANGUAGES,
+  normalizeLoveLanguages,
+} from "../data/loveLanguages";
+import { LoveLanguageValue } from "../types/app";
+import { authService } from "../services/authService";
 
 const AppDataContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
 } | null>(null);
+
+const DEFAULT_PROFILE_STATUS = "Feeling Happy";
+const DEFAULT_PROFILE_ABOUT = "Curious heart who loves to make memories that feel like magic.";
+const DEFAULT_PROFILE_LANGUAGES: LoveLanguageValue[] = normalizeLoveLanguages(
+  DEFAULT_LOVE_LANGUAGES
+);
 
 const generateId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -36,8 +68,93 @@ const mergeFavorites = (
   incoming: ProfileFavorite[]
 ) => {
   if (!base || !base.length) return incoming;
-  return base;
+  if (!incoming.length) return base;
+  return incoming;
 };
+
+const mapCategoryFromDb = (category: DBTodoCategory): TodoCategory => ({
+  id: category.id ?? "",
+  name: category.name,
+  icon: category.icon,
+  color: category.color,
+  description: category.description ?? undefined,
+});
+
+const mapTodoFromDb = (item: DBTodoItem): TodoItem => ({
+  id: item.id ?? "",
+  categoryId: item.categoryId,
+  title: item.title,
+  completed: item.completed,
+  assigneeIds: item.assigneeIds ?? [],
+  dueDate: item.dueDate ?? undefined,
+});
+
+const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
+  uid,
+  displayName: profile.displayName,
+  status: profile.status,
+  avatarUrl: profile.avatarUrl ?? undefined,
+  about: profile.about,
+  accentColor: profile.accentColor,
+  loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
+  favorites:
+    profile.favorites?.map((favorite) => ({
+      label: favorite.label,
+      value: favorite.value,
+    })) ?? [],
+});
+
+const mapMessageFromDb = (
+  message: DBMessage,
+  myUid: string
+): ChatMessage => {
+  const reactions = message.reactions ?? {};
+  const firstReactionKey = Object.keys(reactions)[0];
+  return {
+    id: message.id ?? generateId("msg"),
+    sender: message.sender === myUid ? "me" : "partner",
+    text: message.text,
+    timestamp: timestampToDate(message.timestamp).toISOString(),
+    reaction: firstReactionKey,
+  };
+};
+
+const mapMemoryToGalleryItem = (memory: DBMemory): GalleryItem => ({
+  id: memory.id ?? generateId("memory"),
+  image: memory.thumbnailUrl || memory.imageUrl,
+  type: memory.type,
+  favorite: Boolean(memory.isFavorite),
+});
+
+const createFlashbacksFromMemories = (memories: DBMemory[]): Flashback[] => {
+  const today = new Date();
+  return memories
+    .filter((memory) => {
+      const date = timestampToDate(memory.capturedDate);
+      return (
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate() &&
+        date.getFullYear() < today.getFullYear()
+      );
+    })
+    .map((memory) => {
+      const captured = timestampToDate(memory.capturedDate);
+      return {
+        id: memory.id ?? generateId("flashback"),
+        title: `On this day in ${captured.getFullYear()}`,
+        subtitle: memory.caption || "Replay this moment together",
+        image: memory.imageUrl,
+        year: captured.getFullYear(),
+      };
+    });
+};
+
+const mapMilestoneFromDb = (milestone: DBMilestone): Milestone => ({
+  id: milestone.id ?? generateId("milestone"),
+  title: milestone.title,
+  image: milestone.image,
+  description: milestone.description,
+});
 
 const reducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
@@ -45,7 +162,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         auth: {
-          status: "profile",
+          status: "initializing",
           provider: action.payload.provider,
           user: {
             uid: action.payload.uid,
@@ -54,6 +171,8 @@ const reducer = (state: AppState, action: AppAction): AppState => {
             pronouns: undefined,
             avatarUrl: undefined,
             coupleId: null,
+            email: action.payload.email ?? undefined,
+            isAnonymous: action.payload.isAnonymous,
           },
         },
         pairing: {
@@ -74,16 +193,30 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         milestones: [],
         profiles: {},
         todos: { categories: [], items: [] },
-        chat: { partnerName: undefined, partnerAvatar: undefined, messages: [] },
+        chat: {
+          partnerName: undefined,
+          partnerAvatar: undefined,
+          messages: [],
+        },
         gallery: { flashbacks: [], items: [] },
       };
     }
     case "SIGN_OUT": {
-      return initialState;
+      return {
+        ...initialState,
+        settings: state.settings,
+      };
+    }
+    case "RESET_SESSION": {
+      return {
+        ...initialState,
+        settings: state.settings,
+      };
     }
     case "SAVE_PROFILE": {
       if (!state.auth.user.uid) return state;
       const updatedProfile: PartnerProfile = {
+        uid: state.auth.user.uid,
         displayName: action.payload.displayName,
         status: action.payload.status ?? "Feeling Happy",
         avatarUrl: action.payload.avatarUrl,
@@ -91,14 +224,14 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           action.payload.about ||
           "Curious heart who loves to make memories that feel like magic.",
         accentColor: state.settings.accent,
-        loveLanguages: action.payload.loveLanguages || ["Words of Affirmation"],
+        loveLanguages: normalizeLoveLanguages(action.payload.loveLanguages),
         favorites: state.profiles.me?.favorites ?? [],
       };
       return {
         ...state,
         auth: {
           ...state.auth,
-          status: "pairing",
+          status: "ready", // Go directly to app after profile setup
           user: {
             ...state.auth.user,
             displayName: action.payload.displayName,
@@ -131,11 +264,17 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "CREATE_INVITE": {
-      if (!state.auth.user.uid) return state;
       return {
         ...state,
+        auth: {
+          ...state.auth,
+          user: {
+            ...state.auth.user,
+            coupleId: action.payload.coupleId,
+          },
+        },
         pairing: {
-          coupleId: null,
+          coupleId: action.payload.coupleId,
           inviteCode: action.payload.inviteCode,
           inviteLink: action.payload.inviteLink,
           qrCodeData: action.payload.qrCodeData,
@@ -157,31 +296,11 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "JOIN_COUPLE": {
-      const partnerProfile: PartnerProfile = action.payload.partnerProfile;
-      const mergedMilestones = state.milestones.length
-        ? state.milestones
-        : demoMilestones;
-      const mergedCategories = state.todos.categories.length
-        ? state.todos.categories
-        : demoTodoCategories;
-      const mergedItems = state.todos.items.length
-        ? state.todos.items
-        : demoTodoItems;
-      const mergedChat = state.chat.messages.length
-        ? state.chat.messages
-        : demoChatMessages;
-      const mergedFlashbacks = state.gallery.flashbacks.length
-        ? state.gallery.flashbacks
-        : demoFlashbacks;
-      const mergedGallery = state.gallery.items.length
-        ? state.gallery.items
-        : demoGalleryItems;
-
       return {
         ...state,
         auth: {
           ...state.auth,
-          status: state.dashboard.anniversaryDate ? "ready" : "anniversary",
+          status: "ready",  // Stay in app after joining couple
           user: {
             ...state.auth.user,
             coupleId: action.payload.coupleId,
@@ -192,26 +311,20 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           coupleId: action.payload.coupleId,
           isPaired: true,
         },
-        milestones: mergedMilestones,
         profiles: {
           ...state.profiles,
           partner: {
-            ...partnerProfile,
-            favorites: mergeFavorites(state.profiles.partner?.favorites, partnerProfile.favorites),
+            ...action.payload.partnerProfile,
+            favorites: mergeFavorites(
+              state.profiles.partner?.favorites,
+              action.payload.partnerProfile.favorites
+            ),
           },
         },
-        todos: {
-          categories: mergedCategories,
-          items: mergedItems,
-        },
         chat: {
-          partnerName: partnerProfile.displayName,
-          partnerAvatar: partnerProfile.avatarUrl,
-          messages: mergedChat,
-        },
-        gallery: {
-          flashbacks: mergedFlashbacks,
-          items: mergedGallery,
+          ...state.chat,
+          partnerName: action.payload.partnerProfile.displayName,
+          partnerAvatar: action.payload.partnerProfile.avatarUrl,
         },
       };
     }
@@ -245,7 +358,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         },
         auth: {
           ...state.auth,
-          status: "pairing",
+          status: "ready",  // Stay in app
           user: {
             ...state.auth.user,
             coupleId: null,
@@ -256,13 +369,17 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           me: state.profiles.me,
         },
         todos: { categories: [], items: [] },
-        chat: { partnerName: undefined, partnerAvatar: undefined, messages: [] },
+        chat: {
+          partnerName: undefined,
+          partnerAvatar: undefined,
+          messages: [],
+        },
         gallery: { flashbacks: [], items: [] },
       };
     }
     case "ADD_TODO_CATEGORY": {
       const id = action.payload.id ?? generateId("category");
-      const newCategory = {
+      const newCategory: TodoCategory = {
         id,
         name: action.payload.name,
         icon: action.payload.icon,
@@ -291,7 +408,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "ADD_TODO_ITEM": {
-      const newItem = {
+      const newItem: TodoItem = {
         id: generateId("todo"),
         categoryId: action.payload.categoryId,
         title: action.payload.title,
@@ -330,26 +447,10 @@ const reducer = (state: AppState, action: AppAction): AppState => {
             ...state.profiles.me,
             status: action.payload.status ?? state.profiles.me.status,
             about: action.payload.about ?? state.profiles.me.about,
-            loveLanguages:
-              action.payload.loveLanguages ?? state.profiles.me.loveLanguages,
+            loveLanguages: normalizeLoveLanguages(
+              action.payload.loveLanguages ?? state.profiles.me.loveLanguages
+            ),
           },
-        },
-      };
-    }
-    case "ADD_CHAT_MESSAGE": {
-      return {
-        ...state,
-        chat: {
-          ...state.chat,
-          messages: [
-            ...state.chat.messages,
-            {
-              id: generateId("msg"),
-              sender: "me",
-              text: action.payload.text,
-              timestamp: new Date().toISOString(),
-            },
-          ],
         },
       };
     }
@@ -362,6 +463,121 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         },
       };
     }
+    case "SYNC_TODO_CATEGORIES": {
+      return {
+        ...state,
+        todos: {
+          ...state.todos,
+          categories: action.payload,
+        },
+      };
+    }
+    case "SYNC_TODO_ITEMS": {
+      return {
+        ...state,
+        todos: {
+          ...state.todos,
+          items: action.payload,
+        },
+      };
+    }
+    case "UPDATE_AUTH_USER": {
+      const { status, ...userPatch } = action.payload;
+      return {
+        ...state,
+        auth: {
+          ...state.auth,
+          status: status ?? state.auth.status,
+          user: {
+            ...state.auth.user,
+            ...userPatch,
+          },
+        },
+      };
+    }
+    case "UPDATE_COUPLE_META": {
+      return {
+        ...state,
+        auth: {
+          ...state.auth,
+          status: action.payload.authStatus ?? state.auth.status,
+          user: {
+            ...state.auth.user,
+            coupleId: action.payload.coupleId,
+          },
+        },
+        pairing: {
+          coupleId: action.payload.coupleId,
+          inviteCode: action.payload.inviteCode ?? state.pairing.inviteCode,
+          inviteLink:
+            state.pairing.inviteLink ?? action.payload.inviteLink ?? null,
+          qrCodeData: action.payload.qrCodeData ?? state.pairing.qrCodeData,
+          createdAt: state.pairing.createdAt,
+          ownerUid: action.payload.ownerUid ?? state.pairing.ownerUid,
+          isPaired: action.payload.isPaired,
+        },
+        dashboard: {
+          ...state.dashboard,
+          daysTogether: action.payload.daysTogether,
+          anniversaryDate:
+            action.payload.anniversaryDate ?? state.dashboard.anniversaryDate,
+        },
+        settings: {
+          ...state.settings,
+          enablePush: action.payload.settings.enablePush,
+          enableFlashbacks: action.payload.settings.enableFlashbacks,
+        },
+      };
+    }
+    case "UPDATE_PROFILES": {
+      const partnerProfile = action.payload.partner ?? state.profiles.partner;
+      return {
+        ...state,
+        profiles: {
+          ...state.profiles,
+          me: action.payload.me ?? state.profiles.me,
+          partner: partnerProfile ?? undefined,
+        },
+        chat: {
+          ...state.chat,
+          partnerName: partnerProfile?.displayName ?? state.chat.partnerName,
+          partnerAvatar: partnerProfile?.avatarUrl ?? state.chat.partnerAvatar,
+        },
+      };
+    }
+    case "SYNC_CHAT_MESSAGES": {
+      return {
+        ...state,
+        chat: {
+          ...state.chat,
+          messages: action.payload,
+        },
+      };
+    }
+    case "SYNC_GALLERY_ITEMS": {
+      return {
+        ...state,
+        gallery: {
+          ...state.gallery,
+          items: action.payload,
+        },
+      };
+    }
+    case "SYNC_GALLERY_FLASHBACKS": {
+      return {
+        ...state,
+        gallery: {
+          ...state.gallery,
+          flashbacks: action.payload,
+        },
+      };
+    }
+    case "SYNC_MILESTONES": {
+      return {
+        ...state,
+        milestones: action.payload,
+      };
+    }
     default:
       return state;
   }
@@ -369,8 +585,301 @@ const reducer = (state: AppState, action: AppAction): AppState => {
 
 export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    const ensureAnonymous = async () => {
+      try {
+        await authService.ensureAnonymousSession();
+      } catch (error) {
+        console.error("Failed to ensure anonymous session", error);
+      }
+    };
+
+    if (!firebaseAuth.currentUser) {
+      ensureAnonymous();
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+      if (firebaseUser) {
+        const providerId = firebaseUser.isAnonymous
+          ? "anonymous"
+          : firebaseUser.providerData[0]?.providerId === "password"
+            ? "password"
+            : "custom";
+
+        dispatch({
+          type: "SIGN_IN",
+          payload: {
+            provider: providerId,
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            isAnonymous: firebaseUser.isAnonymous,
+          },
+        });
+      } else {
+        dispatch({ type: "RESET_SESSION" });
+        ensureAnonymous();
+      }
+    });
+
+    return unsubscribe;
+  }, [dispatch]);
+
+  useEffect(() => {
+    const uid = state.auth.user.uid;
+    if (!uid) return;
+
+    const unsubscribe = userService.subscribeToUser(
+      uid,
+      (user) => {
+        const currentState = stateRef.current;
+        if (!user) {
+          // User document doesn't exist, so they need to create a profile.
+          dispatch({
+            type: "UPDATE_AUTH_USER",
+            payload: {
+              status: "profile",
+              displayName: undefined,
+              avatarUrl: undefined,
+              birthday: undefined,
+              pronouns: undefined,
+              coupleId: null,
+            },
+          });
+          return;
+        }
+
+        const hasCompletedProfile = Boolean(
+          typeof user.displayName === "string" && user.displayName.trim().length > 0
+        );
+        const nextStatus = hasCompletedProfile ? "ready" : "profile";
+
+        const normalizedLoveLanguages = normalizeLoveLanguages(user.loveLanguages);
+
+        dispatch({
+          type: "UPDATE_AUTH_USER",
+          payload: {
+            uid,
+            displayName: user.displayName ?? undefined,
+            avatarUrl: user.avatarUrl ?? undefined,
+            birthday: user.birthday ?? undefined,
+            pronouns: user.pronouns ?? undefined,
+            coupleId: user.coupleId,
+            status: nextStatus,
+            email: user.email ?? undefined,
+            isAnonymous: user.authProvider === "anonymous",
+          },
+        });
+
+        const derivedAccent = user.accentColor ?? currentState.settings.accent;
+
+        dispatch({
+          type: "UPDATE_PROFILES",
+          payload: {
+            me: {
+              uid,
+              displayName: user.displayName ?? "You",
+              status: user.status ?? DEFAULT_PROFILE_STATUS,
+              avatarUrl: user.avatarUrl ?? undefined,
+              about: user.about ?? DEFAULT_PROFILE_ABOUT,
+              accentColor: derivedAccent,
+              loveLanguages: normalizedLoveLanguages,
+              favorites: currentState.profiles.me?.favorites ?? [],
+            },
+          },
+        });
+
+        if (user.accentColor && user.accentColor !== currentState.settings.accent) {
+          dispatch({
+            type: "SET_PROFILE_ACCENT",
+            payload: { accentColor: user.accentColor },
+          });
+        }
+      },
+      (error) => {
+        console.error("Failed to load user profile:", error);
+        dispatch({
+          type: "UPDATE_AUTH_USER",
+          payload: {
+            status:
+              state.auth.status === "initializing" || state.auth.status === "ready"
+                ? "profile"
+                : state.auth.status,
+          },
+        });
+      }
+    );
+
+    return unsubscribe;
+  }, [state.auth.user.uid, state.auth.status]);
+
+  useEffect(() => {
+    const uid = state.auth.user.uid;
+    const coupleId = state.auth.user.coupleId;
+    if (!uid || !coupleId) {
+      return;
+    }
+
+    const unsubscribeCouple = coupleService.subscribeToCouple(
+      coupleId,
+      (couple) => {
+        if (!couple) return;
+        const daysTogether = coupleService.getDaysTogether(
+          couple.anniversaryDate
+        );
+        // Stay in "ready" status when paired
+        const authStatus = "ready";
+        dispatch({
+          type: "UPDATE_COUPLE_META",
+          payload: {
+            coupleId,
+            inviteCode: couple.inviteCode ?? null,
+            inviteLink: couple.inviteLink ?? null,
+            qrCodeData: couple.qrCodeData ?? null,
+            ownerUid: couple.ownerUid ?? null,
+            isPaired: couple.isPaired,
+            anniversaryDate: couple.anniversaryDate,
+            daysTogether,
+            settings: {
+              enablePush: couple.settings.enablePush,
+              enableFlashbacks: couple.settings.enableFlashbacks,
+            },
+            authStatus,
+          },
+        });
+      }
+    );
+
+    const unsubscribeProfiles = profileService.subscribeToProfiles(
+      coupleId,
+      (profiles) => {
+        const meProfile = profiles.find((entry) => entry.uid === uid);
+        const partnerProfile = profiles.find((entry) => entry.uid !== uid);
+
+        dispatch({
+          type: "UPDATE_PROFILES",
+          payload: {
+            me: meProfile
+              ? mapProfileFromDb(meProfile.uid, meProfile.profile)
+              : undefined,
+            partner: partnerProfile
+              ? mapProfileFromDb(
+                  partnerProfile.uid,
+                  partnerProfile.profile
+                )
+              : null,
+          },
+        });
+      }
+    );
+
+    return () => {
+      unsubscribeCouple?.();
+      unsubscribeProfiles?.();
+    };
+  }, [state.auth.user.coupleId, state.auth.user.uid]);
+
+  useEffect(() => {
+    const coupleId = state.auth.user.coupleId;
+    if (!state.pairing.isPaired || !coupleId) {
+      return;
+    }
+
+    const unsubscribeCategories = todoService.subscribeToCategories(
+      coupleId,
+      (categories) => {
+        dispatch({
+          type: "SYNC_TODO_CATEGORIES",
+          payload: categories.map(mapCategoryFromDb),
+        });
+      }
+    );
+
+    const unsubscribeTodos = todoService.subscribeToTodos(
+      coupleId,
+      (items) => {
+        dispatch({
+          type: "SYNC_TODO_ITEMS",
+          payload: items.map(mapTodoFromDb),
+        });
+      }
+    );
+
+    return () => {
+      unsubscribeCategories?.();
+      unsubscribeTodos?.();
+    };
+  }, [state.pairing.isPaired, state.auth.user.coupleId]);
+
+  useEffect(() => {
+    const coupleId = state.auth.user.coupleId;
+    const uid = state.auth.user.uid;
+    if (!state.pairing.isPaired || !coupleId || !uid) {
+      return;
+    }
+
+    const unsubscribe = messageService.subscribeToMessages(
+      coupleId,
+      (messages: DBMessage[]) => {
+        dispatch({
+          type: "SYNC_CHAT_MESSAGES",
+          payload: messages.map((message) => mapMessageFromDb(message, uid)),
+        });
+      }
+    );
+
+    return unsubscribe;
+  }, [
+    state.pairing.isPaired,
+    state.auth.user.coupleId,
+    state.auth.user.uid,
+  ]);
+
+  useEffect(() => {
+    const coupleId = state.auth.user.coupleId;
+    if (!state.pairing.isPaired || !coupleId) {
+      return;
+    }
+
+    const unsubscribeMemories = memoryService.subscribeToMemories(
+      coupleId,
+      (memories) => {
+        dispatch({
+          type: "SYNC_GALLERY_ITEMS",
+          payload: memories.map(mapMemoryToGalleryItem),
+        });
+        dispatch({
+          type: "SYNC_GALLERY_FLASHBACKS",
+          payload: createFlashbacksFromMemories(memories),
+        });
+      }
+    );
+
+    const unsubscribeMilestones = milestoneService.subscribeToMilestones(
+      coupleId,
+      (milestones) => {
+        dispatch({
+          type: "SYNC_MILESTONES",
+          payload: milestones.map(mapMilestoneFromDb),
+        });
+      }
+    );
+
+    return () => {
+      unsubscribeMemories?.();
+      unsubscribeMilestones?.();
+    };
+  }, [state.pairing.isPaired, state.auth.user.coupleId]);
+
   const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  return (
+    <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
+  );
 };
 
 export const useAppData = () => {

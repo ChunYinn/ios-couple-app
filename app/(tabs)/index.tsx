@@ -1,6 +1,8 @@
-import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useMemo, useState } from "react";
 import {
   Image,
   Pressable,
@@ -8,19 +10,31 @@ import {
   View,
   useColorScheme,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
 
-import { Screen } from "../../components/Screen";
+import { CuteButton } from "../../components/CuteButton";
+import { CuteCard } from "../../components/CuteCard";
+import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
-import { usePalette } from "../../hooks/usePalette";
+import { Screen } from "../../components/Screen";
 import { SectionHeader } from "../../components/SectionHeader";
 import { useAppData } from "../../context/AppDataContext";
-import { CuteModal } from "../../components/CuteModal";
-import { CuteCard } from "../../components/CuteCard";
-import { CuteButton } from "../../components/CuteButton";
+import { usePalette } from "../../hooks/usePalette";
 
-const quickActions = [
+type ActionRoute =
+  | "/(tabs)/chat"
+  | "/(tabs)/gallery"
+  | "/(tabs)/lists"
+  | "/location";
+
+type QuickAction = {
+  id: string;
+  label: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  route: ActionRoute;
+  requiresPair?: boolean;
+};
+
+const quickActions: QuickAction[] = [
   {
     id: "chat",
     label: "Chat",
@@ -62,10 +76,18 @@ export default function AnniversaryDashboardScreen() {
   const [unlockSheetVisible, setUnlockSheetVisible] = useState(false);
 
   const isPaired = pairing.isPaired;
-  const displayName = profiles.me?.displayName ?? auth.user.displayName ?? "You";
+  const displayName =
+    profiles.me?.displayName ?? auth.user.displayName ?? "You";
   const greeting = dashboard.helloMessage ?? `Hello ${displayName}!`;
 
-  const statsCards = useMemo(
+  type StatsCard = {
+    id: string;
+    label: string;
+    value: string;
+    gradient: [string, string];
+  };
+
+  const statsCards = useMemo<StatsCard[]>(
     () => [
       {
         id: "days",
@@ -117,7 +139,10 @@ export default function AnniversaryDashboardScreen() {
     return cards;
   }, [profiles.me, profiles.partner]);
 
-  const handleActionPress = (route: string, requiresPair?: boolean) => {
+  const handleActionPress = (
+    route: ActionRoute,
+    requiresPair?: boolean
+  ) => {
     if (requiresPair && !isPaired) {
       setUnlockSheetVisible(true);
       return;
@@ -141,8 +166,7 @@ export default function AnniversaryDashboardScreen() {
           justifyContent: "space-between",
         }}
       >
-        <Pressable onPress={() => router.push("/profile")}
-        >
+        <Pressable onPress={() => router.push("/profile")}>
           <View
             style={{
               width: 48,
@@ -229,7 +253,11 @@ export default function AnniversaryDashboardScreen() {
           </CuteText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             <CuteButton
-              label={settings.enablePush ? "Notifications on" : "Enable notifications"}
+              label={
+                settings.enablePush
+                  ? "Notifications on"
+                  : "Enable notifications"
+              }
               tone={settings.enablePush ? "secondary" : "primary"}
               onPress={() =>
                 dispatch({
@@ -336,7 +364,9 @@ export default function AnniversaryDashboardScreen() {
           {quickActions.map((action) => (
             <Pressable
               key={action.id}
-              onPress={() => handleActionPress(action.route, action.requiresPair)}
+              onPress={() =>
+                handleActionPress(action.route, action.requiresPair)
+              }
               style={{
                 flexBasis: "48%",
                 flexGrow: 1,
@@ -352,20 +382,20 @@ export default function AnniversaryDashboardScreen() {
                 elevation: 2,
               }}
             >
-              <View
-                style={{
-                  backgroundColor: palette.primarySoft,
-                  borderRadius: 999,
-                  padding: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <MaterialIcons
-                  name={action.icon as keyof typeof MaterialIcons.glyphMap}
-                  size={24}
-                  color={palette.primary}
-                />
-              </View>
+          <View
+            style={{
+              backgroundColor: palette.primary,
+              borderRadius: 999,
+              padding: 12,
+              marginBottom: 10,
+            }}
+          >
+            <MaterialIcons
+              name={action.icon as keyof typeof MaterialIcons.glyphMap}
+              size={24}
+              color="#ffffff"
+            />
+          </View>
               <CuteText weight="semibold">{action.label}</CuteText>
               {!isPaired && action.requiresPair ? (
                 <CuteText tone="muted" style={{ fontSize: 11, marginTop: 4 }}>

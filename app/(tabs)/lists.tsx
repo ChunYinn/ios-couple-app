@@ -131,24 +131,19 @@ export default function SharedListsScreen() {
     if (!trimmed.length || !selectedCategoryId) {
       return;
     }
-    const fallbacks = profiles.partner ? ["me", "partner"] : ["me"];
     dispatch({
       type: "ADD_TODO_ITEM",
       payload: {
         categoryId: selectedCategoryId,
         title: trimmed,
-        assigneeIds: selectedAssignees.length ? selectedAssignees : fallbacks,
+        assigneeIds: selectedAssignees,
         dueDate: newTodoDate.trim() || undefined,
       },
     });
     setNewTodoTitle("");
     setNewTodoDate("");
-    setSelectedAssignees(fallbacks);
     setTodoModalVisible(false);
   };
-
-  const handleToggleTodo = (itemId: string) =>
-    dispatch({ type: "TOGGLE_TODO_ITEM", payload: { itemId } });
 
   if (!pairing.isPaired) {
     return (
@@ -162,13 +157,12 @@ export default function SharedListsScreen() {
             gap: 16,
           }}
         >
-          <MaterialIcons name="checklist" size={40} color={palette.primary} />
+          <MaterialIcons name="list-alt" size={40} color={palette.primary} />
           <CuteText weight="bold" style={{ fontSize: 22 }}>
-            Pair to unlock shared lists
+            Pair to unlock lists
           </CuteText>
           <CuteText tone="muted" style={{ textAlign: "center" }}>
-            Keep date-night plans, bucket lists, and wishlists in one private
-            place made for just the two of you.
+            Once you both connect, shared to-dos sparkle with avatars and cute reminders.
           </CuteText>
           <Pressable
             onPress={() => router.push("/pairing")}
@@ -193,20 +187,20 @@ export default function SharedListsScreen() {
       contentContainerStyle={{
         paddingHorizontal: 20,
         paddingTop: 16,
-        gap: 20,
+        gap: 24,
       }}
     >
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <View
         style={{
           flexDirection: "row",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
         <Pressable
-          style={{ padding: 6, marginLeft: -6 }}
           onPress={() => router.back()}
+          style={{ padding: 6, marginLeft: -6 }}
         >
           <MaterialIcons
             name="arrow-back-ios"
@@ -214,14 +208,14 @@ export default function SharedListsScreen() {
             color={palette.textSecondary}
           />
         </Pressable>
-        <CuteText weight="bold" style={{ fontSize: 20 }}>
+        <CuteText weight="bold" style={{ fontSize: 20, color: palette.primary }}>
           Our Lists
         </CuteText>
         <Pressable
           onPress={() => setCategoryModalVisible(true)}
           style={{
-            padding: 6,
-            borderRadius: 12,
+            padding: 10,
+            borderRadius: 999,
             backgroundColor: palette.primarySoft,
           }}
         >
@@ -229,245 +223,232 @@ export default function SharedListsScreen() {
         </Pressable>
       </View>
 
-      <View style={{ gap: 16 }}>
-        {todos.categories.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 12 }}
-          >
-            {todos.categories.map((category) => {
-              const isActive = category.id === selectedCategoryId;
-              return (
-                <View
-                  key={category.id}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                >
-                  <Pressable
-                    onPress={() => setSelectedCategoryId(category.id)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderRadius: 18,
-                      borderWidth: 1,
-                      borderColor: isActive ? category.color : palette.border,
-                      backgroundColor: isActive
-                        ? category.color + "22"
-                        : palette.card,
-                    }}
-                  >
-                    <MaterialIcons
-                      name={category.icon as any}
-                      size={18}
-                      color={isActive ? category.color : palette.textSecondary}
-                    />
-                    <CuteText
-                      weight="semibold"
-                      style={{
-                        color: isActive ? palette.text : palette.textSecondary,
-                      }}
-                    >
-                      {category.name}
-                    </CuteText>
-                  </Pressable>
-                  {isActive ? (
-                    <Pressable
-                      onPress={() => handleDeleteCategory(category.id)}
-                      style={{
-                        padding: 8,
-                        borderRadius: 999,
-                        backgroundColor: palette.card,
-                        borderWidth: 1,
-                        borderColor: palette.border,
-                      }}
-                    >
-                      <MaterialIcons name="delete" size={18} color={palette.textSecondary} />
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })}
-          </ScrollView>
-        ) : (
-          <CuteCard background={palette.card} padding={20} style={{ gap: 12 }}>
-            <CuteText weight="bold">Create your first category</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Organise plans by vibe — food, adventures, wellness, anything you love.
-              Tap the + button to get started.
-            </CuteText>
-            <CuteButton label="New category" onPress={() => setCategoryModalVisible(true)} />
-          </CuteCard>
-        )}
-        {activeCategory?.description ? (
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            {activeCategory.description}
-          </CuteText>
-        ) : null}
-      </View>
-
-      <View style={{ gap: 14, paddingBottom: 160 }}>
-        {filteredItems.map((item) => {
-          const assigneeAvatars = item.assigneeIds.map((id) =>
-            id === "me" ? profiles.me?.avatarUrl : profiles.partner?.avatarUrl
-          );
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: 12,
+        }}
+      >
+        {todos.categories.map((category) => {
+          const isActive = category.id === selectedCategoryId;
           return (
-            <CuteCard
-              key={item.id}
-              background={palette.card}
-              padding={20}
+            <Pressable
+              key={category.id}
+              onPress={() => setSelectedCategoryId(category.id)}
               style={{
-                borderWidth: 1,
-                borderColor: palette.border,
-                gap: 14,
-              }}
-            >
-            <View
-              style={{
+                paddingHorizontal: 18,
+                paddingVertical: 12,
+                backgroundColor: isActive ? palette.primary : palette.primarySoft,
+                borderRadius: 999,
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 16,
+                gap: 8,
               }}
             >
-                <Switch
-                  value={item.completed}
-                  onValueChange={() => handleToggleTodo(item.id)}
-                  thumbColor={item.completed ? palette.primary : "#FFFFFF"}
-                  trackColor={{
-                    false: palette.border,
-                    true: palette.primarySoft,
-                  }}
-                  ios_backgroundColor={palette.border}
-                />
+              <MaterialIcons
+                name={category.icon as keyof typeof MaterialIcons.glyphMap}
+                size={18}
+                color={isActive ? "#fff" : palette.primary}
+              />
               <CuteText
+                weight="semibold"
+                style={{ color: isActive ? "#fff" : palette.primary }}
+              >
+                {category.name}
+              </CuteText>
+            </Pressable>
+          );
+        })}
+        {!todos.categories.length ? (
+          <CuteCard
+            background={palette.card}
+            padding={18}
+            style={{ gap: 8, flexDirection: "row", alignItems: "center" }}
+          >
+            <MaterialIcons name="lightbulb" size={20} color={palette.primary} />
+            <CuteText tone="muted" style={{ fontSize: 13 }}>
+              Create your first category to begin planning together.
+            </CuteText>
+          </CuteCard>
+        ) : null}
+      </ScrollView>
+
+      <View style={{ gap: 16 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <CuteText weight="bold" style={{ fontSize: 22 }}>
+            {activeCategory?.name ?? "Shared to-dos"}
+          </CuteText>
+          {activeCategory ? (
+            <Pressable onPress={() => handleDeleteCategory(activeCategory.id)}>
+              <CuteText tone="accent">Delete</CuteText>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <CuteCard background={palette.card} padding={20} style={{ gap: 14 }}>
+          {filteredItems.map((item) => {
+            const isCompleted = item.completed;
+            return (
+              <View
+                key={item.id}
                 style={{
-                  flex: 1,
-                  fontSize: 16,
-                  textDecorationLine: item.completed ? "line-through" : "none",
-                  color: item.completed ? palette.textSecondary : palette.text,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
-                {item.title}
-              </CuteText>
-                <View style={{ flexDirection: "row", marginLeft: "auto" }}>
-                  {assigneeAvatars.map((avatar, index) => (
-                    avatar ? (
-                      <Image
-                        key={`${item.id}-assignee-${index}`}
-                        source={{ uri: avatar }}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          borderWidth: 2,
-                          borderColor: palette.card,
-                          marginLeft: index === 0 ? 0 : -10,
-                        }}
-                      />
-                    ) : (
+                <View style={{ flex: 1, gap: 6 }}>
+                  <CuteText
+                    weight="semibold"
+                    style={{
+                      fontSize: 16,
+                      textDecorationLine: isCompleted ? "line-through" : "none",
+                      color: isCompleted ? palette.textSecondary : palette.text,
+                    }}
+                  >
+                    {item.title}
+                  </CuteText>
+                  <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                    {item.dueDate ? (
                       <View
-                        key={`${item.id}-assignee-${index}`}
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          backgroundColor: palette.primarySoft,
+                          flexDirection: "row",
                           alignItems: "center",
-                          justifyContent: "center",
-                          marginLeft: index === 0 ? 0 : -10,
+                          gap: 6,
                         }}
                       >
                         <MaterialIcons
-                          name="person"
-                          size={18}
-                          color={palette.primary}
+                          name="event"
+                          size={16}
+                          color={palette.textSecondary}
                         />
+                        <CuteText tone="muted" style={{ fontSize: 13 }}>
+                          {item.dueDate}
+                        </CuteText>
                       </View>
-                    )
-                  ))}
+                    ) : null}
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                      {item.assigneeIds.map((assignee) => {
+                        const assigneeAvatar =
+                          assignee === "partner"
+                            ? profiles.partner?.avatarUrl
+                            : profiles.me?.avatarUrl;
+                        const displayName =
+                          assignee === "partner"
+                            ? profiles.partner?.displayName ?? "Partner"
+                            : profiles.me?.displayName ?? "You";
+                        return (
+                          <View
+                            key={`${item.id}-${assignee}`}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            {assigneeAvatar ? (
+                              <Image
+                                source={{ uri: assigneeAvatar }}
+                                style={{ width: 28, height: 28, borderRadius: 14 }}
+                              />
+                            ) : (
+                              <View
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 14,
+                                  backgroundColor: palette.primarySoft,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <MaterialIcons
+                                  name="person"
+                                  size={16}
+                                  color={palette.primary}
+                                />
+                              </View>
+                            )}
+                            <CuteText tone="muted" style={{ fontSize: 12 }}>
+                              {displayName}
+                            </CuteText>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+                <Switch
+                  value={isCompleted}
+                  onValueChange={() =>
+                    dispatch({
+                      type: "TOGGLE_TODO_ITEM",
+                      payload: { itemId: item.id },
+                    })
+                  }
+                  thumbColor={isCompleted ? palette.primary : "#fff"}
+                  trackColor={{
+                    true: palette.primarySoft,
+                    false: palette.border,
+                  }}
+                />
               </View>
-            </View>
-            {item.dueDate ? (
-              <CuteText tone="muted" style={{ fontSize: 12 }}>
-                Due {item.dueDate}
+            );
+          })}
+          {!filteredItems.length ? (
+            <View
+              style={{
+                alignItems: "center",
+                gap: 10,
+                paddingVertical: 16,
+              }}
+            >
+              <MaterialIcons name="playlist-add" size={38} color={palette.primary} />
+              <CuteText weight="bold" style={{ fontSize: 18 }}>
+                Nothing here yet
               </CuteText>
-            ) : null}
-            <CuteText tone="muted" style={{ fontSize: 12 }}>
-              Tap the avatars to assign (coming soon)
-            </CuteText>
-          </CuteCard>
-        );
-        })}
-        {!filteredItems.length && todos.categories.length ? (
-          <CuteCard
-            background={palette.card}
-            padding={24}
-            style={{ alignItems: "center", gap: 12 }}
-          >
-            <MaterialIcons
-              name="playlist-add"
-              size={36}
-              color={palette.primary}
-            />
-            <CuteText weight="bold" style={{ fontSize: 18 }}>
-              No items yet
-            </CuteText>
-            <CuteText tone="muted" style={{ textAlign: "center", fontSize: 13 }}>
-              Add your first shared to-do and watch this list fill with love.
-            </CuteText>
-            <CuteButton
-              label="Add to-do"
-              onPress={() => setTodoModalVisible(true)}
-            />
-          </CuteCard>
-        ) : null}
-      </View>
+              <CuteText tone="muted" style={{ textAlign: "center", fontSize: 13 }}>
+                Add a shared to-do and keep it tracked together.
+              </CuteText>
+            </View>
+          ) : null}
+        </CuteCard>
 
-      <Pressable
-        onPress={() => setTodoModalVisible(true)}
-        style={{
-          position: "absolute",
-          bottom: 110,
-          right: 24,
-          backgroundColor: palette.primary,
-          borderRadius: 24,
-          width: 64,
-          height: 64,
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: palette.primary,
-          shadowOpacity: 0.35,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 6,
-        }}
-      >
-        <MaterialIcons name="add" size={28} color={palette.background} />
-      </Pressable>
+        <CuteButton
+          label="Add to-do"
+          onPress={() => setTodoModalVisible(true)}
+          disabled={!activeCategory}
+        />
+      </View>
 
       <CuteModal
         visible={categoryModalVisible}
         onRequestClose={() => setCategoryModalVisible(false)}
-        title="Create a new category"
-        subtitle="Sort your shared to-dos by vibe so collaborating feels even cuter."
+        title="Create a new list"
+        subtitle="Organize your ideas with a fresh pastel category."
       >
         <CuteTextInput
-          label="Name"
-          placeholder="Ex. Travel Dreams"
+          label="Category name"
+          placeholder="Ex. Weekend dates"
           value={newCategoryName}
           onChangeText={setNewCategoryName}
         />
         <CuteTextInput
           label="Description"
-          placeholder="Optional: describe what goes here"
+          placeholder="Add a sweet note about this list (optional)"
           value={newCategoryDescription}
           onChangeText={setNewCategoryDescription}
         />
         <View style={{ gap: 10 }}>
-          <CuteText weight="semibold">Color</CuteText>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <CuteText weight="semibold">Colour</CuteText>
+          <View style={{ flexDirection: "row", gap: 12 }}>
             {colorOptions.map((color) => {
               const isActive = color === newCategoryColor;
               return (
@@ -479,12 +460,8 @@ export default function SharedListsScreen() {
                     height: 36,
                     borderRadius: 18,
                     backgroundColor: color,
-                    borderWidth: isActive ? 3 : 2,
+                    borderWidth: isActive ? 4 : 2,
                     borderColor: isActive ? palette.card : "#ffffffaa",
-                    shadowColor: color,
-                    shadowOpacity: isActive ? 0.4 : 0.15,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
                   }}
                 />
               );
@@ -493,46 +470,33 @@ export default function SharedListsScreen() {
         </View>
         <View style={{ gap: 10 }}>
           <CuteText weight="semibold">Icon</CuteText>
-          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-            {iconOptions.map(({ icon, label }) => {
-              const isActive = icon === newCategoryIcon;
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            {iconOptions.map((option) => {
+              const isActive = option.icon === newCategoryIcon;
               return (
                 <Pressable
-                  key={icon}
-                  onPress={() => setNewCategoryIcon(icon)}
+                  key={option.icon}
+                  onPress={() => setNewCategoryIcon(option.icon)}
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    borderRadius: 999,
+                    padding: 8,
+                    borderRadius: 12,
                     backgroundColor: isActive
-                      ? newCategoryColor + "22"
-                      : palette.background,
-                    borderWidth: 1,
-                    borderColor: isActive ? newCategoryColor : palette.border,
+                      ? palette.primary
+                      : palette.primarySoft,
                   }}
                 >
                   <MaterialIcons
-                    name={icon as any}
-                    size={18}
-                    color={isActive ? newCategoryColor : palette.textSecondary}
+                    name={option.icon as keyof typeof MaterialIcons.glyphMap}
+                    size={20}
+                    color={isActive ? "#fff" : palette.primary}
                   />
-                  <CuteText
-                    style={{
-                      color: isActive ? palette.text : palette.textSecondary,
-                    }}
-                  >
-                    {label}
-                  </CuteText>
                 </Pressable>
               );
             })}
           </View>
         </View>
         <CuteButton
-          label="Create category"
+          label="Create list"
           onPress={handleAddCategory}
           disabled={!newCategoryName.trim()}
         />

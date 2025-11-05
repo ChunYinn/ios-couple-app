@@ -2,7 +2,7 @@ import { AppState } from "../types/app";
 
 export const initialState: AppState = {
   auth: {
-    status: "signedOut",
+    status: "initializing",
     user: {
       uid: null,
       displayName: undefined,
@@ -10,6 +10,8 @@ export const initialState: AppState = {
       birthday: undefined,
       pronouns: undefined,
       coupleId: null,
+      email: undefined,
+      isAnonymous: undefined,
     },
   },
   pairing: {

@@ -4,7 +4,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Appearance } from "react-native";
 
 import { darkPalette, lightPalette } from "../theme/palette";
@@ -40,12 +40,11 @@ const useAppearanceScheme = () => {
   const [scheme, setScheme] = useState(Appearance.getColorScheme() ?? "light");
 
   useEffect(() => {
-    const listener = ({ colorScheme }: { colorScheme: "light" | "dark" | null }) => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       if (colorScheme) {
         setScheme(colorScheme);
       }
-    };
-    const subscription = Appearance.addChangeListener(listener);
+    });
     return () => {
       subscription.remove();
     };
@@ -61,46 +60,37 @@ const Navigator = () => {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
 
-  useEffect(() => {
+  // Return null if the navigation state is not ready.
+  if (!navigationState?.key) {
+    return null;
+  }
+
+  useLayoutEffect(() => {
+    if (state.auth.status === "initializing") {
+      return;
+    }
+
     if (!navigationState?.key) {
       return;
     }
-    if (!segments.length) {
-      return;
-    }
-    const root = segments[0];
-    const next = state.auth.status;
 
-    if (next === "signedOut" && root !== "auth") {
+    const inAuthGroup = segments[0] === "auth";
+    const inOnboardingGroup = segments[0] === "onboarding";
+    const inTabsGroup = segments[0] === "(tabs)";
+    const onLoadingScreen = !segments[0];
+
+    if (state.auth.status === "signedOut" && !inAuthGroup) {
       router.replace("/auth");
-      return;
-    }
-    if (next === "profile" && !(root === "onboarding" && segments[1] === "profile")) {
+    } else if (state.auth.status === "profile" && !inOnboardingGroup) {
       router.replace("/onboarding/profile");
-      return;
-    }
-    if (next === "pairing" && root !== "pairing") {
-      router.replace("/pairing");
-      return;
-    }
-    if (next === "anniversary" && root !== "anniversary") {
-      router.replace("/anniversary");
-      return;
-    }
-    const allowedReadyRoots = [
-      "(tabs)",
-      "settings",
-      "profile",
-      "location",
-      "favorites",
-      "milestone",
-      "pairing",
-      "anniversary",
-    ];
-    if (next === "ready" && !allowedReadyRoots.includes(root ?? "")) {
+    } else if (
+      state.auth.status === "ready" &&
+      (inAuthGroup || inOnboardingGroup || onLoadingScreen) &&
+      !inTabsGroup
+    ) {
       router.replace("/(tabs)");
     }
-  }, [state.auth.status, segments, router, navigationState?.key]);
+  }, [state.auth.status, segments, navigationState?.key]);
 
   return (
     <Stack

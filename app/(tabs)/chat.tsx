@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -35,7 +36,10 @@ export default function PrivateChatScreen() {
   const handleSend = () => {
     const trimmed = draft.trim();
     if (!trimmed.length) return;
-    dispatch({ type: "ADD_CHAT_MESSAGE", payload: { text: trimmed } });
+    Alert.alert(
+      "Coming soon",
+      "Real-time messaging will arrive in a future update."
+    );
     setDraft("");
     requestAnimationFrame(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -128,64 +132,37 @@ export default function PrivateChatScreen() {
               </View>
             )}
             <CuteText weight="bold">{partnerName}</CuteText>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <MaterialIcons
-                name="lock"
-                size={12}
-                color={palette.textSecondary}
-              />
-              <CuteText tone="muted" style={{ fontSize: 12 }}>
-                End-to-end encrypted
-              </CuteText>
-            </View>
+            <CuteText tone="muted" style={{ fontSize: 12 }}>
+              Private space for just the two of you
+            </CuteText>
           </View>
-          <Pressable
-            onPress={() => router.push("/favorites")}
-            style={{
-              padding: 8,
-              backgroundColor: palette.primarySoft,
-              borderRadius: 16,
-            }}
-          >
-            <MaterialIcons name="favorite" size={22} color={palette.primary} />
-          </Pressable>
+          <View style={{ width: 28 }} />
         </View>
 
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={{
+            paddingVertical: 24,
             paddingHorizontal: 20,
-            paddingTop: 16,
             paddingBottom: 120,
-            gap: 12,
+            gap: 16,
           }}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() =>
-            requestAnimationFrame(() => {
-              scrollRef.current?.scrollToEnd({ animated: true });
-            })
+            scrollRef.current?.scrollToEnd({ animated: true })
           }
         >
-          <CuteText
-            tone="muted"
-            style={{ textAlign: "center", fontSize: 13, marginBottom: 4 }}
-          >
-            Today
-          </CuteText>
-
           {chat.messages.map((message) => {
             const isPartner = message.sender === "partner";
-            const bubbleColor = isPartner
-              ? palette.secondary + "55"
-              : palette.primary;
-            const textColor = isPartner ? palette.text : "#FFFFFF";
-
+            const bubbleColor = isPartner ? palette.card : palette.primary;
+            const textColor = isPartner ? palette.text : "#fff";
             return (
               <View
                 key={message.id}
                 style={{
-                  flexDirection: isPartner ? "row" : "row-reverse",
+                  flexDirection: "row",
                   alignItems: "flex-end",
+                  justifyContent: isPartner ? "flex-start" : "flex-end",
                   gap: 12,
                 }}
               >

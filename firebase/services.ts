@@ -47,6 +47,7 @@ import {
   dateToString,
   daysBetween
 } from './types';
+import { DEFAULT_LOVE_LANGUAGES } from '../data/loveLanguages';
 
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
@@ -187,7 +188,7 @@ export const coupleService = {
       about: 'Tell your story...',
       accentColor: '#FFB3C6',
       emoji: '💕',
-      loveLanguages: ['Words of Affirmation'],
+        loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
       favorites: []
     });
 

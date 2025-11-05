@@ -1,9 +1,9 @@
-import { Tabs, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { Tabs, useRouter } from "expo-router";
 import { Platform } from "react-native";
 
-import { usePalette } from "../../hooks/usePalette";
 import { useAppData } from "../../context/AppDataContext";
+import { usePalette } from "../../hooks/usePalette";
 
 export default function TabLayout() {
   const colors = usePalette();
@@ -11,7 +11,8 @@ export default function TabLayout() {
   const {
     state: { dashboard, pairing },
   } = useAppData();
-  const badgeValue = dashboard.daysTogether > 0 ? dashboard.daysTogether.toString() : undefined;
+  const badgeValue =
+    dashboard.daysTogether > 0 ? dashboard.daysTogether.toString() : undefined;
   const guardTabPress = (requiresPair: boolean) => ({
     tabPress: (event: { preventDefault(): void }) => {
       if (requiresPair && !pairing.isPaired) {

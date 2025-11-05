@@ -1,19 +1,37 @@
-export type AuthStatus =
-  | "signedOut"
-  | "profile"
-  | "pairing"
-  | "anniversary"
-  | "ready";
+export type AuthStatus = "initializing" | "signedOut" | "profile" | "ready";
 
-export type AuthProvider = "apple" | "google";
+export type AuthProvider = "anonymous" | "password" | "custom";
+
+export type PronounValue =
+  | "she/her"
+  | "he/him"
+  | "they/them"
+  | "she/they"
+  | "he/they"
+  | "xe/xem"
+  | "ze/zir"
+  | "fae/faer"
+  | "ask me";
+
+export type LoveLanguageValue =
+  | "words"
+  | "acts"
+  | "gifts"
+  | "time"
+  | "touch"
+  | "support"
+  | "adventures"
+  | "kindness";
 
 export type UserProfile = {
   uid: string | null;
   displayName?: string;
   avatarUrl?: string;
   birthday?: string;
-  pronouns?: string;
+  pronouns?: PronounValue;
   coupleId?: string | null;
+  email?: string | null;
+  isAnonymous?: boolean;
 };
 
 export type AuthState = {
@@ -28,12 +46,13 @@ export type ProfileFavorite = {
 };
 
 export type PartnerProfile = {
+  uid: string;
   displayName: string;
   status: string;
   avatarUrl?: string;
   about?: string;
   accentColor: string;
-  loveLanguages: string[];
+  loveLanguages: LoveLanguageValue[];
   favorites: ProfileFavorite[];
 };
 
@@ -140,24 +159,33 @@ export type AppState = {
 };
 
 export type AppAction =
-  | { type: "SIGN_IN"; payload: { provider: AuthProvider; uid: string } }
+  | {
+      type: "SIGN_IN";
+      payload: {
+        provider: AuthProvider;
+        uid: string;
+        email?: string | null;
+        isAnonymous: boolean;
+      };
+    }
   | { type: "SIGN_OUT" }
+  | { type: "RESET_SESSION" }
   | {
       type: "SAVE_PROFILE";
       payload: {
         displayName: string;
         avatarUrl?: string;
         birthday?: string;
-        pronouns?: string;
+        pronouns?: PronounValue;
         status?: string;
         about?: string;
-        loveLanguages?: string[];
+        loveLanguages?: LoveLanguageValue[];
       };
     }
   | { type: "SET_PROFILE_ACCENT"; payload: { accentColor: string } }
   | {
       type: "CREATE_INVITE";
-      payload: { inviteCode: string; inviteLink: string; qrCodeData: string };
+      payload: { coupleId: string; inviteCode: string; inviteLink: string; qrCodeData: string };
     }
   | {
       type: "SET_PENDING_PAIR";
@@ -187,16 +215,47 @@ export type AppAction =
       type: "ADD_TODO_ITEM";
       payload: { categoryId: string; title: string; assigneeIds: string[]; dueDate?: string };
     }
+  | { type: "SYNC_TODO_CATEGORIES"; payload: TodoCategory[] }
+  | { type: "SYNC_TODO_ITEMS"; payload: TodoItem[] }
   | { type: "TOGGLE_TODO_ITEM"; payload: { itemId: string } }
   | {
       type: "UPDATE_PROFILE_NOTE";
-      payload: { status?: string; about?: string; loveLanguages?: string[] };
-    }
-  | {
-      type: "ADD_CHAT_MESSAGE";
-      payload: { text: string };
+      payload: { status?: string; about?: string; loveLanguages?: LoveLanguageValue[] };
     }
   | {
       type: "UPDATE_SETTINGS";
       payload: Partial<AppSettings>;
-    };
+    }
+  | { type: "SYNC_GALLERY_ITEMS"; payload: GalleryItem[] }
+  | { type: "SYNC_GALLERY_FLASHBACKS"; payload: Flashback[] }
+  | { type: "SYNC_MILESTONES"; payload: Milestone[] }
+  | {
+      type: "UPDATE_AUTH_USER";
+      payload: Partial<UserProfile> & { status?: AuthStatus };
+    }
+  | {
+      type: "UPDATE_COUPLE_META";
+      payload: {
+        coupleId: string;
+        inviteCode?: string | null;
+        inviteLink?: string | null;
+        qrCodeData?: string | null;
+        ownerUid?: string | null;
+        isPaired: boolean;
+        anniversaryDate?: string | null;
+        daysTogether: number;
+        settings: {
+          enablePush: boolean;
+          enableFlashbacks: boolean;
+        };
+        authStatus?: AuthStatus;
+      };
+    }
+  | {
+      type: "UPDATE_PROFILES";
+      payload: {
+        me?: PartnerProfile;
+        partner?: PartnerProfile | null;
+      };
+    }
+  | { type: "SYNC_CHAT_MESSAGES"; payload: ChatMessage[] };

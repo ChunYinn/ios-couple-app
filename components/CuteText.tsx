@@ -1,4 +1,8 @@
-import { Text as RNText, TextProps as RNTextProps } from "react-native";
+import {
+  Text as RNText,
+  TextProps as RNTextProps,
+  TextStyle,
+} from "react-native";
 
 import { usePalette } from "../hooks/usePalette";
 
@@ -10,8 +14,8 @@ type CuteTextProps = RNTextProps & {
   tone?: Tone;
 };
 
-const weightMap: Record<Weight, string | undefined> = {
-  regular: undefined,
+const weightMap: Record<Weight, TextStyle["fontWeight"]> = {
+  regular: "400",
   medium: "600",
   semibold: "700",
   bold: "800",
