@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // User avatars live under users/{uid}/avatar/{file}
+    match /users/{userId}/avatar/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Couple memories shared between paired users
+    match /couples/{coupleId}/memories/{fileName} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid in
+                            get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
+    }
+
+    // Everything else is denied by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
