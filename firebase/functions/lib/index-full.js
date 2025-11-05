@@ -107,7 +107,7 @@ exports.redeemInvite = functions.https.onCall(async (data, context) => {
                 .collection('profiles').doc(userId);
             transaction.set(partnerProfileRef, {
                 displayName: ((_b = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.name) || 'Partner',
-                status: 'Feeling Happy',
+                status: '',
                 avatarUrl: ((_d = (_c = context.auth) === null || _c === void 0 ? void 0 : _c.token) === null || _d === void 0 ? void 0 : _d.picture) || null,
                 about: 'New to the couple!',
                 accentColor: '#A2D2FF',

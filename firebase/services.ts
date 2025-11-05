@@ -184,11 +184,12 @@ export const coupleService = {
     // Create owner's profile
     await profileService.createProfile(coupleId, ownerUid, {
       displayName: 'You',
-      status: 'Feeling Happy',
+      status: '',
       about: 'Tell your story...',
       accentColor: '#FFB3C6',
       emoji: '💕',
-        loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
+      loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
+      birthday: null,
       favorites: []
     });
 

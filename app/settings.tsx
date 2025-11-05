@@ -12,9 +12,9 @@ import { CuteCard } from "../components/CuteCard";
 import { CuteButton } from "../components/CuteButton";
 import { useAppData } from "../context/AppDataContext";
 import { firebaseAuth } from "../firebase/config";
-import { coupleService } from "../firebase/services";
+import { coupleService, userService } from "../firebase/services";
 
-const accentChoices = ["#FF8FAB", "#F6C28B", "#7FA3FF", "#42B883", "#C084FC"];
+const accentChoices = ["#FF8FAB", "#F6C28B", "#3A5BFF", "#1F9470", "#9B59FF"];
 
 export default function SettingsScreen() {
   const palette = usePalette();
@@ -83,8 +83,18 @@ export default function SettingsScreen() {
     }
   };
 
-  const applyAccent = () =>
+  const applyAccent = async () => {
     dispatch({ type: "SET_PROFILE_ACCENT", payload: { accentColor: pendingAccent } });
+    if (auth.user.uid) {
+      try {
+        await userService.updateUser(auth.user.uid, {
+          accentColor: pendingAccent,
+        });
+      } catch (error) {
+        console.error("Failed to save accent", error);
+      }
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert(

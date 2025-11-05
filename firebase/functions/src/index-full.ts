@@ -124,7 +124,7 @@ export const redeemInvite = functions.https.onCall(async (data, context) => {
 
       transaction.set(partnerProfileRef, {
         displayName: context.auth?.token?.name || 'Partner',
-        status: 'Feeling Happy',
+        status: '',
         avatarUrl: context.auth?.token?.picture || null,
         about: 'New to the couple!',
         accentColor: '#A2D2FF',

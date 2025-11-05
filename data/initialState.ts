@@ -9,6 +9,7 @@ export const initialState: AppState = {
       avatarUrl: undefined,
       birthday: undefined,
       pronouns: undefined,
+      anniversaryDate: undefined,
       coupleId: null,
       email: undefined,
       isAnonymous: undefined,

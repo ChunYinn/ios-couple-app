@@ -15,6 +15,7 @@ export interface DBUser {
   about?: string | null;
   loveLanguages?: string[] | null;
   accentColor?: string | null;
+  anniversaryDate?: string | null;
   createdAt: Timestamp | FieldValue;
   lastSeenAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
@@ -58,6 +59,7 @@ export interface DBProfile {
   about: string;
   accentColor: string;
   emoji: string;
+  birthday?: string | null;
   loveLanguages: LoveLanguageValue[];
   favorites: {
     category: string;

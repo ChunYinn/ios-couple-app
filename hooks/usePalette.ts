@@ -8,15 +8,18 @@ import { lightenHex, mixHexColors, getRelativeLuminance } from "../utils/color";
 const derivePrimarySoft = (accent: string, scheme: "light" | "dark", fallback: string) => {
   const luminance = getRelativeLuminance(accent);
   if (scheme === "light") {
-    if (luminance > 0.75) {
-      return mixHexColors(accent, "#000000", 0.18);
+    if (luminance > 0.7) {
+      return mixHexColors(accent, "#000000", 0.2);
     }
     if (luminance < 0.35) {
-      return lightenHex(accent, 0.4);
+      return lightenHex(accent, 0.35);
     }
-    return lightenHex(accent, 0.25);
+    return lightenHex(accent, 0.2);
   }
-  return mixHexColors(accent, fallback, 0.45);
+  if (luminance > 0.7) {
+    return mixHexColors(accent, fallback, 0.55);
+  }
+  return mixHexColors(accent, fallback, 0.4);
 };
 
 export const usePalette = () => {

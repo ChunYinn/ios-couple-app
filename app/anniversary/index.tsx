@@ -9,7 +9,7 @@ import { CuteText } from "../../components/CuteText";
 import { CuteButton } from "../../components/CuteButton";
 import { usePalette } from "../../hooks/usePalette";
 import { useAppData } from "../../context/AppDataContext";
-import { coupleService } from "../../firebase/services";
+import { coupleService, userService } from "../../firebase/services";
 import {
   formatDateToYMD,
   parseLocalDate,
@@ -46,21 +46,27 @@ export default function AnniversaryScreen() {
       setErrorMessage("That didn't look like a real date. Try again.");
       return;
     }
-    if (!auth.user.coupleId) {
-      setErrorMessage("Pair your account first to set the anniversary.");
-      return;
-    }
+    const normalized = formatDateToYMD(parsed.toISOString());
     const days = calculateDaysTogether(parsed);
     try {
       setIsSaving(true);
-      await coupleService.setAnniversary(auth.user.coupleId, trimmed);
+      if (auth.user.coupleId) {
+        await coupleService.setAnniversary(auth.user.coupleId, normalized);
+      } else if (auth.user.uid) {
+        await userService.updateUser(auth.user.uid, {
+          anniversaryDate: normalized,
+        });
+      } else {
+        throw new Error("We couldn't find your account. Please restart the app.");
+      }
       dispatch({
         type: "SET_ANNIVERSARY",
         payload: {
-          anniversaryDate: trimmed,
+          anniversaryDate: normalized,
           daysTogether: days,
         },
       });
+      setAnniversary(normalized);
       setErrorMessage(null);
     } catch (error) {
       console.error("Failed to set anniversary", error);
@@ -75,16 +81,15 @@ export default function AnniversaryScreen() {
   };
 
   const handleSkip = async () => {
-    if (!auth.user.coupleId) {
-      dispatch({
-        type: "SET_ANNIVERSARY",
-        payload: { anniversaryDate: "", daysTogether: 0 },
-      });
-      return;
-    }
     try {
       setIsSaving(true);
-      await coupleService.setAnniversary(auth.user.coupleId, null);
+      if (auth.user.coupleId) {
+        await coupleService.setAnniversary(auth.user.coupleId, null);
+      } else if (auth.user.uid) {
+        await userService.updateUser(auth.user.uid, {
+          anniversaryDate: null,
+        });
+      }
       dispatch({
         type: "SET_ANNIVERSARY",
         payload: { anniversaryDate: "", daysTogether: 0 },
