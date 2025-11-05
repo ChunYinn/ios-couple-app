@@ -34,7 +34,7 @@ import { userService } from "../../firebase/services";
 import { PronounValue } from "../../types/app";
 import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
-const DEFAULT_STATUS = "Feeling Happy";
+const DEFAULT_STATUS = "";
 const DEFAULT_ABOUT = "Curious heart who loves to make memories that feel like magic.";
 
 const formatBirthdayLabel = (value: string | null) => {
@@ -177,11 +177,11 @@ export default function ProfileSetupScreen() {
   };
 
   const showImageOptions = () => {
-    const actions: Array<{
+    const actions: {
       text: string;
       onPress?: () => void;
       style?: "default" | "cancel" | "destructive";
-    }> = [
+    }[] = [
       { text: "Take photo", onPress: handleTakePhoto },
       { text: "Choose from library", onPress: handlePickImage },
     ];
@@ -289,6 +289,7 @@ export default function ProfileSetupScreen() {
           status: existingProfile?.status ?? DEFAULT_STATUS,
           about: existingProfile?.about ?? DEFAULT_ABOUT,
           loveLanguages: selectedLoveLanguages.map((option) => option.key),
+          accentColor: state.settings.accent,
         },
       });
     } catch (err) {

@@ -48,17 +48,20 @@ import {
 } from "../data/loveLanguages";
 import { LoveLanguageValue } from "../types/app";
 import { authService } from "../services/authService";
+import { calculateDaysTogether, formatDateToYMD } from "../utils/dateUtils";
 
 const AppDataContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
 } | null>(null);
 
-const DEFAULT_PROFILE_STATUS = "Feeling Happy";
-const DEFAULT_PROFILE_ABOUT = "Curious heart who loves to make memories that feel like magic.";
+const DEFAULT_PROFILE_STATUS = "";
+const DEFAULT_PROFILE_ABOUT =
+  "Curious heart who loves to make memories that feel like magic.";
 const DEFAULT_PROFILE_LANGUAGES: LoveLanguageValue[] = normalizeLoveLanguages(
   DEFAULT_LOVE_LANGUAGES
 );
+const DEFAULT_PROFILE_ACCENT = initialState.settings.accent;
 
 const generateId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -92,10 +95,11 @@ const mapTodoFromDb = (item: DBTodoItem): TodoItem => ({
 const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
   uid,
   displayName: profile.displayName,
-  status: profile.status,
+  status: profile.status ?? DEFAULT_PROFILE_STATUS,
   avatarUrl: profile.avatarUrl ?? undefined,
-  about: profile.about,
-  accentColor: profile.accentColor,
+  about: profile.about ?? DEFAULT_PROFILE_ABOUT,
+  accentColor: profile.accentColor ?? DEFAULT_PROFILE_ACCENT,
+  birthday: profile.birthday ?? undefined,
   loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
   favorites:
     profile.favorites?.map((favorite) => ({
@@ -170,6 +174,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
             birthday: undefined,
             pronouns: undefined,
             avatarUrl: undefined,
+            anniversaryDate: undefined,
             coupleId: null,
             email: action.payload.email ?? undefined,
             isAnonymous: action.payload.isAnonymous,
@@ -218,12 +223,13 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       const updatedProfile: PartnerProfile = {
         uid: state.auth.user.uid,
         displayName: action.payload.displayName,
-        status: action.payload.status ?? "Feeling Happy",
+        status: action.payload.status ?? DEFAULT_PROFILE_STATUS,
         avatarUrl: action.payload.avatarUrl,
         about:
           action.payload.about ||
-          "Curious heart who loves to make memories that feel like magic.",
-        accentColor: state.settings.accent,
+          DEFAULT_PROFILE_ABOUT,
+        accentColor: action.payload.accentColor ?? state.settings.accent,
+        birthday: action.payload.birthday ?? state.profiles.me?.birthday,
         loveLanguages: normalizeLoveLanguages(action.payload.loveLanguages),
         favorites: state.profiles.me?.favorites ?? [],
       };
@@ -329,18 +335,26 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "SET_ANNIVERSARY": {
+      const nextAnniversary =
+        action.payload.anniversaryDate && action.payload.anniversaryDate.length
+          ? formatDateToYMD(action.payload.anniversaryDate)
+          : undefined;
       return {
         ...state,
         auth: {
           ...state.auth,
           status: "ready",
+          user: {
+            ...state.auth.user,
+            anniversaryDate: nextAnniversary,
+          },
         },
         dashboard: {
           helloMessage: state.profiles.me
             ? `Hello ${state.profiles.me.displayName}!`
             : "Hello love birds!",
           daysTogether: action.payload.daysTogether,
-          anniversaryDate: action.payload.anniversaryDate,
+          anniversaryDate: nextAnniversary ?? null,
         },
       };
     }
@@ -496,6 +510,10 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "UPDATE_COUPLE_META": {
+      const nextAnniversary =
+        action.payload.anniversaryDate === undefined
+          ? state.auth.user.anniversaryDate
+          : action.payload.anniversaryDate ?? undefined;
       return {
         ...state,
         auth: {
@@ -504,6 +522,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           user: {
             ...state.auth.user,
             coupleId: action.payload.coupleId,
+            anniversaryDate: nextAnniversary,
           },
         },
         pairing: {
@@ -519,8 +538,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         dashboard: {
           ...state.dashboard,
           daysTogether: action.payload.daysTogether,
-          anniversaryDate:
-            action.payload.anniversaryDate ?? state.dashboard.anniversaryDate,
+          anniversaryDate: nextAnniversary ?? null,
         },
         settings: {
           ...state.settings,
@@ -673,10 +691,14 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             status: nextStatus,
             email: user.email ?? undefined,
             isAnonymous: user.authProvider === "anonymous",
+            anniversaryDate: user.anniversaryDate ?? undefined,
           },
         });
 
         const derivedAccent = user.accentColor ?? currentState.settings.accent;
+        const normalizedAnniversary = user.anniversaryDate
+          ? formatDateToYMD(user.anniversaryDate)
+          : undefined;
 
         dispatch({
           type: "UPDATE_PROFILES",
@@ -699,6 +721,29 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             type: "SET_PROFILE_ACCENT",
             payload: { accentColor: user.accentColor },
           });
+        }
+
+        if (!user.coupleId) {
+          const currentAnniversary =
+            stateRef.current.dashboard.anniversaryDate ?? undefined;
+
+          if (
+            normalizedAnniversary &&
+            normalizedAnniversary !== currentAnniversary
+          ) {
+            dispatch({
+              type: "SET_ANNIVERSARY",
+              payload: {
+                anniversaryDate: normalizedAnniversary,
+                daysTogether: calculateDaysTogether(normalizedAnniversary),
+              },
+            });
+          } else if (!normalizedAnniversary && currentAnniversary) {
+            dispatch({
+              type: "SET_ANNIVERSARY",
+              payload: { anniversaryDate: "", daysTogether: 0 },
+            });
+          }
         }
       },
       (error) => {
@@ -729,9 +774,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       coupleId,
       (couple) => {
         if (!couple) return;
-        const daysTogether = coupleService.getDaysTogether(
-          couple.anniversaryDate
-        );
+        const daysTogether = couple.anniversaryDate
+          ? calculateDaysTogether(couple.anniversaryDate)
+          : 0;
         // Stay in "ready" status when paired
         const authStatus = "ready";
         dispatch({

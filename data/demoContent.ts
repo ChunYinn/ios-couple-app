@@ -16,6 +16,7 @@ export const demoPartnerProfile: PartnerProfile = {
   about:
     "Big-hearted creative fueled by playlists, surprise dates, and dreamy kitchen dance breaks.",
   accentColor: "#A2D2FF",
+  birthday: "1995-04-12",
   loveLanguages: ["touch", "time", "gifts"],
   favorites: demoFavorites,
 };

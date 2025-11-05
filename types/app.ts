@@ -29,6 +29,7 @@ export type UserProfile = {
   avatarUrl?: string;
   birthday?: string;
   pronouns?: PronounValue;
+  anniversaryDate?: string;
   coupleId?: string | null;
   email?: string | null;
   isAnonymous?: boolean;
@@ -52,6 +53,7 @@ export type PartnerProfile = {
   avatarUrl?: string;
   about?: string;
   accentColor: string;
+  birthday?: string;
   loveLanguages: LoveLanguageValue[];
   favorites: ProfileFavorite[];
 };
@@ -180,6 +182,7 @@ export type AppAction =
         status?: string;
         about?: string;
         loveLanguages?: LoveLanguageValue[];
+        accentColor?: string;
       };
     }
   | { type: "SET_PROFILE_ACCENT"; payload: { accentColor: string } }

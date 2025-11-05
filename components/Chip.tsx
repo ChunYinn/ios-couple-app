@@ -16,17 +16,15 @@ export const Chip = ({ label, leading, tone = "primary", style }: ChipProps) => 
 
   const background =
     tone === "primary"
-      ? colors.primarySoft
-      : tone === "secondary"
-        ? colors.secondary + "55"
-        : colors.backgroundMuted;
-
-  const textColor =
-    tone === "primary"
       ? colors.primary
       : tone === "secondary"
         ? colors.secondary
-        : colors.textSecondary;
+        : colors.backgroundMuted;
+
+  const textColor =
+    tone === "primary" || tone === "secondary"
+      ? "#ffffff"
+      : colors.textSecondary;
 
   return (
     <View

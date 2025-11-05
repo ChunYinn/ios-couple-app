@@ -88,18 +88,19 @@ export default function PairingScreen() {
           avatarUrl: profiles.me?.avatarUrl ?? null,
           coupleId,
         });
-        if (profiles.me) {
-          await profileService.createProfile(coupleId, auth.user.uid, {
-            displayName: profiles.me.displayName,
-            status: profiles.me.status,
-            avatarUrl: profiles.me.avatarUrl ?? null,
-            about: profiles.me.about ?? "",
-            accentColor: profiles.me.accentColor,
-            emoji: "💕",
-            loveLanguages: profiles.me.loveLanguages,
-            favorites: [],
-          });
-        }
+      if (profiles.me) {
+        await profileService.createProfile(coupleId, auth.user.uid, {
+          displayName: profiles.me.displayName,
+          status: profiles.me.status,
+          avatarUrl: profiles.me.avatarUrl ?? null,
+          about: profiles.me.about ?? "",
+          accentColor: profiles.me.accentColor,
+          emoji: "💕",
+          loveLanguages: profiles.me.loveLanguages,
+          birthday: auth.user.birthday ?? null,
+          favorites: [],
+        });
+      }
         qrData = `COUPLE:${code}`;
         shareLink = `https://couple.ly/invite/${code}`;
       }
@@ -176,6 +177,7 @@ export default function PairingScreen() {
           accentColor: myProfile.accentColor,
           emoji: "💕",
           loveLanguages: myProfile.loveLanguages,
+          birthday: auth.user.birthday ?? null,
           favorites: [],
         });
       }
@@ -211,6 +213,7 @@ export default function PairingScreen() {
               "Your partner will finish setting up soon. Until then, enjoy a preview!",
             avatarUrl: undefined,
             loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
+            birthday: undefined,
             favorites: [],
           };
 

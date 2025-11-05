@@ -2,14 +2,18 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Pressable,
   ScrollView,
   View,
   useColorScheme,
+  Platform,
 } from "react-native";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
@@ -17,8 +21,16 @@ import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
 import { SectionHeader } from "../../components/SectionHeader";
+import { Chip } from "../../components/Chip";
 import { useAppData } from "../../context/AppDataContext";
 import { usePalette } from "../../hooks/usePalette";
+import { coupleService, userService } from "../../firebase/services";
+import {
+  calculateDaysTogether,
+  formatDateToYMD,
+  formatDaysText,
+  parseLocalDate,
+} from "../../utils/dateUtils";
 
 type ActionRoute =
   | "/(tabs)/chat"
@@ -73,40 +85,214 @@ export default function AnniversaryDashboardScreen() {
     state: { auth, pairing, dashboard, milestones, profiles, settings },
     dispatch,
   } = useAppData();
-  const [unlockSheetVisible, setUnlockSheetVisible] = useState(false);
-
   const isPaired = pairing.isPaired;
   const displayName =
     profiles.me?.displayName ?? auth.user.displayName ?? "You";
   const greeting = dashboard.helloMessage ?? `Hello ${displayName}!`;
+
+  const [anniversaryModalVisible, setAnniversaryModalVisible] = useState(false);
+  const [anniversaryDraft, setAnniversaryDraft] = useState(() =>
+    dashboard.anniversaryDate
+      ? formatDateToYMD(dashboard.anniversaryDate)
+      : ""
+  );
+  const [anniversaryDateValue, setAnniversaryDateValue] = useState(() =>
+    dashboard.anniversaryDate
+      ? parseLocalDate(dashboard.anniversaryDate)
+      : new Date()
+  );
+  const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(
+    Platform.OS === "ios"
+  );
+  const [anniversarySaving, setAnniversarySaving] = useState(false);
+  const [anniversaryError, setAnniversaryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dashboard.anniversaryDate) {
+      const normalized = formatDateToYMD(dashboard.anniversaryDate);
+      setAnniversaryDraft(normalized);
+      setAnniversaryDateValue(parseLocalDate(normalized));
+    } else {
+      setAnniversaryDraft("");
+      setAnniversaryDateValue(new Date());
+    }
+  }, [dashboard.anniversaryDate]);
+
+  useEffect(() => {
+    if (!anniversaryModalVisible) {
+      setShowAnniversaryPicker(Platform.OS === "ios");
+      setAnniversaryError(null);
+    }
+  }, [anniversaryModalVisible]);
 
   type StatsCard = {
     id: string;
     label: string;
     value: string;
     gradient: [string, string];
+    hint?: string;
+    icon?: keyof typeof MaterialIcons.glyphMap;
+    actionable?: boolean;
   };
 
-  const statsCards = useMemo<StatsCard[]>(
-    () => [
+  const openAnniversaryModal = useCallback(() => {
+    const normalized = dashboard.anniversaryDate
+      ? formatDateToYMD(dashboard.anniversaryDate)
+      : anniversaryDraft
+        ? formatDateToYMD(anniversaryDraft)
+        : "";
+    setAnniversaryDraft(normalized);
+    setAnniversaryDateValue(
+      normalized ? parseLocalDate(normalized) : new Date()
+    );
+    setAnniversaryError(null);
+    setShowAnniversaryPicker(Platform.OS === "ios");
+    setAnniversaryModalVisible(true);
+  }, [anniversaryDraft, dashboard.anniversaryDate]);
+
+  const handleAnniversaryDateChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS === "android") {
+        if (event.type === "dismissed") {
+          setShowAnniversaryPicker(false);
+          return;
+        }
+        setShowAnniversaryPicker(false);
+      }
+      if (date) {
+        setAnniversaryDateValue(date);
+        setAnniversaryDraft(formatDateToYMD(date.toISOString()));
+        setAnniversaryError(null);
+      }
+    },
+    []
+  );
+
+  const handleAnniversarySave = useCallback(async () => {
+    const trimmed = anniversaryDraft.trim();
+    if (!trimmed) {
+      setAnniversaryError("Choose a date to save.");
+      return;
+    }
+
+    const normalized = formatDateToYMD(trimmed);
+    const days = calculateDaysTogether(normalized);
+
+    if (!auth.user.coupleId && !auth.user.uid) {
+      setAnniversaryError(
+        "We couldn't find your account. Please try again after restarting."
+      );
+      return;
+    }
+
+    setAnniversarySaving(true);
+    try {
+      if (auth.user.coupleId) {
+        await coupleService.setAnniversary(auth.user.coupleId, normalized);
+      } else if (auth.user.uid) {
+        await userService.updateUser(auth.user.uid, {
+          anniversaryDate: normalized,
+        });
+      }
+
+      dispatch({
+        type: "SET_ANNIVERSARY",
+        payload: {
+          anniversaryDate: normalized,
+          daysTogether: days,
+        },
+      });
+
+      setAnniversaryError(null);
+      setAnniversaryModalVisible(false);
+    } catch (error) {
+      console.error("Failed to save anniversary", error);
+      setAnniversaryError(
+        error instanceof Error
+          ? error.message
+          : "We couldn't save that date. Please try again."
+      );
+    } finally {
+      setAnniversarySaving(false);
+    }
+  }, [anniversaryDraft, auth.user.coupleId, auth.user.uid, dispatch]);
+
+  const handleAnniversaryClear = useCallback(async () => {
+    if (!auth.user.coupleId && !auth.user.uid) {
+      setAnniversaryModalVisible(false);
+      dispatch({
+        type: "SET_ANNIVERSARY",
+        payload: { anniversaryDate: "", daysTogether: 0 },
+      });
+      return;
+    }
+
+    setAnniversarySaving(true);
+    try {
+      if (auth.user.coupleId) {
+        await coupleService.setAnniversary(auth.user.coupleId, null);
+      } else if (auth.user.uid) {
+        await userService.updateUser(auth.user.uid, {
+          anniversaryDate: null,
+        });
+      }
+
+      dispatch({
+        type: "SET_ANNIVERSARY",
+        payload: { anniversaryDate: "", daysTogether: 0 },
+      });
+
+      setAnniversaryDraft("");
+      setAnniversaryError(null);
+      setAnniversaryModalVisible(false);
+    } catch (error) {
+      console.error("Failed to clear anniversary", error);
+      setAnniversaryError(
+        error instanceof Error
+          ? error.message
+          : "We couldn't clear that date. Please try again."
+      );
+    } finally {
+      setAnniversarySaving(false);
+    }
+  }, [auth.user.coupleId, auth.user.uid, dispatch]);
+
+  const statsCards = useMemo<StatsCard[]>(() => {
+    const hasDays = dashboard.daysTogether && dashboard.daysTogether > 0;
+    const anniversaryValue = dashboard.anniversaryDate
+      ? parseLocalDate(dashboard.anniversaryDate).toLocaleDateString(
+          undefined,
+          {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }
+        )
+      : "Choose your date";
+    const anniversaryHint = dashboard.anniversaryDate
+      ? undefined
+      : "Tap to choose your anniversary";
+
+    return [
       {
         id: "days",
         label: "Together for",
-        value:
-          dashboard.daysTogether && dashboard.daysTogether > 0
-            ? `${dashboard.daysTogether.toLocaleString()} days`
-            : "Set your Day 0",
+        value: hasDays
+          ? formatDaysText(dashboard.daysTogether).replace(" together", "")
+          : "Set your Day 0",
         gradient: ["#FFD8E2", "#FFB3C6"],
       },
       {
         id: "anniversary",
         label: "Anniversary",
-        value: dashboard.anniversaryDate ?? "Choose your date",
+        value: anniversaryValue,
         gradient: ["#D1EAFF", "#B7D8FF"],
+        hint: anniversaryHint,
+        icon: "calendar-month",
+        actionable: true,
       },
-    ],
-    [dashboard.anniversaryDate, dashboard.daysTogether]
-  );
+    ];
+  }, [dashboard.anniversaryDate, dashboard.daysTogether]);
 
   const partnerCards = useMemo(() => {
     const cards: {
@@ -115,6 +301,7 @@ export default function AnniversaryDashboardScreen() {
       status: string;
       avatar?: string;
       accent: string;
+      birthday?: string;
     }[] = [];
 
     if (profiles.me) {
@@ -124,6 +311,7 @@ export default function AnniversaryDashboardScreen() {
         status: profiles.me.status,
         avatar: profiles.me.avatarUrl,
         accent: profiles.me.accentColor,
+        birthday: profiles.me.birthday ?? auth.user.birthday,
       });
     }
     if (profiles.partner) {
@@ -133,18 +321,31 @@ export default function AnniversaryDashboardScreen() {
         status: profiles.partner.status,
         avatar: profiles.partner.avatarUrl,
         accent: profiles.partner.accentColor,
+        birthday: profiles.partner.birthday,
       });
     }
 
     return cards;
-  }, [profiles.me, profiles.partner]);
+  }, [profiles.me, profiles.partner, auth.user.birthday]);
+
+  const formatBirthday = (value?: string) => {
+    if (!value) {
+      return "";
+    }
+    const parsed = parseLocalDate(value);
+    return parsed.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   const handleActionPress = (
     route: ActionRoute,
     requiresPair?: boolean
   ) => {
     if (requiresPair && !isPaired) {
-      setUnlockSheetVisible(true);
+      router.push("/pairing");
       return;
     }
     router.push(route);
@@ -212,31 +413,73 @@ export default function AnniversaryDashboardScreen() {
           gap: 16,
         }}
       >
-        {statsCards.map((card) => (
-          <LinearGradient
-            key={card.id}
-            colors={card.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              flex: 1,
-              borderRadius: 24,
-              padding: 18,
-              shadowColor: "#00000015",
-              shadowOpacity: 0.08,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 2,
-            }}
-          >
-            <CuteText tone="muted" style={{ fontSize: 15 }}>
-              {card.label}
-            </CuteText>
-            <CuteText weight="bold" style={{ fontSize: 24, marginTop: 6 }}>
-              {card.value}
-            </CuteText>
-          </LinearGradient>
-        ))}
+        {statsCards.map((card) => {
+          const content = (
+            <LinearGradient
+              colors={card.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                flex: 1,
+                borderRadius: 24,
+                padding: 18,
+                shadowColor: "#00000015",
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 2,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <CuteText tone="muted" style={{ fontSize: 15 }}>
+                  {card.label}
+                </CuteText>
+                {card.icon ? (
+                  <MaterialIcons
+                    name={card.icon}
+                    size={18}
+                    color={palette.text}
+                  />
+                ) : null}
+              </View>
+              <CuteText weight="bold" style={{ fontSize: 24, marginTop: 6 }}>
+                {card.value}
+              </CuteText>
+              {card.hint ? (
+                <CuteText tone="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                  {card.hint}
+                </CuteText>
+              ) : null}
+            </LinearGradient>
+          );
+
+          if (card.actionable) {
+            return (
+              <Pressable
+                key={card.id}
+                style={{ flex: 1 }}
+                onPress={openAnniversaryModal}
+                accessibilityRole="button"
+                accessibilityLabel="Set anniversary date"
+                accessibilityHint={card.hint}
+              >
+                {content}
+              </Pressable>
+            );
+          }
+
+          return (
+            <View key={card.id} style={{ flex: 1 }}>
+              {content}
+            </View>
+          );
+        })}
       </View>
 
       {isPaired ? (
@@ -382,20 +625,20 @@ export default function AnniversaryDashboardScreen() {
                 elevation: 2,
               }}
             >
-          <View
-            style={{
-              backgroundColor: palette.primary,
-              borderRadius: 999,
-              padding: 12,
-              marginBottom: 10,
-            }}
-          >
-            <MaterialIcons
-              name={action.icon as keyof typeof MaterialIcons.glyphMap}
-              size={24}
-              color="#ffffff"
-            />
-          </View>
+              <View
+                style={{
+                  backgroundColor: palette.primary,
+                  borderRadius: 999,
+                  padding: 12,
+                  marginBottom: 10,
+                }}
+              >
+                <MaterialIcons
+                  name={action.icon as keyof typeof MaterialIcons.glyphMap}
+                  size={24}
+                  color="#ffffff"
+                />
+              </View>
               <CuteText weight="semibold">{action.label}</CuteText>
               {!isPaired && action.requiresPair ? (
                 <CuteText tone="muted" style={{ fontSize: 11, marginTop: 4 }}>
@@ -466,9 +709,40 @@ export default function AnniversaryDashboardScreen() {
                 <CuteText weight="bold" style={{ fontSize: 18, marginTop: 16 }}>
                   {partner.name}
                 </CuteText>
-                <CuteText tone="muted" style={{ marginTop: 6, fontSize: 14 }}>
-                  {partner.status}
-                </CuteText>
+                <View style={{ marginTop: 12, alignItems: "center", gap: 10 }}>
+                  {partner.birthday ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: partner.accent + "1A",
+                      }}
+                    >
+                      <MaterialIcons
+                        name="cake"
+                        size={16}
+                        color={partner.accent}
+                      />
+                      <CuteText weight="semibold">
+                        {formatBirthday(partner.birthday)}
+                      </CuteText>
+                    </View>
+                  ) : null}
+                  {partner.status ? (
+                    <Chip
+                      label={partner.status}
+                      tone="primary"
+                      style={{
+                        backgroundColor: partner.accent,
+                        paddingHorizontal: 18,
+                      }}
+                    />
+                  ) : null}
+                </View>
               </Pressable>
             ))
           ) : (
@@ -507,33 +781,75 @@ export default function AnniversaryDashboardScreen() {
       </View>
 
       <CuteModal
-        visible={unlockSheetVisible}
-        onRequestClose={() => setUnlockSheetVisible(false)}
-        title="Pair to unlock"
-        subtitle="Chat, memories, to-dos, and live location unlock once you’re connected."
+        visible={anniversaryModalVisible}
+        onRequestClose={() => setAnniversaryModalVisible(false)}
+        title="Set your anniversary"
+        subtitle="We'll count your days together from this date."
       >
         <CuteText tone="muted" style={{ fontSize: 13 }}>
-          Only the two of you. Private by default. Pair now to open every shared
-          space.
+          We use your device timezone so the day count stays accurate.
         </CuteText>
         <Pressable
-          onPress={() => {
-            setUnlockSheetVisible(false);
-            router.push("/pairing");
-          }}
+          onPress={() => setShowAnniversaryPicker(true)}
           style={{
-            marginTop: 8,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: palette.border,
+            paddingHorizontal: 16,
             paddingVertical: 14,
-            borderRadius: 999,
-            backgroundColor: palette.primary,
-            alignItems: "center",
+            backgroundColor: palette.background,
           }}
         >
-          <CuteText style={{ color: "#fff" }} weight="bold">
-            Create or Join Couple
+          <CuteText>
+            {anniversaryDraft
+              ? parseLocalDate(anniversaryDraft).toLocaleDateString(
+                  undefined,
+                  {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  }
+                )
+              : "Select a date"}
           </CuteText>
         </Pressable>
+        {(Platform.OS === "ios" || showAnniversaryPicker) && (
+          <DateTimePicker
+            value={anniversaryDateValue}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={handleAnniversaryDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+        {anniversaryError ? (
+          <CuteText style={{ color: "#D93025", fontSize: 12 }}>
+            {anniversaryError}
+          </CuteText>
+        ) : null}
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 12,
+            marginTop: 8,
+          }}
+        >
+          <CuteButton
+            label={anniversarySaving ? "Saving..." : "Save date"}
+            onPress={handleAnniversarySave}
+            disabled={anniversarySaving || !anniversaryDraft}
+            style={{ flex: 1 }}
+          />
+          <CuteButton
+            label="Clear"
+            tone="ghost"
+            onPress={handleAnniversaryClear}
+            disabled={anniversarySaving}
+            style={{ flex: 1 }}
+          />
+        </View>
       </CuteModal>
+
     </Screen>
   );
 }
