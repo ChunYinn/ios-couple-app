@@ -23,6 +23,17 @@ service cloud.firestore {
              request.resource.data.sender == request.auth.uid;
     }
 
+    function isReadReceiptUpdate() {
+      let rootDiff = request.resource.data.diff(resource.data);
+      let readDiff = request.resource.data.readBy.diff(resource.data.readBy);
+      return ('readBy' in resource.data) &&
+             ('readBy' in request.resource.data) &&
+             rootDiff.changedKeys().hasOnly(['readBy']) &&
+             readDiff.removedKeys().hasOnly([]) &&
+             readDiff.affectedKeys().hasOnly([request.auth.uid]) &&
+             request.resource.data.readBy[request.auth.uid] is timestamp;
+    }
+
     // USERS Collection - only owner can read/write
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -62,9 +73,13 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isCoupleMember(coupleId);
         allow create: if isCoupleMember(coupleId) && validMessage();
-        allow update: if isCoupleMember(coupleId) &&
-          request.auth.uid == resource.data.sender && // Only sender can edit
-          request.resource.data.sender == resource.data.sender; // Can't change sender
+        allow update: if isCoupleMember(coupleId) && (
+          (
+            request.auth.uid == resource.data.sender &&
+            request.resource.data.sender == resource.data.sender
+          ) ||
+          isReadReceiptUpdate()
+        );
         allow delete: if false; // Use soft delete with deletedAt field
       }
 
