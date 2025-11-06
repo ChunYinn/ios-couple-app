@@ -44,11 +44,11 @@ const accentOptions = ["#FF8FAB", "#3A5BFF", "#1F9470", "#F6C28B", "#9B59FF"];
 
 const formatBirthdayLabel = (value: string | undefined) => {
   if (!value) {
-    return "Add your birthday so we can plan sweet surprises.";
+    return "Select a date";
   }
   const parsed = parseLocalDate(value);
   return parsed.toLocaleDateString(undefined, {
-    month: "long",
+    month: "short",
     day: "numeric",
     year: "numeric",
   });
@@ -641,7 +641,7 @@ export default function ProfileScreen() {
               return parseLocalDate(anniversaryValue).toLocaleDateString(
                 undefined,
                 {
-                  month: "long",
+                  month: "short",
                   day: "numeric",
                   year: "numeric",
                 }
@@ -712,7 +712,6 @@ export default function ProfileScreen() {
         visible={editModalVisible && viewingMe}
         onRequestClose={closeModal}
         title="Update your profile"
-        subtitle="Refresh your photo, details, and love languages anytime."
         contentStyle={{ paddingBottom: 24 }}
       >
         <ScrollView
@@ -850,11 +849,11 @@ export default function ProfileScreen() {
           </View>
 
           <View style={{ gap: 12 }}>
-            <CuteText weight="semibold">Birthday</CuteText>
-            <Pressable
-              onPress={() => setShowBirthdayPicker(true)}
-              style={{
-                borderRadius: 16,
+          <CuteText weight="semibold">Birthday</CuteText>
+          <Pressable
+            onPress={() => setShowBirthdayPicker(true)}
+            style={{
+              borderRadius: 16,
                 borderWidth: 1,
                 borderColor: palette.border,
                 paddingHorizontal: 16,
@@ -868,20 +867,11 @@ export default function ProfileScreen() {
                   : "Select a date"}
               </CuteText>
             </Pressable>
-            {showBirthdayPicker ? (
-              <DateTimePicker
-                value={selectedBirthdayDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleBirthdayChange}
-                maximumDate={new Date()}
-              />
-            ) : null}
-          </View>
+        </View>
 
-          <View style={{ gap: 12 }}>
-            <CuteText weight="semibold">Anniversary</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
+        <View style={{ gap: 12 }}>
+          <CuteText weight="semibold">Anniversary</CuteText>
+          <CuteText tone="muted" style={{ fontSize: 13 }}>
               We will count your days together from this date.
             </CuteText>
             <Pressable
@@ -900,7 +890,7 @@ export default function ProfileScreen() {
                   ? parseLocalDate(anniversaryInput).toLocaleDateString(
                       undefined,
                       {
-                        month: "long",
+                        month: "short",
                         day: "numeric",
                         year: "numeric",
                       }
@@ -908,30 +898,7 @@ export default function ProfileScreen() {
                   : "Select a date"}
               </CuteText>
             </Pressable>
-            {showAnniversaryPicker ? (
-              <DateTimePicker
-                value={selectedAnniversaryDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleAnniversaryChange}
-                maximumDate={new Date()}
-              />
-            ) : null}
-            {anniversaryInput ? (
-              <Pressable
-                onPress={() => {
-                  setAnniversaryInput("");
-                  setSaveError(null);
-                  setShowAnniversaryPicker(false);
-                }}
-                style={{ alignSelf: "flex-start", paddingVertical: 4 }}
-              >
-                <CuteText tone="accent" style={{ fontSize: 13 }}>
-                  Clear anniversary
-                </CuteText>
-              </Pressable>
-            ) : null}
-          </View>
+        </View>
 
           <View style={{ gap: 12 }}>
             <CuteText weight="semibold">Accent color</CuteText>
@@ -975,17 +942,59 @@ export default function ProfileScreen() {
             </CuteText>
           ) : null}
         </ScrollView>
-        <CuteButton
-          label={savingProfile ? "Saving..." : "Save changes"}
-          onPress={handleSaveProfile}
-          disabled={savingProfile}
-          style={{ marginTop: 4 }}
+      <CuteButton
+        label={savingProfile ? "Saving..." : "Save changes"}
+        onPress={handleSaveProfile}
+        disabled={savingProfile}
+        style={{ marginTop: 4 }}
+      />
+      {savingProfile ? (
+        <View style={{ alignItems: "center", marginTop: -4 }}>
+          <ActivityIndicator color={palette.primary} />
+        </View>
+      ) : null}
+      </CuteModal>
+
+      <CuteModal
+        visible={showBirthdayPicker}
+        onRequestClose={() => setShowBirthdayPicker(false)}
+        title="Pick a birthday"
+        contentStyle={{ alignItems: "center", gap: 16 }}
+      >
+        <DateTimePicker
+          value={selectedBirthdayDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "calendar"}
+          onChange={handleBirthdayChange}
+          maximumDate={new Date()}
         />
-        {savingProfile ? (
-          <View style={{ alignItems: "center", marginTop: -4 }}>
-            <ActivityIndicator color={palette.primary} />
-          </View>
-        ) : null}
+        <CuteButton
+          label="Done"
+          tone="secondary"
+          onPress={() => setShowBirthdayPicker(false)}
+          style={{ minWidth: 140 }}
+        />
+      </CuteModal>
+
+      <CuteModal
+        visible={showAnniversaryPicker}
+        onRequestClose={() => setShowAnniversaryPicker(false)}
+        title="Pick your anniversary"
+        contentStyle={{ alignItems: "center", gap: 16 }}
+      >
+        <DateTimePicker
+          value={selectedAnniversaryDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "calendar"}
+          onChange={handleAnniversaryChange}
+          maximumDate={new Date()}
+        />
+        <CuteButton
+          label="Save"
+          tone="secondary"
+          onPress={() => setShowAnniversaryPicker(false)}
+          style={{ minWidth: 140 }}
+        />
       </CuteModal>
     </Screen>
   );

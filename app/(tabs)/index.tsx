@@ -9,7 +9,6 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 
 import { CuteButton } from "../../components/CuteButton";
-import { CuteCard } from "../../components/CuteCard";
 import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
@@ -70,11 +69,12 @@ export default function AnniversaryDashboardScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const {
-    state: { auth, pairing, dashboard, milestones, profiles, settings },
+    state: { auth, pairing, dashboard, milestones, profiles },
     dispatch,
   } = useAppData();
   const isPaired = pairing.isPaired;
   const isCompactLayout = width < 360;
+  const profileCardWidth = Math.min(280, Math.max(220, width * 0.45));
   const displayName =
     profiles.me?.displayName ?? auth.user.displayName ?? "You";
   const greeting = dashboard.helloMessage ?? `Hello ${displayName}!`;
@@ -89,9 +89,6 @@ export default function AnniversaryDashboardScreen() {
     dashboard.anniversaryDate
       ? parseLocalDate(dashboard.anniversaryDate)
       : new Date()
-  );
-  const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(
-    Platform.OS === "ios"
   );
   const [anniversarySaving, setAnniversarySaving] = useState(false);
   const [anniversaryError, setAnniversaryError] = useState<string | null>(null);
@@ -109,7 +106,6 @@ export default function AnniversaryDashboardScreen() {
 
   useEffect(() => {
     if (!anniversaryModalVisible) {
-      setShowAnniversaryPicker(Platform.OS === "ios");
       setAnniversaryError(null);
     }
   }, [anniversaryModalVisible]);
@@ -135,18 +131,13 @@ export default function AnniversaryDashboardScreen() {
       normalized ? parseLocalDate(normalized) : new Date()
     );
     setAnniversaryError(null);
-    setShowAnniversaryPicker(Platform.OS === "ios");
     setAnniversaryModalVisible(true);
   }, [anniversaryDraft, dashboard.anniversaryDate]);
 
   const handleAnniversaryDateChange = useCallback(
     (event: DateTimePickerEvent, date?: Date) => {
-      if (Platform.OS === "android") {
-        if (event.type === "dismissed") {
-          setShowAnniversaryPicker(false);
-          return;
-        }
-        setShowAnniversaryPicker(false);
+      if (Platform.OS === "android" && event.type === "dismissed") {
+        return;
       }
       if (date) {
         setAnniversaryDateValue(date);
@@ -205,46 +196,6 @@ export default function AnniversaryDashboardScreen() {
       setAnniversarySaving(false);
     }
   }, [anniversaryDraft, auth.user.coupleId, auth.user.uid, dispatch]);
-
-  const handleAnniversaryClear = useCallback(async () => {
-    if (!auth.user.coupleId && !auth.user.uid) {
-      setAnniversaryModalVisible(false);
-      dispatch({
-        type: "SET_ANNIVERSARY",
-        payload: { anniversaryDate: "", daysTogether: 0 },
-      });
-      return;
-    }
-
-    setAnniversarySaving(true);
-    try {
-      if (auth.user.coupleId) {
-        await coupleService.setAnniversary(auth.user.coupleId, null);
-      } else if (auth.user.uid) {
-        await userService.updateUser(auth.user.uid, {
-          anniversaryDate: null,
-        });
-      }
-
-      dispatch({
-        type: "SET_ANNIVERSARY",
-        payload: { anniversaryDate: "", daysTogether: 0 },
-      });
-
-      setAnniversaryDraft("");
-      setAnniversaryError(null);
-      setAnniversaryModalVisible(false);
-    } catch (error) {
-      console.error("Failed to clear anniversary", error);
-      setAnniversaryError(
-        error instanceof Error
-          ? error.message
-          : "We couldn't clear that date. Please try again."
-      );
-    } finally {
-      setAnniversarySaving(false);
-    }
-  }, [auth.user.coupleId, auth.user.uid, dispatch]);
 
   const statsCards = useMemo<StatsCard[]>(() => {
     const hasDays = dashboard.daysTogether && dashboard.daysTogether > 0;
@@ -326,7 +277,7 @@ export default function AnniversaryDashboardScreen() {
     }
     const parsed = parseLocalDate(value);
     return parsed.toLocaleDateString(undefined, {
-      month: "long",
+      month: "short",
       day: "numeric",
       year: "numeric",
     });
@@ -432,7 +383,7 @@ export default function AnniversaryDashboardScreen() {
                 <CuteText tone="muted" style={{ fontSize: 15 }}>
                   {card.label}
                 </CuteText>
-                {card.icon ? (
+                {card.icon && !isCompactLayout ? (
                   <MaterialIcons
                     name={card.icon}
                     size={18}
@@ -478,51 +429,7 @@ export default function AnniversaryDashboardScreen() {
         })}
       </View>
 
-      {isPaired ? (
-        <CuteCard
-          background={palette.card}
-          padding={20}
-          style={{ gap: 12, borderWidth: 1, borderColor: palette.border }}
-        >
-          <CuteText weight="bold" style={{ fontSize: 18 }}>
-            You’re connected!
-          </CuteText>
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Cue the confetti—everything is unlocked. What should we do first?
-          </CuteText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            <CuteButton
-              label={
-                settings.enablePush
-                  ? "Notifications on"
-                  : "Enable notifications"
-              }
-              tone={settings.enablePush ? "secondary" : "primary"}
-              onPress={() =>
-                dispatch({
-                  type: "UPDATE_SETTINGS",
-                  payload: { enablePush: !settings.enablePush },
-                })
-              }
-            />
-            <CuteButton
-              label="Add first memory"
-              tone="ghost"
-              onPress={() => router.push("/(tabs)/gallery")}
-            />
-            <CuteButton
-              label="Open chat"
-              tone="ghost"
-              onPress={() => router.push("/(tabs)/chat")}
-            />
-            <CuteButton
-              label="Share location"
-              tone="ghost"
-              onPress={() => router.push("/location")}
-            />
-          </View>
-        </CuteCard>
-      ) : null}
+      {/* Removed the paired celebration card per latest UX request */}
 
       <View>
         <SectionHeader title="Our Milestones" />
@@ -648,18 +555,17 @@ export default function AnniversaryDashboardScreen() {
 
       <View>
         <SectionHeader title="Our Profiles" />
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 16,
-          }}
-        >
-          {partnerCards.length ? (
-            partnerCards.map((partner) => (
+        {partnerCards.length ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 16, paddingVertical: 4 }}
+          >
+            {partnerCards.map((partner) => (
               <Pressable
                 key={partner.key}
                 style={{
-                  flex: 1,
+                  width: profileCardWidth,
                   alignItems: "center",
                   backgroundColor: palette.card,
                   borderRadius: 24,
@@ -740,110 +646,66 @@ export default function AnniversaryDashboardScreen() {
                   ) : null}
                 </View>
               </Pressable>
-            ))
-          ) : (
-            <View
+            ))}
+          </ScrollView>
+        ) : (
+          <View
+            style={{
+              backgroundColor: palette.card,
+              borderRadius: 24,
+              padding: 24,
+              flex: 1,
+              gap: 12,
+            }}
+          >
+            <CuteText weight="bold" style={{ fontSize: 18 }}>
+              Solo mode activated
+            </CuteText>
+            <CuteText tone="muted" style={{ fontSize: 13 }}>
+              Create or join your couple to see both profiles side by side.
+            </CuteText>
+            <Pressable
+              onPress={() => router.push("/pairing")}
               style={{
-                backgroundColor: palette.card,
-                borderRadius: 24,
-                padding: 24,
-                flex: 1,
-                gap: 12,
+                alignSelf: "flex-start",
+                paddingVertical: 10,
+                paddingHorizontal: 18,
+                borderRadius: 999,
+                backgroundColor: palette.primary,
               }}
             >
-              <CuteText weight="bold" style={{ fontSize: 18 }}>
-                Solo mode activated
+              <CuteText style={{ color: "#fff" }} weight="semibold">
+                Pair now
               </CuteText>
-              <CuteText tone="muted" style={{ fontSize: 13 }}>
-                Create or join your couple to see both profiles side by side.
-              </CuteText>
-              <Pressable
-                onPress={() => router.push("/pairing")}
-                style={{
-                  alignSelf: "flex-start",
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                  borderRadius: 999,
-                  backgroundColor: palette.primary,
-                }}
-              >
-                <CuteText style={{ color: "#fff" }} weight="semibold">
-                  Pair now
-                </CuteText>
-              </Pressable>
-            </View>
-          )}
-        </View>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <CuteModal
         visible={anniversaryModalVisible}
         onRequestClose={() => setAnniversaryModalVisible(false)}
-        title="Set your anniversary"
-        subtitle="We'll count your days together from this date."
+        title="Pick your anniversary"
+        contentStyle={{ alignItems: "center", gap: 16 }}
       >
-        <CuteText tone="muted" style={{ fontSize: 13 }}>
-          We use your device timezone so the day count stays accurate.
-        </CuteText>
-        <Pressable
-          onPress={() => setShowAnniversaryPicker(true)}
-          style={{
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: palette.border,
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            backgroundColor: palette.background,
-          }}
-        >
-          <CuteText>
-            {anniversaryDraft
-              ? parseLocalDate(anniversaryDraft).toLocaleDateString(
-                  undefined,
-                  {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  }
-                )
-              : "Select a date"}
-          </CuteText>
-        </Pressable>
-        {(Platform.OS === "ios" || showAnniversaryPicker) && (
-          <DateTimePicker
-            value={anniversaryDateValue}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={handleAnniversaryDateChange}
-            maximumDate={new Date()}
-          />
-        )}
+        <DateTimePicker
+          value={anniversaryDateValue}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "calendar"}
+          onChange={handleAnniversaryDateChange}
+          maximumDate={new Date()}
+        />
         {anniversaryError ? (
           <CuteText style={{ color: "#D93025", fontSize: 12 }}>
             {anniversaryError}
           </CuteText>
         ) : null}
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 12,
-            marginTop: 8,
-          }}
-        >
-          <CuteButton
-            label={anniversarySaving ? "Saving..." : "Save date"}
-            onPress={handleAnniversarySave}
-            disabled={anniversarySaving || !anniversaryDraft}
-            style={{ flex: 1 }}
-          />
-          <CuteButton
-            label="Clear"
-            tone="ghost"
-            onPress={handleAnniversaryClear}
-            disabled={anniversarySaving}
-            style={{ flex: 1 }}
-          />
-        </View>
+        <CuteButton
+          label={anniversarySaving ? "Saving..." : "Save date"}
+          onPress={handleAnniversarySave}
+          disabled={anniversarySaving}
+          style={{ minWidth: 160 }}
+        />
       </CuteModal>
 
     </Screen>

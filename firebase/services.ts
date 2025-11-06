@@ -315,6 +315,7 @@ export const messageService = {
       duration: null,
       reactions: {},
       readBy: { [userId]: serverTimestamp() },
+      clientTimestamp: new Date().toISOString(),
       timestamp: serverTimestamp(),
       editedAt: null,
       deletedAt: null
@@ -345,7 +346,7 @@ export const messageService = {
   // Subscribe to messages
   subscribeToMessages(
     coupleId: string,
-    callback: (messages: DBMessage[]) => void
+    callback: (messages: Array<{ message: DBMessage; pending: boolean }>) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'messages'),
@@ -353,10 +354,10 @@ export const messageService = {
     );
 
     return onSnapshot(q, (snapshot) => {
-      const messages: DBMessage[] = [];
-      snapshot.forEach((doc) => {
-        messages.push({ id: doc.id, ...doc.data() } as DBMessage);
-      });
+      const messages = snapshot.docs.map((doc) => ({
+        message: { id: doc.id, ...(doc.data() as DBMessage) },
+        pending: doc.metadata.hasPendingWrites,
+      }));
       callback(messages);
     });
   }

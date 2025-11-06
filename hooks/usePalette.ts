@@ -22,7 +22,6 @@ const derivePrimarySoft = (accent: string, scheme: "light" | "dark", fallback: s
 };
 
 export const usePalette = () => {
-  const scheme = "light";
   const {
     state: { settings },
   } = useAppData();
@@ -33,7 +32,7 @@ export const usePalette = () => {
   return useMemo(() => {
     const primarySoft = derivePrimarySoft(
       accent,
-      scheme === "dark" ? "dark" : "light",
+      "light",
       basePalette.primarySoft
     );
 
