@@ -423,13 +423,14 @@ export default function ProfileScreen() {
             displayName: trimmedName,
             status: trimmedStatus || DEFAULT_STATUS,
             about: trimmedAbout,
-            accentColor: selectedAccent,
-            birthday: normalizedBirthday ?? undefined,
-            avatarUrl: nextAvatarUrl,
-            loveLanguages: loveLanguageKeys,
-          },
+          accentColor: selectedAccent,
+          birthday: normalizedBirthday ?? undefined,
+          anniversary: normalizedAnniversary || undefined,
+          avatarUrl: nextAvatarUrl,
+          loveLanguages: loveLanguageKeys,
         },
-      });
+      },
+    });
 
       if (anniversaryChanged) {
         const daysTogether = normalizedAnniversary
@@ -633,7 +634,9 @@ export default function ProfileScreen() {
         </CuteText>
         <CuteText tone="muted" style={{ fontSize: 15 }}>
           {(() => {
-            const anniversaryValue = auth.user.anniversaryDate;
+            const anniversaryValue = viewingMe
+              ? auth.user.anniversaryDate
+              : profile.anniversary;
             if (anniversaryValue) {
               return parseLocalDate(anniversaryValue).toLocaleDateString(
                 undefined,

@@ -1,13 +1,8 @@
 import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
-import { useEffect, useLayoutEffect, useState } from "react";
-import { Appearance } from "react-native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { useLayoutEffect } from "react";
 
-import { darkPalette, lightPalette } from "../theme/palette";
+import { lightPalette } from "../theme/palette";
 import { AppDataProvider, useAppData } from "../context/AppDataContext";
 
 const lightNavigationTheme = {
@@ -23,54 +18,15 @@ const lightNavigationTheme = {
   },
 };
 
-const darkNavigationTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: darkPalette.primary,
-    background: darkPalette.background,
-    card: darkPalette.card,
-    text: darkPalette.text,
-    border: darkPalette.border,
-    notification: darkPalette.accent,
-  },
-};
-
-const useAppearanceScheme = () => {
-  const [scheme, setScheme] = useState(Appearance.getColorScheme() ?? "light");
-
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      if (colorScheme) {
-        setScheme(colorScheme);
-      }
-    });
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  return scheme;
-};
-
 const Navigator = () => {
   const { state } = useAppData();
-  const scheme = useAppearanceScheme();
   const router = useRouter();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
-
-  // Return null if the navigation state is not ready.
-  if (!navigationState?.key) {
-    return null;
-  }
+  const navigationKey = navigationState?.key;
 
   useLayoutEffect(() => {
-    if (state.auth.status === "initializing") {
-      return;
-    }
-
-    if (!navigationState?.key) {
+    if (!navigationKey || state.auth.status === "initializing") {
       return;
     }
 
@@ -90,15 +46,19 @@ const Navigator = () => {
     ) {
       router.replace("/(tabs)");
     }
-  }, [state.auth.status, segments, navigationState?.key]);
+  }, [navigationKey, router, segments, state.auth.status]);
+
+  // Return null if the navigation state is not ready.
+  if (!navigationKey) {
+    return null;
+  }
 
   return (
     <Stack
       screenOptions={{
         headerShown: false,
         contentStyle: {
-          backgroundColor:
-            scheme === "dark" ? darkPalette.background : lightPalette.background,
+          backgroundColor: lightPalette.background,
         },
       }}
     />
@@ -106,12 +66,8 @@ const Navigator = () => {
 };
 
 export default function RootLayout() {
-  const scheme = useAppearanceScheme();
-
   return (
-    <ThemeProvider
-      value={scheme === "dark" ? darkNavigationTheme : lightNavigationTheme}
-    >
+    <ThemeProvider value={lightNavigationTheme}>
       <AppDataProvider>
         <Navigator />
       </AppDataProvider>

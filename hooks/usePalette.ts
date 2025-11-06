@@ -1,7 +1,6 @@
-import { useColorScheme } from "react-native";
 import { useMemo } from "react";
 
-import { darkPalette, lightPalette } from "../theme/palette";
+import { lightPalette } from "../theme/palette";
 import { useAppData } from "../context/AppDataContext";
 import { lightenHex, mixHexColors, getRelativeLuminance } from "../utils/color";
 
@@ -23,12 +22,12 @@ const derivePrimarySoft = (accent: string, scheme: "light" | "dark", fallback: s
 };
 
 export const usePalette = () => {
-  const scheme = useColorScheme() ?? "light";
+  const scheme = "light";
   const {
     state: { settings },
   } = useAppData();
 
-  const basePalette = scheme === "dark" ? darkPalette : lightPalette;
+  const basePalette = lightPalette;
   const accent = settings.accent || basePalette.primary;
 
   return useMemo(() => {
@@ -44,5 +43,5 @@ export const usePalette = () => {
       primarySoft,
       accent,
     };
-  }, [accent, basePalette, scheme]);
+  }, [accent, basePalette]);
 };

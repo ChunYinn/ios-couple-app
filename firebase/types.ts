@@ -60,6 +60,7 @@ export interface DBProfile {
   accentColor: string;
   emoji: string;
   birthday?: string | null;
+  anniversary?: string | null;
   loveLanguages: LoveLanguageValue[];
   favorites: {
     category: string;

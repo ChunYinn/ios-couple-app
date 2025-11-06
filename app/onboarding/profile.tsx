@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  GestureResponderEvent,
   Image,
   Platform,
   Pressable,
@@ -12,27 +13,29 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { updateProfile } from "firebase/auth";
 
 import { CuteButton } from "../../components/CuteButton";
+import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
 import { CuteTextInput } from "../../components/CuteTextInput";
 import { PronounSelect } from "../../components/PronounSelect";
 import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
-import {
-  LOVE_LANGUAGES,
-  DEFAULT_LOVE_LANGUAGES,
-  MAX_LOVE_LANGUAGES,
-  LoveLanguageOption,
-} from "../../data/loveLanguages";
+import { DEFAULT_LOVE_LANGUAGES } from "../../data/loveLanguages";
 import { usePalette } from "../../hooks/usePalette";
 import { firebaseAuth } from "../../firebase/config";
 import { userService } from "../../firebase/services";
 import { PronounValue } from "../../types/app";
-import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
+import {
+  calculateDaysTogether,
+  formatDateToYMD,
+  parseLocalDate,
+} from "../../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
 const DEFAULT_ABOUT = "Curious heart who loves to make memories that feel like magic.";
@@ -62,13 +65,18 @@ export default function ProfileSetupScreen() {
   const initialBirthday = authUser.birthday
     ? formatDateToYMD(authUser.birthday)
     : "";
+  const initialAnniversary = authUser.anniversaryDate
+    ? formatDateToYMD(authUser.anniversaryDate)
+    : "";
   const initialAvatar =
     existingProfile?.avatarUrl ?? authUser.avatarUrl ?? undefined;
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [pronouns, setPronouns] = useState<PronounValue | null>(initialPronouns);
   const [birthday, setBirthday] = useState(initialBirthday);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [anniversary, setAnniversary] = useState(initialAnniversary);
+  const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
+  const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
     initialAvatar
   );
@@ -76,39 +84,17 @@ export default function ProfileSetupScreen() {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLoveLanguages, setSelectedLoveLanguages] = useState<LoveLanguageOption[]>(() => {
-    if (existingProfile?.loveLanguages?.length) {
-      return LOVE_LANGUAGES.filter((option) =>
-        existingProfile.loveLanguages?.includes(option.key)
-      );
-    }
-    return LOVE_LANGUAGES.filter((option) => DEFAULT_LOVE_LANGUAGES.includes(option.key));
-  });
 
-  const selectedDate = useMemo(
+  const selectedBirthdayDate = useMemo(
     () => (birthday ? parseLocalDate(birthday) : new Date()),
     [birthday]
   );
 
-  const toggleLoveLanguage = (option: LoveLanguageOption) => {
-    setSelectedLoveLanguages((prev) => {
-      const exists = prev.some((entry) => entry.key === option.key);
-      if (exists) {
-        if (prev.length === 1) {
-          return prev;
-        }
-        return prev.filter((entry) => entry.key !== option.key);
-      }
-      if (prev.length >= MAX_LOVE_LANGUAGES) {
-        Alert.alert(
-          "Pick up to three",
-          `You can choose up to ${MAX_LOVE_LANGUAGES} love languages.`
-        );
-        return prev;
-      }
-      return [...prev, option];
-    });
-  };
+  const selectedAnniversaryDate = useMemo(
+    () => (anniversary ? parseLocalDate(anniversary) : new Date()),
+    [anniversary]
+  );
+
 
   const requestLibraryAccess = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -201,14 +187,38 @@ export default function ProfileSetupScreen() {
     });
   };
 
-  const handleDateChange = (_: unknown, date?: Date) => {
-    if (Platform.OS !== "ios") {
-      setShowDatePicker(false);
+  const handleBirthdayPickerChange = (
+    event: DateTimePickerEvent,
+    date?: Date
+  ) => {
+    if (Platform.OS === "android") {
+      if (event.type === "dismissed") {
+        setShowBirthdayPicker(false);
+        return;
+      }
+      setShowBirthdayPicker(false);
     }
     if (date) {
       const formatted = formatDateToYMD(date.toISOString());
       setBirthday(formatted);
       setError(null);
+    }
+  };
+
+  const handleAnniversaryPickerChange = (
+    event: DateTimePickerEvent,
+    date?: Date
+  ) => {
+    if (Platform.OS === "android") {
+      if (event.type === "dismissed") {
+        setShowAnniversaryPicker(false);
+        return;
+      }
+      setShowAnniversaryPicker(false);
+    }
+    if (date) {
+      const formatted = formatDateToYMD(date.toISOString());
+      setAnniversary(formatted);
     }
   };
 
@@ -221,11 +231,6 @@ export default function ProfileSetupScreen() {
 
     if (!birthday.trim()) {
       setError("Please choose your birthday before continuing.");
-      return;
-    }
-
-    if (!selectedLoveLanguages.length) {
-      setError("Pick at least one love language so we know your style.");
       return;
     }
 
@@ -253,18 +258,20 @@ export default function ProfileSetupScreen() {
       }
 
       const birthdayValue = birthday ? formatDateToYMD(birthday) : null;
+      const anniversaryValue = anniversary ? formatDateToYMD(anniversary) : null;
 
       await userService.createUser(uid, {
         displayName: trimmedName,
         avatarUrl: nextAvatarUrl ?? null,
         birthday: birthdayValue,
+        anniversaryDate: anniversaryValue,
         pronouns: pronouns ?? null,
         authProvider: "anonymous",
         email: "",
         coupleId: authUser.coupleId ?? null,
         status: DEFAULT_STATUS,
         about: DEFAULT_ABOUT,
-        loveLanguages: selectedLoveLanguages.map((option) => option.key),
+        loveLanguages: existingProfile?.loveLanguages ?? DEFAULT_LOVE_LANGUAGES,
         accentColor: state.settings.accent,
       });
 
@@ -285,13 +292,29 @@ export default function ProfileSetupScreen() {
           displayName: trimmedName,
           avatarUrl: nextAvatarUrl,
           birthday: birthdayValue ?? undefined,
+          anniversary: anniversaryValue ?? undefined,
           pronouns: pronouns ?? undefined,
           status: existingProfile?.status ?? DEFAULT_STATUS,
           about: existingProfile?.about ?? DEFAULT_ABOUT,
-          loveLanguages: selectedLoveLanguages.map((option) => option.key),
+          loveLanguages: existingProfile?.loveLanguages ?? DEFAULT_LOVE_LANGUAGES,
           accentColor: state.settings.accent,
         },
       });
+
+      if (anniversaryValue) {
+        dispatch({
+          type: "SET_ANNIVERSARY",
+          payload: {
+            anniversaryDate: anniversaryValue,
+            daysTogether: calculateDaysTogether(anniversaryValue),
+          },
+        });
+      } else if (state.dashboard.anniversaryDate) {
+        dispatch({
+          type: "SET_ANNIVERSARY",
+          payload: { anniversaryDate: "", daysTogether: 0 },
+        });
+      }
     } catch (err) {
       console.error("Profile setup failed:", err);
       const message =
@@ -422,110 +445,84 @@ export default function ProfileSetupScreen() {
               <CuteText weight="bold">Birthday</CuteText>
               <CuteText tone="accent">*</CuteText>
             </View>
+            <CuteText tone="muted" style={{ fontSize: 13 }}>
+              We use this to celebrate you with countdowns and reminders.
+            </CuteText>
             <Pressable
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => setShowBirthdayPicker(true)}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "space-between",
+                gap: 12,
                 borderRadius: 16,
                 borderWidth: 1,
                 borderColor: palette.border,
                 paddingHorizontal: 16,
                 paddingVertical: 14,
-                backgroundColor: palette.background,
+                backgroundColor: palette.card,
               }}
             >
-              <CuteText>{formatBirthdayLabel(birthday || null)}</CuteText>
               <MaterialIcons
-                name="calendar-today"
-                size={20}
-                color={palette.textSecondary}
+                name="cake"
+                size={18}
+                color={palette.primary}
               />
+              <CuteText style={{ flex: 1 }}>
+                {birthday ? formatBirthdayLabel(birthday) : "Pick your birthday"}
+              </CuteText>
             </Pressable>
-            {showDatePicker ? (
-              <View style={{ gap: 8 }}>
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  onChange={handleDateChange}
-                  maximumDate={new Date()}
-                />
-                {Platform.OS === "ios" ? (
-                  <Pressable
-                    onPress={() => setShowDatePicker(false)}
-                    style={{ alignSelf: "flex-end", paddingHorizontal: 12, paddingVertical: 6 }}
-                  >
-                    <CuteText tone="accent">Done</CuteText>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
           </View>
 
           <View style={{ gap: 12 }}>
-            <CuteText weight="bold">Love languages</CuteText>
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Choose up to {MAX_LOVE_LANGUAGES} ways you love to show and feel affection.
-          </CuteText>
-          <View style={{ maxHeight: 240 }}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10 }}
+            <CuteText weight="bold">Anniversary (optional)</CuteText>
+            <CuteText tone="muted" style={{ fontSize: 13 }}>
+              Choosing this now lets us start counting your days together.
+            </CuteText>
+            <Pressable
+              onPress={() => setShowAnniversaryPicker(true)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: palette.border,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                backgroundColor: palette.card,
+              }}
             >
-              {LOVE_LANGUAGES.map((option) => {
-                const isSelected = selectedLoveLanguages.some(
-                  (entry) => entry.key === option.key
-                );
-                return (
-                  <Pressable
-                    key={option.key}
-                    onPress={() => toggleLoveLanguage(option)}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: isSelected ? palette.primary : palette.border,
-                      borderRadius: 18,
-                      padding: 14,
-                      backgroundColor: isSelected
-                        ? palette.primarySoft
-                        : palette.card,
-                      flexDirection: "row",
-                      gap: 12,
-                      alignItems: "center",
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        backgroundColor: isSelected ? palette.primary : "transparent",
-                        borderWidth: isSelected ? 0 : 1,
-                        borderColor: palette.border,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {isSelected ? (
-                        <MaterialIcons name="favorite" size={16} color="#fff" />
-                      ) : null}
-                    </View>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <CuteText weight="semibold">{option.label}</CuteText>
-                      <CuteText tone="muted" style={{ fontSize: 12 }}>
-                        {option.description}
-                      </CuteText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+              <MaterialIcons
+                name="favorite"
+                size={18}
+                color={palette.primary}
+              />
+              <CuteText style={{ flex: 1 }}>
+                {anniversary
+                  ? formatBirthdayLabel(anniversary)
+                  : "Set your Day 0"}
+              </CuteText>
+              {anniversary ? (
+                <Pressable
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    setAnniversary("");
+                  }}
+                  hitSlop={8}
+                  style={{ padding: 4 }}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={palette.textSecondary}
+                  />
+                </Pressable>
+              ) : null}
+            </Pressable>
           </View>
         </View>
-        </View>
 
-        {error ? (
+      {error ? (
           <View
             style={{
               backgroundColor: palette.primarySoft,
@@ -550,6 +547,57 @@ export default function ProfileSetupScreen() {
           }
         />
       </ScrollView>
+
+      <CuteModal
+        visible={showBirthdayPicker}
+        onRequestClose={() => setShowBirthdayPicker(false)}
+        title="Select your birthday"
+        subtitle="We keep this local to remind you of sweet moments."
+      >
+        <DateTimePicker
+          value={selectedBirthdayDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handleBirthdayPickerChange}
+          maximumDate={new Date()}
+        />
+        <CuteButton
+          label="Done"
+          onPress={() => setShowBirthdayPicker(false)}
+          tone="secondary"
+        />
+      </CuteModal>
+
+      <CuteModal
+        visible={showAnniversaryPicker}
+        onRequestClose={() => setShowAnniversaryPicker(false)}
+        title="Set your anniversary"
+        subtitle="This helps us track your days together."
+      >
+        <DateTimePicker
+          value={selectedAnniversaryDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handleAnniversaryPickerChange}
+          maximumDate={new Date()}
+        />
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <CuteButton
+            label="Save"
+            onPress={() => setShowAnniversaryPicker(false)}
+            style={{ flex: 1 }}
+          />
+          <CuteButton
+            label="Clear"
+            tone="ghost"
+            onPress={() => {
+              setAnniversary("");
+              setShowAnniversaryPicker(false);
+            }}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </CuteModal>
     </Screen>
   );
 }
