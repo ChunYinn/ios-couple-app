@@ -322,6 +322,41 @@ export const messageService = {
     } as DBMessage);
   },
 
+  async sendImageMessage(coupleId: string, uri: string): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
+
+    const messageRef = doc(collection(db, 'couples', coupleId, 'messages'));
+    const messageId = messageRef.id;
+
+    const cleanedUri = uri.split("?")[0]?.split("#")[0] ?? uri;
+    const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? "jpg";
+    const storagePath = `couples/${coupleId}/messages/${messageId}/${Date.now()}.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    await uploadBytes(storageRef, blob);
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    await setDoc(messageRef, {
+      sender: userId,
+      text: "",
+      type: "image",
+      mediaUrl: downloadUrl,
+      thumbnailUrl: downloadUrl,
+      duration: null,
+      reactions: {},
+      readBy: { [userId]: serverTimestamp() },
+      clientTimestamp: new Date().toISOString(),
+      timestamp: serverTimestamp(),
+      editedAt: null,
+      deletedAt: null,
+    } as DBMessage);
+  },
+
   // Add reaction to message
   async addReaction(coupleId: string, messageId: string, emoji: string): Promise<void> {
     const userId = auth.currentUser?.uid;
