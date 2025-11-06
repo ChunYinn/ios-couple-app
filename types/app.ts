@@ -88,6 +88,8 @@ export type ChatMessage = {
   sender: "me" | "partner";
   text: string;
   timestamp: string;
+  clientTimestamp?: string;
+  pending?: boolean;
   reaction?: string;
 };
 

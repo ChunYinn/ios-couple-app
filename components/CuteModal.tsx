@@ -70,8 +70,11 @@ export const CuteModal = ({
             }}
           />
           {title ? (
-            <View style={{ gap: 4 }}>
-              <CuteText weight="bold" style={{ fontSize: 18 }}>
+            <View style={{ gap: 4, marginTop: 8 }}>
+              <CuteText
+                weight="bold"
+                style={{ fontSize: 18, textAlign: "center" }}
+              >
                 {title}
               </CuteText>
               {subtitle ? (
@@ -79,7 +82,7 @@ export const CuteModal = ({
                   style={{
                     color: colors.textSecondary,
                     fontSize: 13,
-                    textAlign: "left",
+                    textAlign: "center",
                   }}
                 >
                   {subtitle}

@@ -82,6 +82,7 @@ export interface DBMessage {
   duration: number | null;
   reactions: Record<string, string[]>; // emoji -> userIds
   readBy: Record<string, Timestamp | FieldValue>; // userId -> timestamp
+  clientTimestamp?: string | null;
   timestamp: Timestamp | FieldValue;
   editedAt: Timestamp | FieldValue | null;
   deletedAt: Timestamp | FieldValue | null;

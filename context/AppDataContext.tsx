@@ -110,16 +110,53 @@ const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
 });
 
 const mapMessageFromDb = (
-  message: DBMessage,
+  payload: { message: DBMessage; pending: boolean },
   myUid: string
 ): ChatMessage => {
+  const { message, pending } = payload;
   const reactions = message.reactions ?? {};
   const firstReactionKey = Object.keys(reactions)[0];
+
+  const fallbackDate = (() => {
+    if (message.clientTimestamp) {
+      const candidate = new Date(message.clientTimestamp);
+      if (!Number.isNaN(candidate.getTime())) {
+        return candidate;
+      }
+    }
+    return new Date();
+  })();
+
+  let resolvedDate: Date | null = null;
+  const rawTimestamp = message.timestamp as any;
+  if (rawTimestamp) {
+    try {
+      if (typeof rawTimestamp.toDate === "function") {
+        resolvedDate = timestampToDate(rawTimestamp);
+      } else if (
+        rawTimestamp instanceof Date ||
+        typeof rawTimestamp === "string" ||
+        typeof rawTimestamp === "number"
+      ) {
+        const candidate = new Date(rawTimestamp);
+        if (!Number.isNaN(candidate.getTime())) {
+          resolvedDate = candidate;
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to parse message timestamp", error);
+    }
+  }
+
+  const finalDate = resolvedDate ?? fallbackDate;
+
   return {
     id: message.id ?? generateId("msg"),
     sender: message.sender === myUid ? "me" : "partner",
     text: message.text,
-    timestamp: timestampToDate(message.timestamp).toISOString(),
+    timestamp: finalDate.toISOString(),
+    clientTimestamp: fallbackDate.toISOString(),
+    pending,
     reaction: firstReactionKey,
   };
 };
@@ -879,10 +916,17 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = messageService.subscribeToMessages(
       coupleId,
-      (messages: DBMessage[]) => {
+      (entries) => {
+        const mapped = entries
+          .map((entry) => mapMessageFromDb(entry, uid))
+          .sort(
+            (a, b) =>
+              new Date(a.timestamp).getTime() -
+              new Date(b.timestamp).getTime()
+          );
         dispatch({
           type: "SYNC_CHAT_MESSAGES",
-          payload: messages.map((message) => mapMessageFromDb(message, uid)),
+          payload: mapped,
         });
       }
     );

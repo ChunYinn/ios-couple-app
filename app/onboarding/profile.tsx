@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  GestureResponderEvent,
   Image,
   Platform,
   Pressable,
@@ -31,11 +30,7 @@ import { usePalette } from "../../hooks/usePalette";
 import { firebaseAuth } from "../../firebase/config";
 import { userService } from "../../firebase/services";
 import { PronounValue } from "../../types/app";
-import {
-  calculateDaysTogether,
-  formatDateToYMD,
-  parseLocalDate,
-} from "../../utils/dateUtils";
+import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
 const DEFAULT_ABOUT = "Curious heart who loves to make memories that feel like magic.";
@@ -65,18 +60,13 @@ export default function ProfileSetupScreen() {
   const initialBirthday = authUser.birthday
     ? formatDateToYMD(authUser.birthday)
     : "";
-  const initialAnniversary = authUser.anniversaryDate
-    ? formatDateToYMD(authUser.anniversaryDate)
-    : "";
   const initialAvatar =
     existingProfile?.avatarUrl ?? authUser.avatarUrl ?? undefined;
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [pronouns, setPronouns] = useState<PronounValue | null>(initialPronouns);
   const [birthday, setBirthday] = useState(initialBirthday);
-  const [anniversary, setAnniversary] = useState(initialAnniversary);
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
-  const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
     initialAvatar
   );
@@ -90,10 +80,6 @@ export default function ProfileSetupScreen() {
     [birthday]
   );
 
-  const selectedAnniversaryDate = useMemo(
-    () => (anniversary ? parseLocalDate(anniversary) : new Date()),
-    [anniversary]
-  );
 
 
   const requestLibraryAccess = async () => {
@@ -205,23 +191,6 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  const handleAnniversaryPickerChange = (
-    event: DateTimePickerEvent,
-    date?: Date
-  ) => {
-    if (Platform.OS === "android") {
-      if (event.type === "dismissed") {
-        setShowAnniversaryPicker(false);
-        return;
-      }
-      setShowAnniversaryPicker(false);
-    }
-    if (date) {
-      const formatted = formatDateToYMD(date.toISOString());
-      setAnniversary(formatted);
-    }
-  };
-
   const handleContinue = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName.length) {
@@ -258,13 +227,11 @@ export default function ProfileSetupScreen() {
       }
 
       const birthdayValue = birthday ? formatDateToYMD(birthday) : null;
-      const anniversaryValue = anniversary ? formatDateToYMD(anniversary) : null;
 
       await userService.createUser(uid, {
         displayName: trimmedName,
         avatarUrl: nextAvatarUrl ?? null,
         birthday: birthdayValue,
-        anniversaryDate: anniversaryValue,
         pronouns: pronouns ?? null,
         authProvider: "anonymous",
         email: "",
@@ -292,7 +259,6 @@ export default function ProfileSetupScreen() {
           displayName: trimmedName,
           avatarUrl: nextAvatarUrl,
           birthday: birthdayValue ?? undefined,
-          anniversary: anniversaryValue ?? undefined,
           pronouns: pronouns ?? undefined,
           status: existingProfile?.status ?? DEFAULT_STATUS,
           about: existingProfile?.about ?? DEFAULT_ABOUT,
@@ -301,20 +267,6 @@ export default function ProfileSetupScreen() {
         },
       });
 
-      if (anniversaryValue) {
-        dispatch({
-          type: "SET_ANNIVERSARY",
-          payload: {
-            anniversaryDate: anniversaryValue,
-            daysTogether: calculateDaysTogether(anniversaryValue),
-          },
-        });
-      } else if (state.dashboard.anniversaryDate) {
-        dispatch({
-          type: "SET_ANNIVERSARY",
-          payload: { anniversaryDate: "", daysTogether: 0 },
-        });
-      }
     } catch (err) {
       console.error("Profile setup failed:", err);
       const message =
@@ -473,53 +425,6 @@ export default function ProfileSetupScreen() {
             </Pressable>
           </View>
 
-          <View style={{ gap: 12 }}>
-            <CuteText weight="bold">Anniversary (optional)</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Choosing this now lets us start counting your days together.
-            </CuteText>
-            <Pressable
-              onPress={() => setShowAnniversaryPicker(true)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: palette.border,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                backgroundColor: palette.card,
-              }}
-            >
-              <MaterialIcons
-                name="favorite"
-                size={18}
-                color={palette.primary}
-              />
-              <CuteText style={{ flex: 1 }}>
-                {anniversary
-                  ? formatBirthdayLabel(anniversary)
-                  : "Set your Day 0"}
-              </CuteText>
-              {anniversary ? (
-                <Pressable
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    setAnniversary("");
-                  }}
-                  hitSlop={8}
-                  style={{ padding: 4 }}
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={18}
-                    color={palette.textSecondary}
-                  />
-                </Pressable>
-              ) : null}
-            </Pressable>
-          </View>
         </View>
 
       {error ? (
@@ -551,53 +456,24 @@ export default function ProfileSetupScreen() {
       <CuteModal
         visible={showBirthdayPicker}
         onRequestClose={() => setShowBirthdayPicker(false)}
-        title="Select your birthday"
-        subtitle="We keep this local to remind you of sweet moments."
+        title="Pick a birthday"
+        contentStyle={{ alignItems: "center", gap: 16 }}
       >
         <DateTimePicker
           value={selectedBirthdayDate}
           mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "default"}
+          display={Platform.OS === "ios" ? "spinner" : "calendar"}
           onChange={handleBirthdayPickerChange}
           maximumDate={new Date()}
         />
         <CuteButton
           label="Done"
-          onPress={() => setShowBirthdayPicker(false)}
           tone="secondary"
+          onPress={() => setShowBirthdayPicker(false)}
+          style={{ minWidth: 140 }}
         />
       </CuteModal>
 
-      <CuteModal
-        visible={showAnniversaryPicker}
-        onRequestClose={() => setShowAnniversaryPicker(false)}
-        title="Set your anniversary"
-        subtitle="This helps us track your days together."
-      >
-        <DateTimePicker
-          value={selectedAnniversaryDate}
-          mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={handleAnniversaryPickerChange}
-          maximumDate={new Date()}
-        />
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <CuteButton
-            label="Save"
-            onPress={() => setShowAnniversaryPicker(false)}
-            style={{ flex: 1 }}
-          />
-          <CuteButton
-            label="Clear"
-            tone="ghost"
-            onPress={() => {
-              setAnniversary("");
-              setShowAnniversaryPicker(false);
-            }}
-            style={{ flex: 1 }}
-          />
-        </View>
-      </CuteModal>
     </Screen>
   );
 }

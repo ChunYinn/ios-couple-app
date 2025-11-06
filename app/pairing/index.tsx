@@ -25,6 +25,7 @@ import {
   normalizeLoveLanguages,
 } from "../../data/loveLanguages";
 import { firebaseApp } from "../../firebase/config";
+import { calculateDaysTogether } from "../../utils/dateUtils";
 
 export default function PairingScreen() {
   const palette = usePalette();
@@ -75,6 +76,7 @@ export default function PairingScreen() {
       const ownerName =
         profiles.me?.displayName ?? auth.user.displayName ?? "You";
 
+      const hostAnniversary = auth.user.anniversaryDate ?? null;
       let coupleId = pairing.coupleId ?? auth.user.coupleId;
       let code = pairing.inviteCode ?? null;
       let qrData = pairing.qrCodeData ?? null;
@@ -88,6 +90,8 @@ export default function PairingScreen() {
           avatarUrl: profiles.me?.avatarUrl ?? null,
           coupleId,
         });
+      }
+
       if (profiles.me) {
         await profileService.createProfile(coupleId, auth.user.uid, {
           displayName: profiles.me.displayName,
@@ -98,9 +102,15 @@ export default function PairingScreen() {
           emoji: "💕",
           loveLanguages: profiles.me.loveLanguages,
           birthday: auth.user.birthday ?? null,
+          anniversary: hostAnniversary,
           favorites: [],
         });
       }
+
+      if (hostAnniversary) {
+        await coupleService.setAnniversary(coupleId, hostAnniversary);
+      }
+      if (code) {
         qrData = `COUPLE:${code}`;
         shareLink = `https://couple.ly/invite/${code}`;
       }
@@ -158,7 +168,7 @@ export default function PairingScreen() {
 
     try {
       setIsJoining(true);
-      const functions = getFunctions(firebaseApp);
+      const functions = getFunctions(firebaseApp, "australia-southeast1");
       const redeemInvite = httpsCallable(functions, "redeemInvite");
       const response = await redeemInvite({ code: trimmed });
       const coupleId = (response.data as { coupleId?: string })?.coupleId;
@@ -178,6 +188,7 @@ export default function PairingScreen() {
           emoji: "💕",
           loveLanguages: myProfile.loveLanguages,
           birthday: auth.user.birthday ?? null,
+          anniversary: auth.user.anniversaryDate ?? null,
           favorites: [],
         });
       }
@@ -187,6 +198,19 @@ export default function PairingScreen() {
         avatarUrl: myProfile?.avatarUrl ?? auth.user.avatarUrl ?? null,
         coupleId,
       });
+
+      const coupleDetails = await coupleService.getCouple(coupleId);
+      const hostAnniversary = coupleDetails?.anniversaryDate ?? null;
+
+      if (hostAnniversary) {
+        dispatch({
+          type: "SET_ANNIVERSARY",
+          payload: {
+            anniversaryDate: hostAnniversary,
+            daysTogether: calculateDaysTogether(hostAnniversary),
+          },
+        });
+      }
 
       const profileData = await profileService.getCoupleProfiles(coupleId);
       const partnerEntry =
