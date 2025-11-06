@@ -111,7 +111,8 @@ const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
 
 const mapMessageFromDb = (
   payload: { message: DBMessage; pending: boolean },
-  myUid: string
+  myUid: string,
+  partnerUid?: string | null
 ): ChatMessage => {
   const { message, pending } = payload;
   const reactions = message.reactions ?? {};
@@ -149,14 +150,37 @@ const mapMessageFromDb = (
   }
 
   const finalDate = resolvedDate ?? fallbackDate;
+  const readBy = message.readBy ?? {};
+  const rawReadByMe = myUid ? readBy[myUid] : undefined;
+  const rawReadByPartner = partnerUid ? readBy[partnerUid] : undefined;
+
+  const readByMe =
+    rawReadByMe !== undefined && rawReadByMe !== null
+      ? true
+      : message.sender === myUid;
+
+  let readAt: string | undefined;
+  if (rawReadByPartner) {
+    try {
+      readAt = timestampToDate(rawReadByPartner).toISOString();
+    } catch (error) {
+      console.warn("Unable to parse message readAt", error);
+    }
+  }
 
   return {
     id: message.id ?? generateId("msg"),
     sender: message.sender === myUid ? "me" : "partner",
     text: message.text,
+    type: message.type,
+    mediaUrl: message.mediaUrl ?? undefined,
+    thumbnailUrl: message.thumbnailUrl ?? undefined,
     timestamp: finalDate.toISOString(),
     clientTimestamp: fallbackDate.toISOString(),
     pending,
+    readByMe,
+    readByPartner: Boolean(rawReadByPartner),
+    readAt,
     reaction: firstReactionKey,
   };
 };
@@ -240,6 +264,9 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           partnerName: undefined,
           partnerAvatar: undefined,
           messages: [],
+          unreadCount: 0,
+          lastReadTimestamp: null,
+          locallyReadMessageIds: {},
         },
         gallery: { flashbacks: [], items: [] },
       };
@@ -433,6 +460,9 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           partnerName: undefined,
           partnerAvatar: undefined,
           messages: [],
+          unreadCount: 0,
+          lastReadTimestamp: null,
+          locallyReadMessageIds: {},
         },
         gallery: { flashbacks: [], items: [] },
       };
@@ -610,11 +640,50 @@ const reducer = (state: AppState, action: AppAction): AppState => {
       };
     }
     case "SYNC_CHAT_MESSAGES": {
+      const localRead = state.chat.locallyReadMessageIds ?? {};
+      const messages = action.payload.map((message) =>
+        message.sender === "partner" && localRead[message.id]
+          ? { ...message, readByMe: true }
+          : message
+      );
+      const unreadCount = messages.filter(
+        (message) => message.sender === "partner" && !message.readByMe
+      ).length;
       return {
         ...state,
         chat: {
           ...state.chat,
-          messages: action.payload,
+          messages,
+          unreadCount,
+        },
+      };
+    }
+    case "MARK_CHAT_MESSAGES_READ": {
+      if (!action.payload.messageIds.length) {
+        return state;
+      }
+      const updatedLocal = {
+        ...state.chat.locallyReadMessageIds,
+      };
+      action.payload.messageIds.forEach((id) => {
+        updatedLocal[id] = true;
+      });
+      const messages = state.chat.messages.map((message) =>
+        message.sender === "partner" && updatedLocal[message.id]
+          ? { ...message, readByMe: true }
+          : message
+      );
+      const unreadCount = messages.filter(
+        (message) => message.sender === "partner" && !message.readByMe
+      ).length;
+      return {
+        ...state,
+        chat: {
+          ...state.chat,
+          messages,
+          unreadCount,
+          locallyReadMessageIds: updatedLocal,
+          lastReadTimestamp: action.payload.timestamp,
         },
       };
     }
@@ -914,28 +983,26 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const unsubscribe = messageService.subscribeToMessages(
-      coupleId,
-      (entries) => {
-        const mapped = entries
-          .map((entry) => mapMessageFromDb(entry, uid))
-          .sort(
-            (a, b) =>
-              new Date(a.timestamp).getTime() -
-              new Date(b.timestamp).getTime()
-          );
-        dispatch({
-          type: "SYNC_CHAT_MESSAGES",
-          payload: mapped,
-        });
-      }
-    );
+    const partnerUid = state.profiles.partner?.uid ?? null;
+    const unsubscribe = messageService.subscribeToMessages(coupleId, (entries) => {
+      const mapped = entries
+        .map((entry) => mapMessageFromDb(entry, uid, partnerUid))
+        .sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      dispatch({
+        type: "SYNC_CHAT_MESSAGES",
+        payload: mapped,
+      });
+    });
 
     return unsubscribe;
   }, [
     state.pairing.isPaired,
     state.auth.user.coupleId,
     state.auth.user.uid,
+    state.profiles.partner?.uid,
   ]);
 
   useEffect(() => {

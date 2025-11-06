@@ -87,9 +87,15 @@ export type ChatMessage = {
   id: string;
   sender: "me" | "partner";
   text: string;
+  type: "text" | "image" | "voice" | "location" | "gif";
+  mediaUrl?: string | null;
+  thumbnailUrl?: string | null;
   timestamp: string;
   clientTimestamp?: string;
   pending?: boolean;
+  readByMe?: boolean;
+  readByPartner?: boolean;
+  readAt?: string;
   reaction?: string;
 };
 
@@ -144,6 +150,9 @@ export type ChatState = {
   partnerName?: string;
   partnerAvatar?: string;
   messages: ChatMessage[];
+  unreadCount: number;
+  lastReadTimestamp?: string | null;
+  locallyReadMessageIds: Record<string, true>;
 };
 
 export type GalleryState = {
@@ -175,6 +184,10 @@ export type AppAction =
     }
   | { type: "SIGN_OUT" }
   | { type: "RESET_SESSION" }
+  | {
+      type: "MARK_CHAT_MESSAGES_READ";
+      payload: { messageIds: string[]; timestamp: string };
+    }
   | {
       type: "SAVE_PROFILE";
       payload: {
