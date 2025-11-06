@@ -100,6 +100,7 @@ const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
   about: profile.about ?? DEFAULT_PROFILE_ABOUT,
   accentColor: profile.accentColor ?? DEFAULT_PROFILE_ACCENT,
   birthday: profile.birthday ?? undefined,
+  anniversary: profile.anniversary ?? undefined,
   loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
   favorites:
     profile.favorites?.map((favorite) => ({
@@ -230,6 +231,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           DEFAULT_PROFILE_ABOUT,
         accentColor: action.payload.accentColor ?? state.settings.accent,
         birthday: action.payload.birthday ?? state.profiles.me?.birthday,
+        anniversary: action.payload.anniversary ?? state.profiles.me?.anniversary,
         loveLanguages: normalizeLoveLanguages(action.payload.loveLanguages),
         favorites: state.profiles.me?.favorites ?? [],
       };
@@ -244,6 +246,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
             avatarUrl: action.payload.avatarUrl,
             birthday: action.payload.birthday,
             pronouns: action.payload.pronouns,
+            anniversaryDate: action.payload.anniversary ?? state.auth.user.anniversaryDate,
           },
         },
         profiles: {
@@ -355,6 +358,12 @@ const reducer = (state: AppState, action: AppAction): AppState => {
             : "Hello love birds!",
           daysTogether: action.payload.daysTogether,
           anniversaryDate: nextAnniversary ?? null,
+        },
+        profiles: {
+          ...state.profiles,
+          me: state.profiles.me
+            ? { ...state.profiles.me, anniversary: nextAnniversary }
+            : state.profiles.me,
         },
       };
     }

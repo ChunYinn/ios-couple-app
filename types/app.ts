@@ -54,6 +54,7 @@ export type PartnerProfile = {
   about?: string;
   accentColor: string;
   birthday?: string;
+  anniversary?: string;
   loveLanguages: LoveLanguageValue[];
   favorites: ProfileFavorite[];
 };
@@ -178,6 +179,7 @@ export type AppAction =
         displayName: string;
         avatarUrl?: string;
         birthday?: string;
+        anniversary?: string;
         pronouns?: PronounValue;
         status?: string;
         about?: string;

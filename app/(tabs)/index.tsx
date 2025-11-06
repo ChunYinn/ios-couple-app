@@ -3,14 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  View,
-  useColorScheme,
-  Platform,
-} from "react-native";
+import { Image, Pressable, ScrollView, View, Platform, useWindowDimensions } from "react-native";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -25,12 +18,7 @@ import { Chip } from "../../components/Chip";
 import { useAppData } from "../../context/AppDataContext";
 import { usePalette } from "../../hooks/usePalette";
 import { coupleService, userService } from "../../firebase/services";
-import {
-  calculateDaysTogether,
-  formatDateToYMD,
-  formatDaysText,
-  parseLocalDate,
-} from "../../utils/dateUtils";
+import { calculateDaysTogether, formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 type ActionRoute =
   | "/(tabs)/chat"
@@ -80,12 +68,13 @@ const quickActions: QuickAction[] = [
 export default function AnniversaryDashboardScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const scheme = useColorScheme();
+  const { width } = useWindowDimensions();
   const {
     state: { auth, pairing, dashboard, milestones, profiles, settings },
     dispatch,
   } = useAppData();
   const isPaired = pairing.isPaired;
+  const isCompactLayout = width < 360;
   const displayName =
     profiles.me?.displayName ?? auth.user.displayName ?? "You";
   const greeting = dashboard.helloMessage ?? `Hello ${displayName}!`;
@@ -259,11 +248,16 @@ export default function AnniversaryDashboardScreen() {
 
   const statsCards = useMemo<StatsCard[]>(() => {
     const hasDays = dashboard.daysTogether && dashboard.daysTogether > 0;
+    const daysValue = hasDays
+      ? `${dashboard.daysTogether.toLocaleString()} ${
+          dashboard.daysTogether === 1 ? "day" : "days"
+        }`
+      : "Set your Day 0";
     const anniversaryValue = dashboard.anniversaryDate
       ? parseLocalDate(dashboard.anniversaryDate).toLocaleDateString(
           undefined,
           {
-            month: "long",
+            month: "short",
             day: "numeric",
             year: "numeric",
           }
@@ -277,9 +271,7 @@ export default function AnniversaryDashboardScreen() {
       {
         id: "days",
         label: "Together for",
-        value: hasDays
-          ? formatDaysText(dashboard.daysTogether).replace(" together", "")
-          : "Set your Day 0",
+        value: daysValue,
         gradient: ["#FFD8E2", "#FFB3C6"],
       },
       {
@@ -359,7 +351,7 @@ export default function AnniversaryDashboardScreen() {
         gap: 20,
       }}
     >
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <StatusBar style="dark" />
       <View
         style={{
           flexDirection: "row",
@@ -409,7 +401,7 @@ export default function AnniversaryDashboardScreen() {
 
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: isCompactLayout ? "column" : "row",
           gap: 16,
         }}
       >
@@ -459,11 +451,15 @@ export default function AnniversaryDashboardScreen() {
             </LinearGradient>
           );
 
+          const containerStyle = isCompactLayout
+            ? { width: "100%" }
+            : { flex: 1 };
+
           if (card.actionable) {
             return (
               <Pressable
                 key={card.id}
-                style={{ flex: 1 }}
+                style={containerStyle}
                 onPress={openAnniversaryModal}
                 accessibilityRole="button"
                 accessibilityLabel="Set anniversary date"
@@ -475,7 +471,7 @@ export default function AnniversaryDashboardScreen() {
           }
 
           return (
-            <View key={card.id} style={{ flex: 1 }}>
+            <View key={card.id} style={containerStyle}>
               {content}
             </View>
           );
