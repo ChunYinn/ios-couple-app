@@ -9,10 +9,10 @@ export default function TabLayout() {
   const colors = usePalette();
   const router = useRouter();
   const {
-    state: { dashboard, pairing },
+    state: { pairing, chat },
   } = useAppData();
-  const badgeValue =
-    dashboard.daysTogether > 0 ? dashboard.daysTogether.toString() : undefined;
+  const chatBadge =
+    chat.unreadCount > 0 ? chat.unreadCount.toString() : undefined;
   const guardTabPress = (requiresPair: boolean) => ({
     tabPress: (event: { preventDefault(): void }) => {
       if (requiresPair && !pairing.isPaired) {
@@ -46,12 +46,6 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarBadge: badgeValue,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
-            color: "#fff",
-            fontWeight: "700",
-          },
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="favorite" size={size} color={color} />
           ),
@@ -62,6 +56,12 @@ export default function TabLayout() {
         listeners={guardTabPress(true)}
         options={{
           title: "Chat",
+          tabBarBadge: chatBadge,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: "#fff",
+            fontWeight: "700",
+          },
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="chat-bubble" size={size} color={color} />
           ),

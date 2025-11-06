@@ -39,6 +39,9 @@ export const initialState: AppState = {
     partnerName: undefined,
     partnerAvatar: undefined,
     messages: [],
+    unreadCount: 0,
+    lastReadTimestamp: null,
+    locallyReadMessageIds: {},
   },
   gallery: {
     flashbacks: [],
