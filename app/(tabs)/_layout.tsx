@@ -71,9 +71,9 @@ export default function TabLayout() {
         name="gallery"
         listeners={guardTabPress(true)}
         options={{
-          title: "Memories",
+          title: "Milestones",
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="photo-library" size={size} color={color} />
+            <MaterialIcons name="auto-awesome" size={size} color={color} />
           ),
         }}
       />

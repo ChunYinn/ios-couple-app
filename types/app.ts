@@ -62,8 +62,12 @@ export type PartnerProfile = {
 export type Milestone = {
   id: string;
   title: string;
-  image: string;
-  description: string;
+  image?: string;
+  description?: string;
+  badgeColor?: string;
+  achievedAt?: string | null;
+  dayCount?: number | null;
+  createdBy?: string | null;
 };
 
 export type TodoCategory = {
@@ -77,10 +81,17 @@ export type TodoCategory = {
 export type TodoItem = {
   id: string;
   categoryId: string;
+  categoryKey?: string;
   title: string;
   completed: boolean;
   assigneeIds: string[];
   dueDate?: string;
+  mood?: "urgent" | "chill" | "idea";
+  location?: string;
+  costEstimate?: string;
+  notes?: string;
+  completedAt?: string;
+  proofImageUrl?: string;
 };
 
 export type ChatMessage = {
@@ -233,11 +244,30 @@ export type AppAction =
   | { type: "DELETE_TODO_CATEGORY"; payload: { categoryId: string } }
   | {
       type: "ADD_TODO_ITEM";
-      payload: { categoryId: string; title: string; assigneeIds: string[]; dueDate?: string };
+      payload: {
+        id?: string;
+        categoryId: string;
+        categoryKey?: string;
+        title: string;
+        assigneeIds: string[];
+        dueDate?: string;
+        mood?: TodoItem["mood"];
+        location?: string;
+        costEstimate?: string;
+        notes?: string;
+      };
     }
   | { type: "SYNC_TODO_CATEGORIES"; payload: TodoCategory[] }
   | { type: "SYNC_TODO_ITEMS"; payload: TodoItem[] }
-  | { type: "TOGGLE_TODO_ITEM"; payload: { itemId: string } }
+  | {
+      type: "TOGGLE_TODO_ITEM";
+      payload: {
+        itemId: string;
+        completed: boolean;
+        completedAt?: string | null;
+        proofImageUrl?: string | null;
+      };
+    }
   | {
       type: "UPDATE_PROFILE_NOTE";
       payload: { status?: string; about?: string; loveLanguages?: LoveLanguageValue[] };

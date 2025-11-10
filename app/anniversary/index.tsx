@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { View, useColorScheme, Platform, TouchableOpacity } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { Screen } from "../../components/Screen";
 import { CuteText } from "../../components/CuteText";
 import { CuteButton } from "../../components/CuteButton";
+import { AppDatePicker } from "../../components/AppDatePicker";
 import { usePalette } from "../../hooks/usePalette";
 import { useAppData } from "../../context/AppDataContext";
 import { coupleService, userService } from "../../firebase/services";
@@ -156,10 +156,9 @@ export default function AnniversaryScreen() {
         </View>
 
         {showDatePicker && (
-          <DateTimePicker
+          <AppDatePicker
             value={selectedDate}
             mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
             onChange={(_, date) => {
               setShowDatePicker(Platform.OS === "android");
               if (date) {

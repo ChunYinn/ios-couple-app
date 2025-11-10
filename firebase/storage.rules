@@ -3,6 +3,12 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    function isCoupleMember(coupleId) {
+      return request.auth != null &&
+        request.auth.uid in
+        firestore.get(/databases/(default)/documents/couples/$(coupleId)).data.members;
+    }
+
     // User avatars live under users/{uid}/avatar/{file}
     match /users/{userId}/avatar/{fileName} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -14,9 +20,23 @@ service firebase.storage {
 
     // Couple memories shared between paired users
     match /couples/{coupleId}/memories/{fileName} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid in
-                            get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
+      allow read, write: if isCoupleMember(coupleId);
+    }
+
+    // Milestone covers under couples/{coupleId}/milestones/{file}
+    match /couples/{coupleId}/milestones/{fileName} {
+      allow read: if isCoupleMember(coupleId);
+      allow write: if isCoupleMember(coupleId)
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 8 * 1024 * 1024;
+    }
+
+    // Proof photos for completed todos
+    match /couples/{coupleId}/todos/{todoId}/{fileName} {
+      allow read: if isCoupleMember(coupleId);
+      allow write: if isCoupleMember(coupleId)
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 8 * 1024 * 1024;
     }
 
     // Everything else is denied by default

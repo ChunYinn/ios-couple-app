@@ -419,15 +419,43 @@ export const todoService = {
   },
 
   // Create todo item
-  async createTodoItem(coupleId: string, data: Omit<DBTodoItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async createTodoItem(
+    coupleId: string,
+    data: {
+      categoryId: string;
+      categoryKey?: string;
+      title: string;
+      assigneeIds: string[];
+      dueDate?: string;
+      location?: string;
+      costEstimate?: string;
+      notes?: string;
+      mood?: string | null;
+    }
+  ): Promise<string> {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
 
     const itemRef = await addDoc(collection(db, 'couples', coupleId, 'todoItems'), {
-      ...data,
+      categoryId: data.categoryId,
+      categoryKey: data.categoryKey ?? data.categoryId,
+      title: data.title,
+      description: data.notes ?? null,
+      notes: data.notes ?? null,
+      mood: data.mood ?? null,
+      location: data.location ?? null,
+      costEstimate: data.costEstimate ?? null,
+      completed: false,
+      priority: null,
+      assigneeIds: data.assigneeIds,
+      dueDate: data.dueDate ?? null,
+      reminderDate: null,
       createdBy: userId,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      completedAt: null,
+      completedBy: null,
+      proofImageUrl: null
     });
 
     return itemRef.id;
@@ -454,17 +482,51 @@ export const todoService = {
     await batch.commit();
   },
 
-  // Toggle todo completion
-  async toggleTodo(coupleId: string, todoId: string, completed: boolean): Promise<void> {
+  // Toggle todo completion / proof
+  async toggleTodo(
+    coupleId: string,
+    todoId: string,
+    completed: boolean,
+    options?: {
+      proofPhotoUri?: string;
+      note?: string;
+      milestoneTitle?: string;
+      milestoneDescription?: string;
+      dayCount?: number;
+    }
+  ): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
+
+    let proofImageUrl: string | null = null;
+    if (completed && options?.proofPhotoUri) {
+      proofImageUrl = await this.uploadTodoProof(
+        coupleId,
+        todoId,
+        options.proofPhotoUri
+      );
+    }
 
     await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), {
       completed,
       completedAt: completed ? serverTimestamp() : null,
       completedBy: completed ? userId : null,
+      proofImageUrl: completed ? proofImageUrl : null,
+      notes: options?.note ?? null,
       updatedAt: serverTimestamp()
     });
+
+    if (completed && proofImageUrl) {
+      await milestoneService.createMilestone(coupleId, {
+        title: options?.milestoneTitle ?? "Finished a shared mission",
+        description:
+          options?.milestoneDescription ??
+          "A proof photo was added from your to-do list.",
+        image: proofImageUrl,
+        type: 'custom',
+        dayCount: options?.dayCount ?? null,
+      });
+    }
   },
 
   // Get todos by category
@@ -496,6 +558,24 @@ export const todoService = {
       });
       callback(categories);
     });
+  },
+
+  async uploadTodoProof(
+    coupleId: string,
+    todoId: string,
+    uri: string
+  ): Promise<string> {
+    const cleanedUri = uri.split('?')[0]?.split('#')[0] ?? uri;
+    const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const storagePath = `couples/${coupleId}/todos/${todoId}/proof/${Date.now()}.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    await uploadBytes(storageRef, blob);
+    return getDownloadURL(storageRef);
   },
 
   // Subscribe to todos
@@ -751,17 +831,65 @@ export const milestoneService = {
     coupleId: string,
     data: Partial<DBMilestone>
   ): Promise<string> {
+    const { achievedAt, createdAt, ...rest } = data;
     const milestoneRef = await addDoc(collection(db, 'couples', coupleId, 'milestones'), {
-      ...data,
-      image: data.image || 'default-milestone.png',
-      badgeColor: data.badgeColor || '#FFD700',
-      icon: data.icon || 'star',
-      achievedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      createdBy: data.type === 'custom' ? auth.currentUser?.uid : null
+      ...rest,
+      title: rest.title ?? 'Milestone',
+      description: rest.description ?? '',
+      type: rest.type ?? 'custom',
+      dayCount: rest.dayCount ?? null,
+      image: rest.image ?? 'default-milestone.png',
+      badgeColor: rest.badgeColor ?? '#FFD700',
+      icon: rest.icon ?? 'star',
+      achievedAt: achievedAt ?? serverTimestamp(),
+      createdAt: createdAt ?? serverTimestamp(),
+      createdBy:
+        rest.type === 'custom'
+          ? auth.currentUser?.uid
+          : rest.createdBy ?? null
     });
 
     return milestoneRef.id;
+  },
+
+  async uploadMilestoneImage(coupleId: string, uri: string): Promise<string> {
+    const cleanedUri = uri.split('?')[0]?.split('#')[0] ?? uri;
+    const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const storagePath = `couples/${coupleId}/milestones/${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    await uploadBytes(storageRef, blob);
+    return getDownloadURL(storageRef);
+  },
+
+  async createMilestoneWithImage(
+    coupleId: string,
+    data: {
+      title: string;
+      description?: string;
+      imageUri: string;
+      achievedAt?: Date;
+      dayCount?: number | null;
+    }
+  ): Promise<string> {
+    const downloadUrl = await this.uploadMilestoneImage(coupleId, data.imageUri);
+    const achievedAtValue = data.achievedAt
+      ? Timestamp.fromDate(data.achievedAt)
+      : serverTimestamp();
+    return this.createMilestone(coupleId, {
+      title: data.title,
+      description: data.description ?? '',
+      image: downloadUrl,
+      type: 'custom',
+      dayCount: data.dayCount ?? null,
+      achievedAt: achievedAtValue
+    });
   },
 
   subscribeToMilestones(

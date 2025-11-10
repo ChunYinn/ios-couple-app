@@ -29,6 +29,8 @@ export const demoMilestones: Milestone[] = [
       "https://lh3.googleusercontent.com/aida-public/AB6AXuC8v4Z7pK37UDa40xn1hclBvHKlSp2-IkmBAhKkx-RHbAnksGw1QCssIxatYLtX5uiYm6jVP7gjUhuNULD37wmzt41F-bw54-eqldAH6dTGqPWDE_RW-DOgkkhusbIYUPl-6w6vMsA-02PpK_c3YvZxXOT6qn7aricwQMDxUD-j69zamcsNNLKt7AxgejP88ploxaDBQsrAJSjQzI2eGTauZtwdoUau7u0c7kxsMIGZPfiAV7zeD2ysjc68DUWmvUEx4CY490OZaFIm",
     description:
       "Your magical engagement day — keep track of sweet details, photos, and the proposal story.",
+    achievedAt: "2023-09-15T00:00:00.000Z",
+    dayCount: 1000,
   },
   {
     id: "trip",
@@ -37,6 +39,8 @@ export const demoMilestones: Milestone[] = [
       "https://lh3.googleusercontent.com/aida-public/AB6AXuA2S0k3LDoicuTpm9YRaCJiyrvQzNtjGpCIqbzRRXc7Ro21sbF7RE1YK_n7qQ2eS0PTF8BuD1eOu7ruMutqzZoD8ygfKeAoDyiqP2Ee_rjv2tuB2TpzSGRtbg-uoyN848PRl7ly6CK-YOZ1Irc0qwgPuRwI8iGYDVOrTkvZRRtT8YdoDeV-DTrajIaPlufehmTUgAquf-DRVfM07PW8HWgEEqMWna5AQlpITUogL-vCi8mmZtBbKClV-LK4HKtRyH67z7ReoxYCN1KI",
     description:
       "A dreamy adventure that deserves its own highlight reel. Add pins, itinerary ideas, and keepsakes.",
+    achievedAt: "2023-06-02T00:00:00.000Z",
+    dayCount: 200,
   },
   {
     id: "house",

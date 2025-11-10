@@ -3,27 +3,33 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, View, Platform, useWindowDimensions } from "react-native";
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  View,
+  Platform,
+  useWindowDimensions,
+  StyleSheet,
+} from "react-native";
+import { DateTimePickerEvent } from "../../components/AppDatePicker";
 
-import { CuteButton } from "../../components/CuteButton";
-import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
+import { CuteCard } from "../../components/CuteCard";
 import { Screen } from "../../components/Screen";
 import { SectionHeader } from "../../components/SectionHeader";
-import { Chip } from "../../components/Chip";
 import { useAppData } from "../../context/AppDataContext";
 import { usePalette } from "../../hooks/usePalette";
 import { coupleService, userService } from "../../firebase/services";
 import { calculateDaysTogether, formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
+import { DatePickerSheet } from "../../components/DatePickerSheet";
 
 type ActionRoute =
   | "/(tabs)/chat"
   | "/(tabs)/gallery"
   | "/(tabs)/lists"
-  | "/location";
+  | "/location"
+  | "/milestone/new";
 
 type QuickAction = {
   id: string;
@@ -42,10 +48,10 @@ const quickActions: QuickAction[] = [
     requiresPair: true,
   },
   {
-    id: "memory",
-    label: "Add Memory",
-    icon: "add-photo-alternate",
-    route: "/(tabs)/gallery",
+    id: "milestone",
+    label: "Add Milestone",
+    icon: "auto-awesome",
+    route: "/milestone/new",
     requiresPair: true,
   },
   {
@@ -73,7 +79,15 @@ export default function AnniversaryDashboardScreen() {
     dispatch,
   } = useAppData();
   const isPaired = pairing.isPaired;
-  const isCompactLayout = width < 360;
+  const isUltraNarrow = width < 360;
+  const contentWidth = width - 40;
+  const quickActionCardWidth = Math.max(120, (contentWidth - 12) / 2);
+  const milestoneAvatarSize = isUltraNarrow ? 56 : 68;
+  const milestoneFrameSize = milestoneAvatarSize + 4;
+  const milestoneCardWidth = milestoneAvatarSize + (isUltraNarrow ? 14 : 20);
+  const milestoneItemGap = isUltraNarrow ? 6 : 8;
+  const statValueFontSize = isUltraNarrow ? 20 : 24;
+  const statLabelFontSize = isUltraNarrow ? 13 : 15;
   const profileCardWidth = Math.min(280, Math.max(220, width * 0.45));
   const displayName =
     profiles.me?.displayName ?? auth.user.displayName ?? "You";
@@ -283,6 +297,11 @@ export default function AnniversaryDashboardScreen() {
     });
   };
 
+  const milestoneReels = useMemo(
+    () => milestones.slice(0, 12),
+    [milestones]
+  );
+
   const handleActionPress = (
     route: ActionRoute,
     requiresPair?: boolean
@@ -352,8 +371,9 @@ export default function AnniversaryDashboardScreen() {
 
       <View
         style={{
-          flexDirection: isCompactLayout ? "column" : "row",
-          gap: 16,
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "stretch",
         }}
       >
         {statsCards.map((card) => {
@@ -365,7 +385,7 @@ export default function AnniversaryDashboardScreen() {
               style={{
                 flex: 1,
                 borderRadius: 24,
-                padding: 18,
+                padding: isUltraNarrow ? 16 : 18,
                 shadowColor: "#00000015",
                 shadowOpacity: 0.08,
                 shadowRadius: 12,
@@ -380,10 +400,10 @@ export default function AnniversaryDashboardScreen() {
                   justifyContent: "space-between",
                 }}
               >
-                <CuteText tone="muted" style={{ fontSize: 15 }}>
+                <CuteText tone="muted" style={{ fontSize: statLabelFontSize }}>
                   {card.label}
                 </CuteText>
-                {card.icon && !isCompactLayout ? (
+                {card.icon && !isUltraNarrow ? (
                   <MaterialIcons
                     name={card.icon}
                     size={18}
@@ -391,20 +411,29 @@ export default function AnniversaryDashboardScreen() {
                   />
                 ) : null}
               </View>
-              <CuteText weight="bold" style={{ fontSize: 24, marginTop: 6 }}>
+              <CuteText
+                weight="bold"
+                style={{ fontSize: statValueFontSize, marginTop: 6 }}
+              >
                 {card.value}
               </CuteText>
               {card.hint ? (
-                <CuteText tone="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                <CuteText
+                  tone="muted"
+                  style={{ fontSize: 12, marginTop: 8 }}
+                >
                   {card.hint}
                 </CuteText>
               ) : null}
             </LinearGradient>
           );
 
-          const containerStyle = isCompactLayout
-            ? { width: "100%" }
-            : { flex: 1 };
+          const containerStyle = [
+            statCardStyles.flexOne,
+            isUltraNarrow
+              ? { minWidth: (contentWidth - 12) / 2 }
+              : undefined,
+          ];
 
           if (card.actionable) {
             return (
@@ -432,67 +461,141 @@ export default function AnniversaryDashboardScreen() {
       {/* Removed the paired celebration card per latest UX request */}
 
       <View>
-        <SectionHeader title="Our Milestones" />
-        {milestones.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              gap: 16,
-              paddingVertical: 4,
-            }}
-          >
-            {milestones.map((milestone) => (
-              <Pressable
-                key={milestone.id}
-                onPress={() => router.push(`/milestone/${milestone.id}`)}
+        <SectionHeader
+          title="Our Milestones"
+          action={
+            milestones.length ? (
+              <Pressable onPress={() => router.push("/(tabs)/gallery")}>
+                <CuteText
+                  weight="bold"
+                  style={{ color: palette.primary, fontSize: 13 }}
+                >
+                  See all
+                </CuteText>
+              </Pressable>
+            ) : undefined
+          }
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingVertical: 4,
+            paddingRight: 8,
+          }}
+        >
+          {milestones.length < 3 && (
+            <Pressable
+              onPress={() => router.push("/milestone/new")}
+              style={{
+                width: milestoneCardWidth,
+                alignItems: "center",
+                gap: milestoneItemGap,
+              }}
+            >
+              <View
                 style={{
-                  width: 84,
+                  width: milestoneFrameSize,
+                  height: milestoneFrameSize,
+                  borderRadius: milestoneFrameSize / 2,
+                  borderWidth: 2,
+                  borderStyle: "dashed",
+                  borderColor: palette.primary,
                   alignItems: "center",
-                  gap: 8,
+                  justifyContent: "center",
+                  backgroundColor: palette.card,
                 }}
               >
-                <View
-                  style={{
-                    padding: 4,
-                    borderRadius: 999,
-                    borderWidth: 2,
-                    borderColor: palette.primary,
-                    backgroundColor: palette.card,
-                  }}
-                >
+                <MaterialIcons name="add" size={28} color={palette.primary} />
+              </View>
+              <CuteText tone="muted" style={{ fontSize: 12 }}>
+                Add
+              </CuteText>
+            </Pressable>
+          )}
+          {milestoneReels.map((milestone) => (
+            <Pressable
+              key={milestone.id}
+              onPress={() => router.push(`/milestone/${milestone.id}`)}
+              style={{
+                width: milestoneCardWidth,
+                alignItems: "center",
+                gap: milestoneItemGap,
+              }}
+            >
+              <View
+                style={{
+                  padding: 4,
+                  borderRadius: 999,
+                  borderWidth: 2,
+                  borderColor: palette.primary,
+                  backgroundColor: palette.card,
+                }}
+              >
+                {milestone.image ? (
                   <Image
                     source={{ uri: milestone.image }}
                     style={{
-                      width: 68,
-                      height: 68,
+                      width: milestoneAvatarSize,
+                      height: milestoneAvatarSize,
                       borderRadius: 999,
                     }}
                   />
-                </View>
-                <CuteText
-                  style={{ fontSize: 13, textAlign: "center" }}
-                  numberOfLines={2}
-                >
-                  {milestone.title}
-                </CuteText>
-              </Pressable>
-            ))}
-          </ScrollView>
-        ) : (
-          <View
-            style={{
-              backgroundColor: palette.card,
-              borderRadius: 20,
-              padding: 18,
-            }}
+                ) : (
+                  <View
+                    style={{
+                      width: milestoneAvatarSize,
+                      height: milestoneAvatarSize,
+                      borderRadius: 999,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: palette.primarySoft,
+                    }}
+                  >
+                    <MaterialIcons
+                      name="auto-awesome"
+                      size={24}
+                      color={palette.primary}
+                    />
+                  </View>
+                )}
+              </View>
+              <CuteText
+                style={{ fontSize: 13, textAlign: "center" }}
+                numberOfLines={2}
+              >
+                {milestone.title}
+              </CuteText>
+            </Pressable>
+          ))}
+        </ScrollView>
+        {!milestones.length ? (
+          <CuteCard
+            background={palette.card}
+            padding={20}
+            style={{ marginTop: 12, gap: 10 }}
           >
+            <CuteText weight="bold">Capture your first milestone</CuteText>
             <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Pair with your person to start collecting milestone badges that
-              sparkle with memories.
+              Add a highlight to create shared reels that feel like little
+              celebrations.
             </CuteText>
-          </View>
-        )}
+            <Pressable
+              onPress={() => router.push("/milestone/new")}
+              style={{
+                alignSelf: "flex-start",
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 999,
+                backgroundColor: palette.primary,
+              }}
+            >
+              <CuteText style={{ color: "#fff" }} weight="semibold">
+                Add milestone
+              </CuteText>
+            </Pressable>
+          </CuteCard>
+        ) : null}
       </View>
 
       <View>
@@ -504,7 +607,8 @@ export default function AnniversaryDashboardScreen() {
           style={{
             flexDirection: "row",
             flexWrap: "wrap",
-            gap: 12,
+            justifyContent: "space-between",
+            marginHorizontal: -6,
           }}
         >
           {quickActions.map((action) => (
@@ -514,8 +618,9 @@ export default function AnniversaryDashboardScreen() {
                 handleActionPress(action.route, action.requiresPair)
               }
               style={{
-                flexBasis: "48%",
-                flexGrow: 1,
+                width: quickActionCardWidth,
+                marginHorizontal: 6,
+                marginBottom: 12,
                 backgroundColor: palette.card,
                 borderRadius: 20,
                 paddingVertical: 18,
@@ -581,32 +686,61 @@ export default function AnniversaryDashboardScreen() {
                 }}
                 onPress={() => router.push(`/profile?who=${partner.key}`)}
               >
-                <View
-                  style={{
-                    borderRadius: 999,
-                    padding: 5,
-                    backgroundColor: partner.accent + "55",
-                  }}
-                >
-                  {partner.avatar ? (
-                    <Image
-                      source={{ uri: partner.avatar }}
-                      style={{ width: 88, height: 88, borderRadius: 44 }}
-                    />
-                  ) : (
+                <View style={{ position: "relative", marginBottom: 18 }}>
+                  <View
+                    style={{
+                      borderRadius: 999,
+                      padding: 5,
+                      backgroundColor: partner.accent + "55",
+                    }}
+                  >
+                    {partner.avatar ? (
+                      <Image
+                        source={{ uri: partner.avatar }}
+                        style={{ width: 88, height: 88, borderRadius: 44 }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 88,
+                          height: 88,
+                          borderRadius: 44,
+                          backgroundColor: partner.accent,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <MaterialIcons name="person" size={36} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                  {partner.status ? (
                     <View
                       style={{
-                        width: 88,
-                        height: 88,
-                        borderRadius: 44,
-                        backgroundColor: partner.accent,
-                        alignItems: "center",
-                        justifyContent: "center",
+                        position: "absolute",
+                        bottom: -6,
+                        right: -6,
+                        borderRadius: 999,
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        backgroundColor: palette.card,
+                        borderWidth: 1,
+                        borderColor: partner.accent + "66",
+                        shadowColor: "#00000020",
+                        shadowOpacity: 0.2,
+                        shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 2 },
+                        elevation: 3,
                       }}
                     >
-                      <MaterialIcons name="person" size={36} color="#fff" />
+                      <CuteText
+                        weight="bold"
+                        style={{ fontSize: 11, color: palette.text }}
+                      >
+                        {partner.status}
+                      </CuteText>
                     </View>
-                  )}
+                  ) : null}
                 </View>
                 <CuteText weight="bold" style={{ fontSize: 18, marginTop: 16 }}>
                   {partner.name}
@@ -633,16 +767,6 @@ export default function AnniversaryDashboardScreen() {
                         {formatBirthday(partner.birthday)}
                       </CuteText>
                     </View>
-                  ) : null}
-                  {partner.status ? (
-                    <Chip
-                      label={partner.status}
-                      tone="primary"
-                      style={{
-                        backgroundColor: partner.accent,
-                        paddingHorizontal: 18,
-                      }}
-                    />
                   ) : null}
                 </View>
               </Pressable>
@@ -682,32 +806,34 @@ export default function AnniversaryDashboardScreen() {
         )}
       </View>
 
-      <CuteModal
+      <DatePickerSheet
         visible={anniversaryModalVisible}
         onRequestClose={() => setAnniversaryModalVisible(false)}
         title="Pick your anniversary"
-        contentStyle={{ alignItems: "center", gap: 16 }}
-      >
-        <DateTimePicker
-          value={anniversaryDateValue}
-          mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "calendar"}
-          onChange={handleAnniversaryDateChange}
-          maximumDate={new Date()}
-        />
-        {anniversaryError ? (
-          <CuteText style={{ color: "#D93025", fontSize: 12 }}>
-            {anniversaryError}
-          </CuteText>
-        ) : null}
-        <CuteButton
-          label={anniversarySaving ? "Saving..." : "Save date"}
-          onPress={handleAnniversarySave}
-          disabled={anniversarySaving}
-          style={{ minWidth: 160 }}
-        />
-      </CuteModal>
+        value={anniversaryDateValue}
+        onChange={handleAnniversaryDateChange}
+        maximumDate={new Date()}
+        onConfirm={handleAnniversarySave}
+        confirmLabel={anniversarySaving ? "Saving..." : "Save date"}
+        confirmDisabled={anniversarySaving}
+        footer={
+          anniversaryError ? (
+            <CuteText style={{ color: "#D93025", fontSize: 12 }}>
+              {anniversaryError}
+            </CuteText>
+          ) : null
+        }
+      />
 
     </Screen>
   );
 }
+
+const statCardStyles = StyleSheet.create({
+  fullWidth: {
+    width: "100%",
+  },
+  flexOne: {
+    flex: 1,
+  },
+});

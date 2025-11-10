@@ -12,9 +12,10 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import DateTimePicker, {
+import {
+  AppDatePicker,
   DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+} from "../../components/AppDatePicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { updateProfile } from "firebase/auth";
 
@@ -459,10 +460,9 @@ export default function ProfileSetupScreen() {
         title="Pick a birthday"
         contentStyle={{ alignItems: "center", gap: 16 }}
       >
-        <DateTimePicker
+        <AppDatePicker
           value={selectedBirthdayDate}
           mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "calendar"}
           onChange={handleBirthdayPickerChange}
           maximumDate={new Date()}
         />
