@@ -1,8 +1,8 @@
 import React from "react";
 import { ViewStyle } from "react-native";
-import { CuteDropdown, DropdownOption } from "./CuteDropdown";
 import { PRONOUN_OPTIONS } from "../data/pronouns";
 import { PronounValue } from "../types/app";
+import { CuteDropdown, DropdownOption } from "./CuteDropdown";
 
 interface PronounSelectProps {
   value: PronounValue | null;
@@ -15,7 +15,7 @@ interface PronounSelectProps {
 export function PronounSelect({
   value,
   onChange,
-  label = "Pronouns (optional)",
+  label = "",
   disabled = false,
   style,
 }: PronounSelectProps) {

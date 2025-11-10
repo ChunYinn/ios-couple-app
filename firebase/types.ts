@@ -104,6 +104,7 @@ export interface DBTodoCategory {
 export interface DBTodoItem {
   id?: string;
   categoryId: string;
+  categoryKey?: string | null;
   title: string;
   description: string | null;
   completed: boolean;
@@ -116,6 +117,11 @@ export interface DBTodoItem {
   completedAt: Timestamp | FieldValue | null;
   completedBy: string | null;
   updatedAt: Timestamp | FieldValue;
+  mood?: string | null;
+  location?: string | null;
+  costEstimate?: string | null;
+  notes?: string | null;
+  proofImageUrl?: string | null;
 }
 
 // ============= MEMORY TYPES =============

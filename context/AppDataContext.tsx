@@ -86,10 +86,19 @@ const mapCategoryFromDb = (category: DBTodoCategory): TodoCategory => ({
 const mapTodoFromDb = (item: DBTodoItem): TodoItem => ({
   id: item.id ?? "",
   categoryId: item.categoryId,
+  categoryKey: item.categoryKey ?? undefined,
   title: item.title,
   completed: item.completed,
   assigneeIds: item.assigneeIds ?? [],
   dueDate: item.dueDate ?? undefined,
+  mood: (item.mood as TodoItem["mood"]) ?? undefined,
+  location: item.location ?? undefined,
+  costEstimate: item.costEstimate ?? undefined,
+  notes: item.notes ?? undefined,
+  completedAt: item.completedAt
+    ? timestampToDate(item.completedAt).toISOString()
+    : undefined,
+  proofImageUrl: item.proofImageUrl ?? undefined,
 });
 
 const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
@@ -218,8 +227,14 @@ const createFlashbacksFromMemories = (memories: DBMemory[]): Flashback[] => {
 const mapMilestoneFromDb = (milestone: DBMilestone): Milestone => ({
   id: milestone.id ?? generateId("milestone"),
   title: milestone.title,
-  image: milestone.image,
-  description: milestone.description,
+  image: milestone.image ?? undefined,
+  description: milestone.description ?? undefined,
+  badgeColor: milestone.badgeColor ?? undefined,
+  achievedAt: milestone.achievedAt
+    ? timestampToDate(milestone.achievedAt).toISOString()
+    : null,
+  dayCount: milestone.dayCount ?? null,
+  createdBy: milestone.createdBy ?? null,
 });
 
 const reducer = (state: AppState, action: AppAction): AppState => {
@@ -499,12 +514,17 @@ const reducer = (state: AppState, action: AppAction): AppState => {
     }
     case "ADD_TODO_ITEM": {
       const newItem: TodoItem = {
-        id: generateId("todo"),
+        id: action.payload.id ?? generateId("todo"),
         categoryId: action.payload.categoryId,
+        categoryKey: action.payload.categoryKey ?? action.payload.categoryId,
         title: action.payload.title,
         completed: false,
         assigneeIds: action.payload.assigneeIds,
         dueDate: action.payload.dueDate,
+        mood: action.payload.mood,
+        location: action.payload.location,
+        costEstimate: action.payload.costEstimate,
+        notes: action.payload.notes,
       };
       return {
         ...state,
@@ -521,7 +541,17 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           ...state.todos,
           items: state.todos.items.map((item) =>
             item.id === action.payload.itemId
-              ? { ...item, completed: !item.completed }
+              ? {
+                  ...item,
+                  completed: action.payload.completed,
+                  completedAt: action.payload.completedAt ?? undefined,
+                  proofImageUrl:
+                    action.payload.completed && action.payload.proofImageUrl
+                      ? action.payload.proofImageUrl
+                      : !action.payload.completed
+                        ? undefined
+                        : item.proofImageUrl,
+                }
               : item
           ),
         },

@@ -1,17 +1,31 @@
-import { useLocalSearchParams, router } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, useColorScheme } from "react-native";
+import { ImageBackground, Pressable, View } from "react-native";
 
-import { Screen } from "../../components/Screen";
 import { CuteText } from "../../components/CuteText";
 import { usePalette } from "../../hooks/usePalette";
-import { CuteCard } from "../../components/CuteCard";
 import { useAppData } from "../../context/AppDataContext";
+import { Screen } from "../../components/Screen";
 
-export default function MilestoneDetailsScreen() {
+const formatMilestoneDate = (value?: string | null) => {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+export default function MilestoneViewerScreen() {
   const palette = usePalette();
-  const scheme = useColorScheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     state: { milestones },
@@ -19,16 +33,49 @@ export default function MilestoneDetailsScreen() {
 
   const milestone =
     milestones.find((item) => item.id === id) ?? milestones[0] ?? null;
+  const formattedDate = formatMilestoneDate(milestone?.achievedAt);
 
-  return (
-    <Screen
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        gap: 20,
-      }}
+  if (!milestone) {
+    return (
+      <Screen
+        scrollable={false}
+        contentContainerStyle={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          gap: 12,
+        }}
+      >
+        <CuteText weight="bold" style={{ fontSize: 20 }}>
+          Milestone not found
+        </CuteText>
+        <CuteText tone="muted" style={{ textAlign: "center", fontSize: 13 }}>
+          It may have been removed. Try opening another milestone or add a new
+          one from your dashboard.
+        </CuteText>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingHorizontal: 22,
+            paddingVertical: 12,
+            borderRadius: 999,
+            backgroundColor: palette.primary,
+          }}
+        >
+          <CuteText style={{ color: "#fff" }} weight="bold">
+            Close
+          </CuteText>
+        </Pressable>
+      </Screen>
+    );
+  }
+
+  const overlay = (
+    <LinearGradient
+      colors={["#000000D0", "#00000010", "#000000D0"]}
+      style={{ flex: 1, padding: 24 }}
     >
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <View
         style={{
           flexDirection: "row",
@@ -36,41 +83,85 @@ export default function MilestoneDetailsScreen() {
           justifyContent: "space-between",
         }}
       >
-        <MaterialIcons
-          name="arrow-back-ios"
-          size={22}
-          color={palette.textSecondary}
+        <View style={{ flex: 1, gap: 4 }}>
+          <CuteText style={{ color: "#fff", fontSize: 24 }} weight="bold">
+            {milestone.title}
+          </CuteText>
+          {formattedDate ? (
+            <CuteText tone="muted" style={{ color: "#fff" }}>
+              {formattedDate}
+            </CuteText>
+          ) : null}
+        </View>
+        <Pressable
           onPress={() => router.back()}
-        />
-        <CuteText weight="bold" style={{ fontSize: 20 }}>
-          {milestone?.title ?? "Milestone"}
-        </CuteText>
-        <MaterialIcons name="celebration" size={22} color={palette.primary} />
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: "#00000060",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Close milestone"
+        >
+          <MaterialIcons name="close" size={24} color="#fff" />
+        </Pressable>
       </View>
 
-      {milestone ? (
-        <CuteCard padding={22} background={palette.card} style={{ gap: 16 }}>
-          <CuteText tone="muted">{milestone.description}</CuteText>
-          <CuteCard
-            background={palette.primarySoft}
-            padding={16}
-            style={{ gap: 10 }}
+      <View style={{ flex: 1 }} />
+
+      <View style={{ gap: 10 }}>
+        {milestone.dayCount ? (
+          <View
+            style={{
+              alignSelf: "flex-start",
+              backgroundColor: "#00000050",
+              borderRadius: 999,
+              paddingHorizontal: 16,
+              paddingVertical: 6,
+            }}
           >
-            <CuteText weight="bold">Celebrate this moment</CuteText>
-            <CuteText tone="muted">
-              Add photos, write a love note, or schedule an annual reminder to
-              relive it together.
+            <CuteText style={{ color: "#fff", fontSize: 13 }}>
+              {milestone.dayCount} days together
             </CuteText>
-          </CuteCard>
-        </CuteCard>
-      ) : (
-        <CuteCard padding={22} background={palette.card}>
-          <CuteText tone="muted">
-            We could not find this milestone, but you can add a new one from the
-            dashboard soon.
+          </View>
+        ) : null}
+        {milestone.description ? (
+          <CuteText style={{ color: "#fff", fontSize: 16 }}>
+            {milestone.description}
           </CuteText>
-        </CuteCard>
+        ) : (
+          <CuteText tone="muted" style={{ color: "#fff", fontSize: 14 }}>
+            Tap the add button to update this story with more notes or photos.
+          </CuteText>
+        )}
+      </View>
+    </LinearGradient>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <StatusBar style="light" />
+      {milestone.image ? (
+        <ImageBackground
+          source={{ uri: milestone.image }}
+          resizeMode="cover"
+          style={{ flex: 1 }}
+        >
+          {overlay}
+        </ImageBackground>
+      ) : (
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.primarySoft,
+          }}
+        >
+          {overlay}
+        </View>
       )}
-    </Screen>
+    </View>
   );
 }

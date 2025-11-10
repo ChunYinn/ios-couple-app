@@ -1,30 +1,33 @@
-import { router, useLocalSearchParams } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { updateProfile } from "firebase/auth";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   ImageBackground,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   View,
   useColorScheme,
+  useWindowDimensions,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import * as ImagePicker from "expo-image-picker";
-import { updateProfile } from "firebase/auth";
+import { AppDatePicker } from "../components/AppDatePicker";
 
-import { Screen } from "../components/Screen";
-import { CuteText } from "../components/CuteText";
-import { usePalette } from "../hooks/usePalette";
-import { CuteCard } from "../components/CuteCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Chip } from "../components/Chip";
-import { CuteModal } from "../components/CuteModal";
-import { CuteTextInput } from "../components/CuteTextInput";
 import { CuteButton } from "../components/CuteButton";
+import { CuteCard } from "../components/CuteCard";
+import { CuteModal } from "../components/CuteModal";
+import { CuteText } from "../components/CuteText";
+import { CuteTextInput } from "../components/CuteTextInput";
+import { PronounSelect } from "../components/PronounSelect";
+import { Screen } from "../components/Screen";
 import { useAppData } from "../context/AppDataContext";
 import {
   DEFAULT_LOVE_LANGUAGES,
@@ -33,9 +36,14 @@ import {
   MAX_LOVE_LANGUAGES,
   normalizeLoveLanguages,
 } from "../data/loveLanguages";
-import { coupleService, userService } from "../firebase/services";
 import { firebaseAuth } from "../firebase/config";
-import { calculateDaysTogether, formatDateToYMD, parseLocalDate } from "../utils/dateUtils";
+import { coupleService, userService } from "../firebase/services";
+import { usePalette } from "../hooks/usePalette";
+import {
+  calculateDaysTogether,
+  formatDateToYMD,
+  parseLocalDate,
+} from "../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
 const DEFAULT_ABOUT =
@@ -70,6 +78,12 @@ const resolveLoveLanguages = (loveLanguages?: string[]) => {
 export default function ProfileScreen() {
   const palette = usePalette();
   const scheme = useColorScheme();
+  const safeInsets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const editorMaxHeight = useMemo(() => {
+    const sixtyPercent = windowHeight * 0.6;
+    return Math.max(Math.min(sixtyPercent, 540), 400);
+  }, [windowHeight]);
   const params = useLocalSearchParams<{ who?: string }>();
   const viewing = (params.who as string) ?? "me";
 
@@ -86,14 +100,13 @@ export default function ProfileScreen() {
   const [displayNameInput, setDisplayNameInput] = useState(
     profile?.displayName ?? auth.user.displayName ?? ""
   );
-  const [editStatus, setEditStatus] = useState(profile?.status ?? DEFAULT_STATUS);
-  const [editAbout, setEditAbout] = useState(
-    profile?.about ?? DEFAULT_ABOUT
+  const [editStatus, setEditStatus] = useState(
+    profile?.status ?? DEFAULT_STATUS
   );
-  const [selectedLoveLanguages, setSelectedLoveLanguages] =
-    useState<LoveLanguageOption[]>(() =>
-      resolveLoveLanguages(profile?.loveLanguages)
-    );
+  const [editAbout, setEditAbout] = useState(profile?.about ?? DEFAULT_ABOUT);
+  const [selectedLoveLanguages, setSelectedLoveLanguages] = useState<
+    LoveLanguageOption[]
+  >(() => resolveLoveLanguages(profile?.loveLanguages));
   const [selectedAccent, setSelectedAccent] = useState(
     profile?.accentColor ?? palette.primary
   );
@@ -101,14 +114,12 @@ export default function ProfileScreen() {
     profile?.birthday
       ? formatDateToYMD(profile.birthday)
       : auth.user.birthday
-        ? formatDateToYMD(auth.user.birthday)
-        : ""
+      ? formatDateToYMD(auth.user.birthday)
+      : ""
   );
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
   const [anniversaryInput, setAnniversaryInput] = useState<string>(() =>
-    auth.user.anniversaryDate
-      ? formatDateToYMD(auth.user.anniversaryDate)
-      : ""
+    auth.user.anniversaryDate ? formatDateToYMD(auth.user.anniversaryDate) : ""
   );
   const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
@@ -138,8 +149,8 @@ export default function ProfileScreen() {
       profile.birthday
         ? formatDateToYMD(profile.birthday)
         : auth.user.birthday
-          ? formatDateToYMD(auth.user.birthday)
-          : ""
+        ? formatDateToYMD(auth.user.birthday)
+        : ""
     );
     setAnniversaryInput(
       auth.user.anniversaryDate
@@ -211,8 +222,7 @@ export default function ProfileScreen() {
   };
 
   const requestLibraryAccess = useCallback(async () => {
-    const { status } =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Permission needed",
@@ -363,7 +373,9 @@ export default function ProfileScreen() {
 
       const trimmedStatus = editStatus.trim();
       const trimmedAbout = editAbout.trim() || DEFAULT_ABOUT;
-      const loveLanguageKeys = selectedLoveLanguages.map((option) => option.key);
+      const loveLanguageKeys = selectedLoveLanguages.map(
+        (option) => option.key
+      );
       const normalizedBirthday = birthdayInput
         ? formatDateToYMD(birthdayInput)
         : null;
@@ -373,8 +385,7 @@ export default function ProfileScreen() {
       const previousAnniversary = auth.user.anniversaryDate
         ? formatDateToYMD(auth.user.anniversaryDate)
         : "";
-      const anniversaryChanged =
-        normalizedAnniversary !== previousAnniversary;
+      const anniversaryChanged = normalizedAnniversary !== previousAnniversary;
 
       if (anniversaryChanged && auth.user.coupleId) {
         await coupleService.setAnniversary(
@@ -423,14 +434,14 @@ export default function ProfileScreen() {
             displayName: trimmedName,
             status: trimmedStatus || DEFAULT_STATUS,
             about: trimmedAbout,
-          accentColor: selectedAccent,
-          birthday: normalizedBirthday ?? undefined,
-          anniversary: normalizedAnniversary || undefined,
-          avatarUrl: nextAvatarUrl,
-          loveLanguages: loveLanguageKeys,
+            accentColor: selectedAccent,
+            birthday: normalizedBirthday ?? undefined,
+            anniversary: normalizedAnniversary || undefined,
+            avatarUrl: nextAvatarUrl,
+            loveLanguages: loveLanguageKeys,
+          },
         },
-      },
-    });
+      });
 
       if (anniversaryChanged) {
         const daysTogether = normalizedAnniversary
@@ -491,8 +502,8 @@ export default function ProfileScreen() {
             {viewingMe
               ? "Hang tight while we open your profile editor."
               : pairing.isPaired
-                ? "Ask your partner to join the app to see their profile blossom here."
-                : "Pair up first to unlock both profiles."}
+              ? "Ask your partner to join the app to see their profile blossom here."
+              : "Pair up first to unlock both profiles."}
           </CuteText>
         </View>
       </Screen>
@@ -594,7 +605,9 @@ export default function ProfileScreen() {
             <Chip
               label={profile.status}
               tone="primary"
-              style={{ backgroundColor: profile.accentColor ?? palette.primary }}
+              style={{
+                backgroundColor: profile.accentColor ?? palette.primary,
+              }}
             />
           ) : null}
         </View>
@@ -671,7 +684,8 @@ export default function ProfileScreen() {
             ))
           ) : (
             <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Tap edit to choose up to three love languages that feel true to you.
+              Tap edit to choose up to three love languages that feel true to
+              you.
             </CuteText>
           )}
         </View>
@@ -712,247 +726,278 @@ export default function ProfileScreen() {
         visible={editModalVisible && viewingMe}
         onRequestClose={closeModal}
         title="Update your profile"
-        contentStyle={{ paddingBottom: 24 }}
+        contentStyle={{
+          paddingBottom: 24,
+          paddingTop: 20,
+          gap: 16,
+        }}
+        enableSwipeDismiss
+        respectTopInset
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ gap: 18, paddingBottom: 8 }}
-          style={{ maxHeight: 520 }}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={safeInsets.bottom + 24}
+          style={{ width: "100%" }}
         >
-          <View style={{ alignItems: "center", gap: 12 }}>
-            <Pressable
-              onPress={showImageOptions}
-              style={{
-                width: 128,
-                height: 128,
-                borderRadius: 64,
-                backgroundColor: palette.primarySoft,
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                borderWidth: 3,
-                borderColor: avatarPreview ? palette.primary : palette.border,
-                shadowColor: palette.primary,
-                shadowOpacity: 0.18,
-                shadowRadius: 18,
-                shadowOffset: { width: 0, height: 10 },
-                elevation: 6,
-              }}
-            >
-              {avatarPreview ? (
-                <Image
-                  source={{ uri: avatarPreview }}
-                  style={{ width: 128, height: 128 }}
-                />
-              ) : (
-                <MaterialIcons
-                  name="photo-camera"
-                  size={40}
-                  color={palette.primary}
-                />
-              )}
-            </Pressable>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Tap to {avatarPreview ? "change or remove" : "add"} your photo.
-            </CuteText>
-          </View>
-
-          <CuteTextInput
-            label="Display name"
-            placeholder="How should we address you?"
-            value={displayNameInput}
-            onChangeText={setDisplayNameInput}
-          />
-
-          <CuteTextInput
-            label="Status"
-            placeholder="How are you feeling?"
-            value={editStatus}
-            onChangeText={setEditStatus}
-          />
-
-          <CuteTextInput
-            label="About you"
-            placeholder="Write a little note about who you are."
-            value={editAbout}
-            onChangeText={setEditAbout}
-            multiline
-            style={{ height: 96, textAlignVertical: "top" }}
-          />
-
-          <View style={{ gap: 12 }}>
-            <CuteText weight="semibold">Love languages</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Choose up to {MAX_LOVE_LANGUAGES} ways you most love to give or receive affection.
-            </CuteText>
-            <View style={{ maxHeight: 220 }}>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ gap: 10 }}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              gap: 18,
+              paddingBottom: safeInsets.bottom + 8,
+            }}
+            style={{ maxHeight: editorMaxHeight }}
+          >
+            <View style={{ alignItems: "center", gap: 12 }}>
+              <Pressable
+                onPress={showImageOptions}
+                style={{
+                  width: 128,
+                  height: 128,
+                  borderRadius: 64,
+                  backgroundColor: palette.primarySoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  borderWidth: 3,
+                  borderColor: avatarPreview ? palette.primary : palette.border,
+                  shadowColor: palette.primary,
+                  shadowOpacity: 0.18,
+                  shadowRadius: 18,
+                  shadowOffset: { width: 0, height: 10 },
+                  elevation: 6,
+                }}
               >
-                {LOVE_LANGUAGES.map((option) => {
-                  const isSelected = selectedLoveLanguages.some(
-                    (entry) => entry.key === option.key
-                  );
-                  return (
-                    <Pressable
-                      key={option.key}
-                      onPress={() => toggleLoveLanguage(option)}
-                      style={{
-                        borderWidth: 1,
-                        borderColor: isSelected
-                          ? palette.primary
-                          : palette.border,
-                        borderRadius: 18,
-                        padding: 14,
-                        backgroundColor: isSelected
-                          ? palette.primarySoft
-                          : palette.card,
-                        flexDirection: "row",
-                        gap: 12,
-                        alignItems: "center",
-                      }}
-                    >
-                      <View
+                {avatarPreview ? (
+                  <Image
+                    source={{ uri: avatarPreview }}
+                    style={{ width: 128, height: 128 }}
+                  />
+                ) : (
+                  <MaterialIcons
+                    name="photo-camera"
+                    size={40}
+                    color={palette.primary}
+                  />
+                )}
+              </Pressable>
+              <CuteText tone="muted" style={{ fontSize: 13 }}>
+                Tap to {avatarPreview ? "change or remove" : "add"} your photo.
+              </CuteText>
+            </View>
+
+            <CuteTextInput
+              label="Display name"
+              placeholder="How should we address you?"
+              value={displayNameInput}
+              onChangeText={setDisplayNameInput}
+            />
+
+            <CuteTextInput
+              label="Status"
+              placeholder="How are you feeling?"
+              value={editStatus}
+              onChangeText={setEditStatus}
+            />
+
+            <CuteTextInput
+              label="About you"
+              placeholder="Write a little note about who you are."
+              value={editAbout}
+              onChangeText={setEditAbout}
+              multiline
+              style={{ height: 96, textAlignVertical: "top" }}
+            />
+
+            <View style={{ gap: 12 }}>
+              <CuteText weight="semibold">Love languages</CuteText>
+              <CuteText tone="muted" style={{ fontSize: 13 }}>
+                Choose up to {MAX_LOVE_LANGUAGES} ways you most love to give or
+                receive affection.
+              </CuteText>
+              <View style={{ maxHeight: 220 }}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10 }}
+                >
+                  {LOVE_LANGUAGES.map((option) => {
+                    const isSelected = selectedLoveLanguages.some(
+                      (entry) => entry.key === option.key
+                    );
+                    return (
+                      <Pressable
+                        key={option.key}
+                        onPress={() => toggleLoveLanguage(option)}
                         style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 14,
-                          backgroundColor: isSelected
+                          borderWidth: 1,
+                          borderColor: isSelected
                             ? palette.primary
-                            : "transparent",
-                          borderWidth: isSelected ? 0 : 1,
-                          borderColor: palette.border,
+                            : palette.border,
+                          borderRadius: 18,
+                          padding: 14,
+                          backgroundColor: isSelected
+                            ? palette.primarySoft
+                            : palette.card,
+                          flexDirection: "row",
+                          gap: 12,
                           alignItems: "center",
-                          justifyContent: "center",
                         }}
                       >
+                        <View
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 18,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: palette.primarySoft,
+                          }}
+                        >
+                          <CuteText weight="bold">{option.emoji}</CuteText>
+                        </View>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <CuteText weight="semibold">{option.label}</CuteText>
+                          <CuteText tone="muted" style={{ fontSize: 12 }}>
+                            {option.description}
+                          </CuteText>
+                        </View>
                         {isSelected ? (
                           <MaterialIcons
-                            name="favorite"
-                            size={16}
-                            color="#fff"
+                            name="check-circle"
+                            size={20}
+                            color={palette.primary}
                           />
                         ) : null}
-                      </View>
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <CuteText weight="semibold">{option.label}</CuteText>
-                        <CuteText tone="muted" style={{ fontSize: 12 }}>
-                          {option.description}
-                        </CuteText>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             </View>
-          </View>
 
-          <View style={{ gap: 12 }}>
-          <CuteText weight="semibold">Birthday</CuteText>
-          <Pressable
-            onPress={() => setShowBirthdayPicker(true)}
-            style={{
-              borderRadius: 16,
-                borderWidth: 1,
-                borderColor: palette.border,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                backgroundColor: palette.background,
-              }}
-            >
-              <CuteText>
-                {birthdayInput
-                  ? formatBirthdayLabel(birthdayInput)
-                  : "Select a date"}
-              </CuteText>
-            </Pressable>
-        </View>
-
-        <View style={{ gap: 12 }}>
-          <CuteText weight="semibold">Anniversary</CuteText>
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-              We will count your days together from this date.
-            </CuteText>
-            <Pressable
-              onPress={() => setShowAnniversaryPicker(true)}
-              style={{
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: palette.border,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                backgroundColor: palette.background,
-              }}
-            >
-              <CuteText>
-                {anniversaryInput
-                  ? parseLocalDate(anniversaryInput).toLocaleDateString(
-                      undefined,
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }
-                    )
-                  : "Select a date"}
-              </CuteText>
-            </Pressable>
-        </View>
-
-          <View style={{ gap: 12 }}>
-            <CuteText weight="semibold">Accent color</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Choose the hue that styles your highlights across the app.
-            </CuteText>
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
-              {accentOptions.map((color) => (
-                <Pressable
-                  key={color}
-                  onPress={() => {
-                    setSelectedAccent(color);
-                    setSaveError(null);
-                  }}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: color,
-                    borderWidth: selectedAccent === color ? 4 : 2,
-                    borderColor:
-                      selectedAccent === color ? palette.card : "#ffffffaa",
-                  }}
-                />
-              ))}
+            <View style={{ gap: 12 }}>
+              <CuteText weight="semibold">Pronouns</CuteText>
+              <PronounSelect
+                value={profiles.me?.pronouns ?? null}
+                onChange={(value) => {
+                  setSaveError(null);
+                  dispatch({
+                    type: "UPDATE_PROFILE",
+                    payload: {
+                      profile: {
+                        ...profiles.me!,
+                        pronouns: value,
+                      },
+                      target: "me",
+                    },
+                  });
+                }}
+              />
             </View>
-          </View>
 
-          {saveError ? (
-            <CuteText
-              weight="semibold"
-              style={{ fontSize: 13, color: "#D93025" }}
-            >
-              {saveError}
-            </CuteText>
-          ) : null}
-        </ScrollView>
-      <CuteButton
-        label={savingProfile ? "Saving..." : "Save changes"}
-        onPress={handleSaveProfile}
-        disabled={savingProfile}
-        style={{ marginTop: 4 }}
-      />
-      {savingProfile ? (
-        <View style={{ alignItems: "center", marginTop: -4 }}>
-          <ActivityIndicator color={palette.primary} />
-        </View>
-      ) : null}
+            <View style={{ gap: 12 }}>
+              <CuteText weight="semibold">Birthday</CuteText>
+
+              <Pressable
+                onPress={() => setShowBirthdayPicker(true)}
+                style={{
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  backgroundColor: palette.background,
+                }}
+              >
+                <CuteText>
+                  {birthdayInput
+                    ? formatBirthdayLabel(birthdayInput)
+                    : "Select a date"}
+                </CuteText>
+              </Pressable>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <CuteText weight="semibold">Anniversary</CuteText>
+              <Pressable
+                onPress={() => setShowAnniversaryPicker(true)}
+                style={{
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  backgroundColor: palette.background,
+                }}
+              >
+                <CuteText>
+                  {anniversaryInput
+                    ? parseLocalDate(anniversaryInput).toLocaleDateString(
+                        undefined,
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }
+                      )
+                    : "Select a date"}
+                </CuteText>
+              </Pressable>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <CuteText weight="semibold">Accent color</CuteText>
+              <CuteText tone="muted" style={{ fontSize: 13 }}>
+                Choose the hue that styles your highlights across the app.
+              </CuteText>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 12,
+                }}
+              >
+                {accentOptions.map((color) => (
+                  <Pressable
+                    key={color}
+                    onPress={() => {
+                      setSelectedAccent(color);
+                      setSaveError(null);
+                    }}
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: color,
+                      borderWidth: selectedAccent === color ? 4 : 2,
+                      borderColor:
+                        selectedAccent === color ? palette.card : "#ffffffaa",
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {saveError ? (
+              <CuteText
+                weight="semibold"
+                style={{ fontSize: 13, color: "#D93025" }}
+              >
+                {saveError}
+              </CuteText>
+            ) : null}
+            <CuteButton
+              label={savingProfile ? "Saving..." : "Save changes"}
+              onPress={handleSaveProfile}
+              disabled={savingProfile}
+              style={{ marginTop: 4 }}
+            />
+            {savingProfile ? (
+              <View style={{ alignItems: "center", marginTop: -4 }}>
+                <ActivityIndicator color={palette.primary} />
+              </View>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </CuteModal>
 
       <CuteModal
@@ -961,10 +1006,9 @@ export default function ProfileScreen() {
         title="Pick a birthday"
         contentStyle={{ alignItems: "center", gap: 16 }}
       >
-        <DateTimePicker
+        <AppDatePicker
           value={selectedBirthdayDate}
           mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "calendar"}
           onChange={handleBirthdayChange}
           maximumDate={new Date()}
         />
@@ -982,10 +1026,9 @@ export default function ProfileScreen() {
         title="Pick your anniversary"
         contentStyle={{ alignItems: "center", gap: 16 }}
       >
-        <DateTimePicker
+        <AppDatePicker
           value={selectedAnniversaryDate}
           mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "calendar"}
           onChange={handleAnniversaryChange}
           maximumDate={new Date()}
         />
