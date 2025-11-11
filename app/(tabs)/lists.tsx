@@ -1,7 +1,13 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ComponentProps, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ComponentProps,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   Image,
@@ -63,8 +69,6 @@ type NewCategoryInput = {
 const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = [
   { key: "all", label: "All missions", emoji: "✨", color: "#FDE2E8" },
   { key: "home", label: "General", emoji: "📋", color: "#FFE8D6" },
-  { key: "love", label: "Relationship", emoji: "❤️", color: "#FFD6EA" },
-  { key: "travel", label: "Travel", emoji: "🧳", color: "#D6F0FF" },
 ];
 
 const CATEGORY_COLOR_PRESETS = [
@@ -156,6 +160,7 @@ export default function SharedListsScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [categoryManagerVisible, setCategoryManagerVisible] = useState(false);
   const [categoryEditor, setCategoryEditor] = useState<{
     id: string;
     name: string;
@@ -164,6 +169,15 @@ export default function SharedListsScreen() {
   } | null>(null);
   const [categoryEditorSaving, setCategoryEditorSaving] = useState(false);
   const [categoryEditorError, setCategoryEditorError] = useState<string | null>(
+    null
+  );
+  const [manageCategoryName, setManageCategoryName] = useState("");
+  const [manageCategoryEmoji, setManageCategoryEmoji] = useState("📝");
+  const [manageCategoryColor, setManageCategoryColor] = useState(
+    CATEGORY_COLOR_PRESETS[0]
+  );
+  const [manageCategorySaving, setManageCategorySaving] = useState(false);
+  const [manageCategoryError, setManageCategoryError] = useState<string | null>(
     null
   );
 
@@ -285,9 +299,29 @@ export default function SharedListsScreen() {
     return todos.categories.some((category) => category.id === filter.key);
   };
 
+  const resetManageCategoryForm = () => {
+    setManageCategoryName("");
+    setManageCategoryEmoji("📝");
+    setManageCategoryColor(CATEGORY_COLOR_PRESETS[0]);
+    setManageCategorySaving(false);
+    setManageCategoryError(null);
+  };
+
+  const openCategoryManager = () => {
+    resetManageCategoryForm();
+    setCategoryManagerVisible(true);
+  };
+
+  const closeCategoryManager = () => {
+    setCategoryManagerVisible(false);
+    resetManageCategoryForm();
+  };
+
   const openCategoryEditor = (filter: CategoryFilterOption) => {
     if (!canEditCategory(filter)) return;
-    const existing = todos.categories.find((category) => category.id === filter.key);
+    const existing = todos.categories.find(
+      (category) => category.id === filter.key
+    );
     if (!existing) return;
     setCategoryEditor({
       id: existing.id,
@@ -331,6 +365,33 @@ export default function SharedListsScreen() {
       }
     } finally {
       setCategoryEditorSaving(false);
+    }
+  };
+
+  const handleManageAddCategory = async () => {
+    const trimmedName = manageCategoryName.trim();
+    if (!trimmedName.length || manageCategorySaving) {
+      setManageCategoryError("Name is required.");
+      return;
+    }
+    setManageCategorySaving(true);
+    setManageCategoryError(null);
+    try {
+      await handleCreateCategory({
+        name: trimmedName,
+        emoji: manageCategoryEmoji,
+        color: manageCategoryColor,
+      });
+      resetManageCategoryForm();
+    } catch (error) {
+      const code = (error as Error & { code?: string })?.code;
+      if (code === "CATEGORY_EXISTS") {
+        setManageCategoryError("That name is already taken.");
+      } else {
+        setManageCategoryError("Couldn't add category. Try again.");
+      }
+    } finally {
+      setManageCategorySaving(false);
     }
   };
 
@@ -949,7 +1010,10 @@ export default function SharedListsScreen() {
             color={palette.textSecondary}
           />
         </Pressable>
-        <CuteText weight="bold" style={{ fontSize: 20, flex: 1, textAlign: "center" }}>
+        <CuteText
+          weight="bold"
+          style={{ fontSize: 20, flex: 1, textAlign: "center" }}
+        >
           To-dos
         </CuteText>
         <Pressable
@@ -979,7 +1043,11 @@ export default function SharedListsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12, paddingBottom: 8, paddingHorizontal: 2 }}
+        contentContainerStyle={{
+          gap: 10,
+          paddingBottom: 8,
+          paddingHorizontal: 2,
+        }}
       >
         {categoryFilters.map((filter) => {
           const isActive = filter.key === activeCategoryKey;
@@ -990,17 +1058,12 @@ export default function SharedListsScreen() {
             openCount > 0
               ? `${openCount} open`
               : doneCount > 0
-                ? `${doneCount} done`
-                : "No missions";
-          const editable = canEditCategory(filter);
+              ? `${doneCount} done`
+              : "No missions";
           return (
             <Pressable
               key={filter.key}
               onPress={() => setActiveCategoryKey(filter.key)}
-              onLongPress={
-                editable ? () => openCategoryEditor(filter) : undefined
-              }
-              delayLongPress={200}
               style={{
                 width: 104,
                 padding: 12,
@@ -1062,16 +1125,35 @@ export default function SharedListsScreen() {
                     borderColor: "#fff",
                   }}
                 >
-                  <MaterialIcons
-                    name="check"
-                    size={12}
-                    color={palette.text}
-                  />
+                  <MaterialIcons name="check" size={12} color={palette.text} />
                 </View>
               ) : null}
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={openCategoryManager}
+          style={{
+            width: 110,
+            padding: 12,
+            borderRadius: 18,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor: palette.primary,
+            backgroundColor: palette.card,
+            gap: 6,
+          }}
+        >
+          <MaterialIcons name="apps" size={20} color={palette.primary} />
+          <CuteText
+            weight="bold"
+            style={{ fontSize: 12, color: palette.primary }}
+          >
+            Manage
+          </CuteText>
+        </Pressable>
       </ScrollView>
       <View
         style={{
@@ -1092,9 +1174,6 @@ export default function SharedListsScreen() {
           } open / ${completedTodos.length} done`}
         </CuteText>
       </View>
-      <CuteText tone="muted" style={{ fontSize: 11, marginTop: -12 }}>
-        Long-press a custom category to edit it.
-      </CuteText>
 
       <View
         style={{
@@ -1312,7 +1391,7 @@ export default function SharedListsScreen() {
                 style={{ flex: 1 }}
               />
               <CuteButton
-                label={categoryEditorSaving ? "Saving..." : "Save changes"}
+                label={categoryEditorSaving ? "Saving..." : "Save"}
                 onPress={submitCategoryEdit}
                 disabled={categoryEditorSaving}
                 style={{ flex: 1 }}
@@ -1321,6 +1400,227 @@ export default function SharedListsScreen() {
           </View>
         ) : null}
       </CuteModal>
+
+      <Modal
+        visible={categoryManagerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={closeCategoryManager}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "#00000040",
+            justifyContent: "flex-end",
+          }}
+          onPress={closeCategoryManager}
+        >
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={{
+              backgroundColor: palette.card,
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              maxHeight: "92%",
+              paddingBottom: 24,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: palette.border,
+              }}
+            >
+              <View style={{ width: 32 }} />
+              <CuteText weight="bold" style={{ fontSize: 18 }}>
+                Manage categories
+              </CuteText>
+              <Pressable
+                onPress={closeCategoryManager}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: palette.card,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#000",
+                  shadowOpacity: 0.1,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
+              >
+                <MaterialIcons name="close" size={18} color={palette.text} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={{ flexGrow: 1 }}
+              contentContainerStyle={{ padding: 20, gap: 16 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+            >
+              {categoryOptionsForForm.map((filter) => {
+                const counts = categoryCounts.get(filter.key);
+                const editable = canEditCategory(filter);
+                return (
+                  <View
+                    key={filter.key}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      padding: 12,
+                      borderRadius: 18,
+                      backgroundColor: palette.card,
+                      borderWidth: 1,
+                      borderColor: palette.border,
+                      gap: 12,
+                      shadowColor: "#00000010",
+                      shadowOpacity: 0.05,
+                      shadowRadius: 6,
+                      elevation: 1,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: palette.background,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <CuteText style={{ fontSize: 20 }}>
+                        {filter.emoji}
+                      </CuteText>
+                    </View>
+                    <View
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: filter.color,
+                        borderWidth: 1,
+                        borderColor: palette.border,
+                      }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <CuteText weight="semibold">{filter.label}</CuteText>
+                      <CuteText tone="muted" style={{ fontSize: 12 }}>
+                        {counts
+                          ? `${counts.todo} open • ${counts.done} done`
+                          : "0 items"}
+                      </CuteText>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        if (!editable) return;
+                        openCategoryEditor(filter);
+                        closeCategoryManager();
+                      }}
+                      disabled={!editable}
+                      style={{
+                        padding: 6,
+                        opacity: editable ? 1 : 0.3,
+                      }}
+                    >
+                      <MaterialIcons
+                        name="edit"
+                        size={18}
+                        color={palette.textSecondary}
+                      />
+                    </Pressable>
+                    <Pressable style={{ padding: 6 }} disabled>
+                      <MaterialIcons
+                        name="drag-indicator"
+                        size={18}
+                        color={palette.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })}
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  borderRadius: 20,
+                  padding: 16,
+                  gap: 12,
+                }}
+              >
+                <CuteText weight="bold" style={{ fontSize: 16 }}>
+                  Add new category
+                </CuteText>
+                <CuteTextInput
+                  label="Name"
+                  placeholder="Ex. Weekend escapes"
+                  value={manageCategoryName}
+                  onChangeText={(text) => {
+                    setManageCategoryName(text);
+                    setManageCategoryError(null);
+                  }}
+                />
+                <CuteTextInput
+                  label="Emoji"
+                  value={manageCategoryEmoji}
+                  onChangeText={(text) =>
+                    setManageCategoryEmoji(text.slice(0, 4))
+                  }
+                  maxLength={4}
+                />
+                <View style={{ gap: 8 }}>
+                  <CuteText weight="semibold">Color</CuteText>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 10,
+                    }}
+                  >
+                    {CATEGORY_COLOR_PRESETS.map((color) => {
+                      const isActive = manageCategoryColor === color;
+                      return (
+                        <Pressable
+                          key={color}
+                          onPress={() => setManageCategoryColor(color)}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 17,
+                            backgroundColor: color,
+                            borderWidth: isActive ? 2 : 0,
+                            borderColor: palette.primary,
+                          }}
+                        />
+                      );
+                    })}
+                  </View>
+                </View>
+                {manageCategoryError ? (
+                  <CuteText style={{ color: palette.warning, fontSize: 12 }}>
+                    {manageCategoryError}
+                  </CuteText>
+                ) : null}
+                <CuteButton
+                  label={manageCategorySaving ? "Saving..." : "Add category"}
+                  onPress={handleManageAddCategory}
+                  disabled={manageCategorySaving}
+                />
+              </View>
+            </ScrollView>
+            <View style={{ paddingHorizontal: 20 }}>
+              <CuteButton label="Done" onPress={closeCategoryManager} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <TodoFormModal
         mode="create"
@@ -1390,7 +1690,13 @@ export default function SharedListsScreen() {
             />
             {selectedTodo ? (
               <View style={{ gap: 20 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 16,
+                  }}
+                >
                   <View
                     style={{
                       width: 64,
@@ -1425,7 +1731,10 @@ export default function SharedListsScreen() {
                     <CuteText weight="bold" style={{ fontSize: 20 }}>
                       {selectedTodo.title}
                     </CuteText>
-                    <CuteText tone="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                    <CuteText
+                      tone="muted"
+                      style={{ fontSize: 13, marginTop: 4 }}
+                    >
                       {detailDueText}
                     </CuteText>
                     {detailOverdue ? (
@@ -1464,9 +1773,12 @@ export default function SharedListsScreen() {
                   {selectedTodo.notes
                     ? renderInfoRow("notes", selectedTodo.notes)
                     : null}
-                  {selectedTodo.completed ? (
-                    renderInfoRow("check-circle", formatCompletionLabel(selectedTodo))
-                  ) : null}
+                  {selectedTodo.completed
+                    ? renderInfoRow(
+                        "check-circle",
+                        formatCompletionLabel(selectedTodo)
+                      )
+                    : null}
                 </View>
                 <View style={{ gap: 12 }}>
                   <CuteText weight="semibold">Who’s doing this?</CuteText>
@@ -1582,7 +1894,9 @@ const TodoFormModal = ({
   const [categoryEmoji, setCategoryEmoji] = useState("📝");
   const [categoryColor, setCategoryColor] = useState(CATEGORY_COLOR_PRESETS[0]);
   const [categorySaving, setCategorySaving] = useState(false);
-  const [categoryNameError, setCategoryNameError] = useState<string | null>(null);
+  const [categoryNameError, setCategoryNameError] = useState<string | null>(
+    null
+  );
   const [submitting, setSubmitting] = useState(false);
   const [showAssigneeError, setShowAssigneeError] = useState(false);
   const modalTitle = mode === "edit" ? "Edit to-do" : "Add to-do";
@@ -1592,8 +1906,8 @@ const TodoFormModal = ({
         ? "Updating..."
         : "Update to-do"
       : submitting
-        ? "Saving..."
-        : "Save to-do";
+      ? "Saving..."
+      : "Save to-do";
   const categoryOptions = useMemo(
     () =>
       categories.map((filter) => ({
@@ -1634,9 +1948,7 @@ const TodoFormModal = ({
       setCostEstimate(todo.costEstimate ?? "");
       setNotes(todo.notes ?? "");
       setAssignees(
-        todo.assigneeIds && todo.assigneeIds.length
-          ? todo.assigneeIds
-          : ["me"]
+        todo.assigneeIds && todo.assigneeIds.length ? todo.assigneeIds : ["me"]
       );
       const parsedDate = todo.dueDate ? parseLocalDate(todo.dueDate) : null;
       setDueDate(parsedDate);
@@ -1759,10 +2071,7 @@ const TodoFormModal = ({
     setDatePickerVisible(true);
   };
 
-  const handleDateChange = (
-    event: DateTimePickerEvent,
-    date?: Date
-  ) => {
+  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === "android" && event.type === "dismissed") {
       return;
     }
