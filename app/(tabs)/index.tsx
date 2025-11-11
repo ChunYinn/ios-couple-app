@@ -85,10 +85,16 @@ export default function AnniversaryDashboardScreen() {
   const milestoneAvatarSize = isUltraNarrow ? 56 : 68;
   const milestoneFrameSize = milestoneAvatarSize + 4;
   const milestoneCardWidth = milestoneAvatarSize + (isUltraNarrow ? 14 : 20);
-  const milestoneItemGap = isUltraNarrow ? 6 : 8;
+  const milestoneItemGap = isUltraNarrow ? 10 : 8;
   const statValueFontSize = isUltraNarrow ? 20 : 24;
   const statLabelFontSize = isUltraNarrow ? 13 : 15;
-  const profileCardWidth = Math.min(280, Math.max(220, width * 0.45));
+  const profileCardGap = width < 360 ? 6 : 10;
+  const profileCardWidth = Math.min(
+    260,
+    Math.max(120, (contentWidth - profileCardGap) / 2)
+  );
+  const profileAvatarSize = width < 360 ? 64 : 80;
+  const profileCardPadding = width < 360 ? 12 : 16;
   const displayName =
     profiles.me?.displayName ?? auth.user.displayName ?? "You";
   const greeting = dashboard.helloMessage ?? `Hello ${displayName}!`;
@@ -222,9 +228,9 @@ export default function AnniversaryDashboardScreen() {
       ? parseLocalDate(dashboard.anniversaryDate).toLocaleDateString(
           undefined,
           {
-            month: "short",
+            month: width < 360 ? "short" : "short",
             day: "numeric",
-            year: "numeric",
+            year: width < 360 ? "2-digit" : "numeric",
           }
         )
       : "Choose your date";
@@ -249,7 +255,7 @@ export default function AnniversaryDashboardScreen() {
         actionable: true,
       },
     ];
-  }, [dashboard.anniversaryDate, dashboard.daysTogether]);
+  }, [dashboard.anniversaryDate, dashboard.daysTogether, width]);
 
   const partnerCards = useMemo(() => {
     const cards: {
@@ -285,16 +291,22 @@ export default function AnniversaryDashboardScreen() {
     return cards;
   }, [profiles.me, profiles.partner, auth.user.birthday]);
 
+  const shouldCenterProfiles =
+    partnerCards.length <= 1 ||
+    profileCardWidth * 2 + profileCardGap > contentWidth;
+
   const formatBirthday = (value?: string) => {
     if (!value) {
       return "";
     }
     const parsed = parseLocalDate(value);
-    return parsed.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    const month = parsed.toLocaleString("en-US", { month: "short" });
+    const day = parsed.getDate();
+    const fullYear = parsed.getFullYear();
+    const shortYear = parsed.toLocaleString("en-US", { year: "2-digit" });
+    return width < 360
+      ? `${day} ${month}, ${shortYear}`
+      : `${month} ${day}, ${fullYear}`;
   };
 
   const milestoneReels = useMemo(
@@ -661,117 +673,136 @@ export default function AnniversaryDashboardScreen() {
       <View>
         <SectionHeader title="Our Profiles" />
         {partnerCards.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 16, paddingVertical: 4 }}
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: shouldCenterProfiles ? "center" : "flex-start",
+              gap: profileCardGap,
+            }}
           >
-            {partnerCards.map((partner) => (
-              <Pressable
-                key={partner.key}
-                style={{
-                  width: profileCardWidth,
-                  alignItems: "center",
-                  backgroundColor: palette.card,
-                  borderRadius: 24,
-                  paddingVertical: 24,
-                  paddingHorizontal: 12,
-                  shadowColor: "#00000010",
-                  shadowOpacity: 0.1,
-                  shadowRadius: 16,
-                  shadowOffset: { width: 0, height: 10 },
-                  elevation: 3,
-                  borderWidth: 1,
-                  borderColor: partner.accent + "55",
-                }}
-                onPress={() => router.push(`/profile?who=${partner.key}`)}
-              >
-                <View style={{ position: "relative", marginBottom: 18 }}>
+            {partnerCards.map((partner) => {
+              const hasStatus = Boolean(partner.status);
+              return (
+                <Pressable
+                  key={partner.key}
+                  style={{
+                    width: profileCardWidth,
+                    alignItems: "center",
+                    backgroundColor: palette.card,
+                    borderRadius: 22,
+                    padding: profileCardPadding,
+                    shadowColor: "#00000010",
+                    shadowOpacity: 0.08,
+                    shadowRadius: 14,
+                    shadowOffset: { width: 0, height: 8 },
+                    elevation: 3,
+                    borderWidth: 1,
+                    borderColor: partner.accent + "55",
+                  }}
+                  onPress={() => router.push(`/profile?who=${partner.key}`)}
+                >
                   <View
                     style={{
-                      borderRadius: 999,
-                      padding: 5,
-                      backgroundColor: partner.accent + "55",
+                      alignItems: "center",
+                      marginBottom: hasStatus ? 20 : 12,
                     }}
                   >
-                    {partner.avatar ? (
-                      <Image
-                        source={{ uri: partner.avatar }}
-                        style={{ width: 88, height: 88, borderRadius: 44 }}
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 88,
-                          height: 88,
-                          borderRadius: 44,
-                          backgroundColor: partner.accent,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <MaterialIcons name="person" size={36} color="#fff" />
-                      </View>
-                    )}
-                  </View>
-                  {partner.status ? (
                     <View
                       style={{
-                        position: "absolute",
-                        bottom: -6,
-                        right: -6,
                         borderRadius: 999,
-                        paddingHorizontal: 12,
-                        paddingVertical: 4,
-                        backgroundColor: palette.card,
-                        borderWidth: 1,
-                        borderColor: partner.accent + "66",
-                        shadowColor: "#00000020",
-                        shadowOpacity: 0.2,
-                        shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 2 },
-                        elevation: 3,
+                        padding: 4,
+                        backgroundColor: partner.accent + "33",
                       }}
                     >
-                      <CuteText
-                        weight="bold"
-                        style={{ fontSize: 11, color: palette.text }}
-                      >
-                        {partner.status}
-                      </CuteText>
+                      {partner.avatar ? (
+                        <Image
+                          source={{ uri: partner.avatar }}
+                          style={{
+                            width: profileAvatarSize,
+                            height: profileAvatarSize,
+                            borderRadius: profileAvatarSize / 2,
+                          }}
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: profileAvatarSize,
+                            height: profileAvatarSize,
+                            borderRadius: profileAvatarSize / 2,
+                            backgroundColor: partner.accent,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <MaterialIcons name="person" size={32} color="#fff" />
+                        </View>
+                      )}
                     </View>
-                  ) : null}
-                </View>
-                <CuteText weight="bold" style={{ fontSize: 18, marginTop: 16 }}>
-                  {partner.name}
-                </CuteText>
-                <View style={{ marginTop: 12, alignItems: "center", gap: 10 }}>
+                    {hasStatus ? (
+                      <View
+                        style={{
+                          marginTop: -12,
+                          paddingHorizontal: 14,
+                          paddingVertical: 4,
+                          borderRadius: 999,
+                          backgroundColor: palette.card,
+                          borderWidth: 1,
+                          borderColor: partner.accent + "66",
+                          shadowColor: "#00000020",
+                          shadowOpacity: 0.15,
+                          shadowRadius: 6,
+                          shadowOffset: { width: 0, height: 3 },
+                          elevation: 3,
+                        }}
+                      >
+                        <CuteText
+                          weight="bold"
+                          style={{ fontSize: 11, color: palette.text }}
+                        >
+                          {partner.status}
+                        </CuteText>
+                      </View>
+                    ) : null}
+                  </View>
+                  <CuteText
+                    weight="bold"
+                    style={{ fontSize: 17, marginTop: hasStatus ? 6 : 12 }}
+                  >
+                    {partner.name}
+                  </CuteText>
                   {partner.birthday ? (
                     <View
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
+                        justifyContent: "center",
                         gap: 6,
-                        paddingHorizontal: 16,
-                        paddingVertical: 8,
+                        paddingHorizontal: 14,
+                        paddingVertical: 5,
                         borderRadius: 999,
                         backgroundColor: partner.accent + "1A",
+                        marginTop: 10,
+                        alignSelf: "center",
                       }}
                     >
                       <MaterialIcons
                         name="cake"
-                        size={16}
+                        size={15}
                         color={partner.accent}
                       />
-                      <CuteText weight="semibold">
+                      <CuteText
+                        weight="semibold"
+                        style={{ fontSize: 12, textAlign: "center" }}
+                      >
                         {formatBirthday(partner.birthday)}
                       </CuteText>
                     </View>
                   ) : null}
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
+                </Pressable>
+              );
+            })}
+          </View>
         ) : (
           <View
             style={{
