@@ -1,8 +1,14 @@
+import { MaterialIcons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
-  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -10,13 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import { StatusBar } from "expo-status-bar";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useIsFocused } from "@react-navigation/native";
 
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
@@ -376,59 +376,59 @@ export default function PrivateChatScreen() {
             <View style={{ width: 32 }} />
           </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          keyboardDismissMode="on-drag"
-          ref={scrollRef}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingVertical: 24,
-            paddingBottom:
-              composerBottomPadding + 80,
-            gap: 16,
-          }}
+          <ScrollView
+            style={{ flex: 1 }}
+            keyboardDismissMode="on-drag"
+            ref={scrollRef}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingVertical: 24,
+              paddingBottom: composerBottomPadding + 80,
+              gap: 16,
+            }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() =>
               scrollRef.current?.scrollToEnd({ animated: true })
             }
-        >
-          {chat.messages.map((message) => {
-            const isPartner = message.sender === "partner";
-            const readByMe = message.readByMe || markedReadRef.current.has(message.id);
-            const isImageMessage =
-              message.type === "image" && Boolean(message.mediaUrl);
-            const bubbleColor = isImageMessage
-              ? "transparent"
-              : isPartner
-              ? readByMe
-                ? palette.card
-                : palette.cardAlt
-              : palette.primary;
-            const textColor = isPartner ? palette.text : "#fff";
-            const timeSource =
-              message.pending && message.clientTimestamp
-                ? message.clientTimestamp
-                : message.timestamp;
-            const timestamp = formatMessageTime(timeSource);
-            const readTimestamp = message.readAt
-              ? formatMessageTime(message.readAt)
-              : "";
-            let metaLabel: string | null = null;
-            if (message.pending) {
-              metaLabel = "Sending…";
-            } else if (isPartner) {
-              metaLabel = timestamp;
-            } else if (message.readAt) {
-              metaLabel = readTimestamp ? `${readTimestamp} · Seen` : "Seen";
-            } else if (message.readByPartner) {
-              metaLabel = "Seen";
-            } else {
-              metaLabel = timestamp ? `${timestamp} · Sent` : "Sent";
-            }
-            const imageSize = Math.min(maxBubbleWidth, 240);
+          >
+            {chat.messages.map((message) => {
+              const isPartner = message.sender === "partner";
+              const readByMe =
+                message.readByMe || markedReadRef.current.has(message.id);
+              const isImageMessage =
+                message.type === "image" && Boolean(message.mediaUrl);
+              const bubbleColor = isImageMessage
+                ? "transparent"
+                : isPartner
+                ? readByMe
+                  ? palette.card
+                  : palette.cardAlt
+                : palette.primary;
+              const textColor = isPartner ? palette.text : "#fff";
+              const timeSource =
+                message.pending && message.clientTimestamp
+                  ? message.clientTimestamp
+                  : message.timestamp;
+              const timestamp = formatMessageTime(timeSource);
+              const readTimestamp = message.readAt
+                ? formatMessageTime(message.readAt)
+                : "";
+              let metaLabel: string | null = null;
+              if (message.pending) {
+                metaLabel = "Sending…";
+              } else if (isPartner) {
+                metaLabel = timestamp;
+              } else if (message.readAt) {
+                metaLabel = readTimestamp ? `${readTimestamp} · Seen` : "Seen";
+              } else if (message.readByPartner) {
+                metaLabel = "Seen";
+              } else {
+                metaLabel = timestamp ? `${timestamp} · Sent` : "Sent";
+              }
+              const imageSize = Math.min(maxBubbleWidth, 240);
 
-            return (
+              return (
                 <View
                   key={message.id}
                   style={{
@@ -451,74 +451,74 @@ export default function PrivateChatScreen() {
                     <View style={{ width: 34 }} />
                   )}
 
-                <View
-                  style={{
-                    maxWidth: maxBubbleWidth,
-                    alignItems: isPartner ? "flex-start" : "flex-end",
-                    opacity: message.pending ? 0.75 : 1,
-                  }}
-                >
                   <View
                     style={{
-                      backgroundColor: bubbleColor,
-                      paddingHorizontal: isImageMessage ? 0 : 16,
-                      paddingVertical: isImageMessage ? 0 : 14,
-                      borderRadius: 24,
-                      borderBottomLeftRadius: isPartner ? 12 : 24,
-                      borderBottomRightRadius: isPartner ? 24 : 12,
-                      overflow: isImageMessage ? "hidden" : "visible",
+                      maxWidth: maxBubbleWidth,
+                      alignItems: isPartner ? "flex-start" : "flex-end",
+                      opacity: message.pending ? 0.75 : 1,
                     }}
                   >
-                    {isImageMessage && message.mediaUrl ? (
-                      <View
-                        style={{
-                          width: imageSize,
-                          height: imageSize,
-                          backgroundColor: palette.cardAlt,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Image
-                          source={{ uri: message.mediaUrl }}
+                    <View
+                      style={{
+                        backgroundColor: bubbleColor,
+                        paddingHorizontal: isImageMessage ? 0 : 16,
+                        paddingVertical: isImageMessage ? 0 : 14,
+                        borderRadius: 24,
+                        borderBottomLeftRadius: isPartner ? 12 : 24,
+                        borderBottomRightRadius: isPartner ? 24 : 12,
+                        overflow: isImageMessage ? "hidden" : "visible",
+                      }}
+                    >
+                      {isImageMessage && message.mediaUrl ? (
+                        <View
                           style={{
                             width: imageSize,
                             height: imageSize,
+                            backgroundColor: palette.cardAlt,
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
-                          resizeMode="cover"
-                        />
-                        {message.pending ? (
-                          <View
+                        >
+                          <Image
+                            source={{ uri: message.mediaUrl }}
                             style={{
-                              position: "absolute",
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              backgroundColor: "#00000040",
-                              alignItems: "center",
-                              justifyContent: "center",
+                              width: imageSize,
+                              height: imageSize,
                             }}
-                          >
-                            <ActivityIndicator color="#fff" />
-                          </View>
-                        ) : null}
-                      </View>
-                    ) : (
+                            resizeMode="cover"
+                          />
+                          {message.pending ? (
+                            <View
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                backgroundColor: "#00000040",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <ActivityIndicator color="#fff" />
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <CuteText
+                          style={{
+                            color: textColor,
+                            fontSize: 15,
+                          }}
+                        >
+                          {message.text}
+                        </CuteText>
+                      )}
+                    </View>
+                    {!!metaLabel && (
                       <CuteText
+                        tone="muted"
                         style={{
-                          color: textColor,
-                          fontSize: 15,
-                        }}
-                      >
-                        {message.text}
-                      </CuteText>
-                    )}
-                  </View>
-                  {!!metaLabel && (
-                    <CuteText
-                      tone="muted"
-                      style={{
                           fontSize: 11,
                           marginTop: 6,
                           textAlign: isPartner ? "left" : "right",
@@ -555,7 +555,6 @@ export default function PrivateChatScreen() {
             style={{
               paddingHorizontal: composerHorizontalPadding,
               paddingTop: 10,
-              paddingBottom: composerBottomPadding,
             }}
           >
             <View
@@ -603,9 +602,7 @@ export default function PrivateChatScreen() {
                 value={draft}
                 onChangeText={setDraft}
                 onSubmitEditing={() => {
-                  if (!isSending) {
-                    handleSend();
-                  }
+                  if (!isSending) handleSend();
                 }}
                 ref={inputRef}
                 multiline
@@ -644,8 +641,7 @@ export default function PrivateChatScreen() {
                 <MaterialIcons name="send" size={22} color="#fff" />
               </Pressable>
             </View>
-        </View>
-
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Screen>
