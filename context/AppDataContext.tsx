@@ -499,6 +499,26 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         },
       };
     }
+    case "UPDATE_TODO_CATEGORY": {
+      return {
+        ...state,
+        todos: {
+          ...state.todos,
+          categories: state.todos.categories.map((category) =>
+            category.id === action.payload.id
+              ? {
+                  ...category,
+                  name: action.payload.name ?? category.name,
+                  icon: action.payload.icon ?? category.icon,
+                  color: action.payload.color ?? category.color,
+                  description:
+                    action.payload.description ?? category.description,
+                }
+              : category
+          ),
+        },
+      };
+    }
     case "DELETE_TODO_CATEGORY": {
       return {
         ...state,
@@ -508,6 +528,17 @@ const reducer = (state: AppState, action: AppAction): AppState => {
           ),
           items: state.todos.items.filter(
             (item) => item.categoryId !== action.payload.categoryId
+          ),
+        },
+      };
+    }
+    case "DELETE_TODO_ITEM": {
+      return {
+        ...state,
+        todos: {
+          ...state.todos,
+          items: state.todos.items.filter(
+            (item) => item.id !== action.payload.itemId
           ),
         },
       };
@@ -531,6 +562,19 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         todos: {
           ...state.todos,
           items: [newItem, ...state.todos.items],
+        },
+      };
+    }
+    case "UPDATE_TODO_ITEM": {
+      return {
+        ...state,
+        todos: {
+          ...state.todos,
+          items: state.todos.items.map((item) =>
+            item.id === action.payload.itemId
+              ? { ...item, ...action.payload.updates }
+              : item
+          ),
         },
       };
     }

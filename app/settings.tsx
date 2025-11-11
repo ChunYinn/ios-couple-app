@@ -130,9 +130,20 @@ export default function SettingsScreen() {
       >
         <Pressable
           onPress={() => router.back()}
-          style={{ padding: 6, marginLeft: -6 }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: palette.card,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.08,
+            shadowRadius: 6,
+            elevation: 2,
+          }}
         >
-          <MaterialIcons name="arrow-back-ios" size={20} color={palette.textSecondary} />
+          <MaterialIcons name="arrow-back" size={20} color={palette.textSecondary} />
         </Pressable>
         <CuteText weight="bold" style={{ fontSize: 20 }}>
           Cute Settings

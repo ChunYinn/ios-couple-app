@@ -127,11 +127,13 @@ const PressableBack = () => {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: palette.card,
-        borderWidth: 1,
-        borderColor: palette.border,
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
       }}
     >
-      <MaterialIcons name="arrow-back-ios" size={18} color={palette.textSecondary} />
+      <MaterialIcons name="arrow-back" size={20} color={palette.textSecondary} />
     </Pressable>
   );
 };

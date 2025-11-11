@@ -241,7 +241,21 @@ export type AppAction =
         description?: string;
       };
     }
+  | {
+      type: "UPDATE_TODO_CATEGORY";
+      payload: {
+        id: string;
+        name?: string;
+        icon?: string;
+        color?: string;
+        description?: string;
+      };
+    }
   | { type: "DELETE_TODO_CATEGORY"; payload: { categoryId: string } }
+  | {
+      type: "DELETE_TODO_ITEM";
+      payload: { itemId: string };
+    }
   | {
       type: "ADD_TODO_ITEM";
       payload: {
@@ -255,6 +269,13 @@ export type AppAction =
         location?: string;
         costEstimate?: string;
         notes?: string;
+      };
+    }
+  | {
+      type: "UPDATE_TODO_ITEM";
+      payload: {
+        itemId: string;
+        updates: Partial<TodoItem>;
       };
     }
   | { type: "SYNC_TODO_CATEGORIES"; payload: TodoCategory[] }

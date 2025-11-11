@@ -281,20 +281,31 @@ export default function PairingScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Pressable
             onPress={() => router.back()}
-            style={{ padding: 6, marginLeft: -6 }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.card,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
           >
             <MaterialIcons
-              name="arrow-back-ios"
+              name="arrow-back"
               size={20}
               color={palette.textSecondary}
             />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <CuteText weight="bold" style={{ fontSize: 26 }}>
-            Invite your partner
-          </CuteText>
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <CuteText weight="bold" style={{ fontSize: 26 }}>
+              Invite your partner
+            </CuteText>
+          </View>
         </View>
-      </View>
       </View>
 
       <View style={{ gap: 16 }}>
