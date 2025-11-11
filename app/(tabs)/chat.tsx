@@ -334,12 +334,23 @@ export default function PrivateChatScreen() {
           >
             <Pressable
               onPress={() => router.back()}
-              style={{ padding: 8, marginLeft: -8 }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: palette.card,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#000",
+                shadowOpacity: 0.08,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
               <MaterialIcons
-                name="arrow-back-ios"
+                name="arrow-back"
                 size={20}
                 color={palette.textSecondary}
               />

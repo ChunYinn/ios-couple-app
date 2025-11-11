@@ -81,7 +81,7 @@ export default function TabLayout() {
         name="lists"
         listeners={guardTabPress(true)}
         options={{
-          title: "Lists",
+          title: "To-dos",
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="list-alt" size={size} color={color} />
           ),

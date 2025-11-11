@@ -202,11 +202,25 @@ export default function LiveLocationScreen() {
                 justifyContent: "space-between",
               }}
             >
-              <Pressable onPress={() => router.back()}>
+              <Pressable
+                onPress={() => router.back()}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: palette.card,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#000",
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
+              >
                 <MaterialIcons
                   name="arrow-back"
-                  size={22}
-                  color={palette.primary}
+                  size={20}
+                  color={palette.textSecondary}
                 />
               </Pressable>
               <View style={{ alignItems: "center" }}>

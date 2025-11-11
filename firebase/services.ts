@@ -418,6 +418,42 @@ export const todoService = {
     return categoryRef.id;
   },
 
+  async updateTodoCategory(
+    coupleId: string,
+    categoryId: string,
+    data: {
+      name?: string;
+      icon?: string;
+      color?: string;
+      description?: string | null;
+    }
+  ): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
+
+    const updates: Record<string, unknown> = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (data.name !== undefined) {
+      updates.name = data.name;
+    }
+    if (data.icon !== undefined) {
+      updates.icon = data.icon;
+    }
+    if (data.color !== undefined) {
+      updates.color = data.color;
+    }
+    if (data.description !== undefined) {
+      updates.description = data.description;
+    }
+
+    await updateDoc(
+      doc(db, 'couples', coupleId, 'todoCategories', categoryId),
+      updates
+    );
+  },
+
   // Create todo item
   async createTodoItem(
     coupleId: string,
@@ -459,6 +495,61 @@ export const todoService = {
     });
 
     return itemRef.id;
+  },
+
+  async updateTodoItem(
+    coupleId: string,
+    todoId: string,
+    data: {
+      categoryId?: string;
+      categoryKey?: string;
+      title?: string;
+      assigneeIds?: string[];
+      dueDate?: string | null;
+      location?: string | null;
+      costEstimate?: string | null;
+      notes?: string | null;
+    }
+  ): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
+
+    const updates: Record<string, unknown> = {
+      updatedAt: serverTimestamp()
+    };
+
+    if (data.categoryId !== undefined) {
+      updates.categoryId = data.categoryId;
+    }
+    if (data.categoryKey !== undefined) {
+      updates.categoryKey = data.categoryKey;
+    }
+    if (data.title !== undefined) {
+      updates.title = data.title;
+    }
+    if (data.assigneeIds !== undefined) {
+      updates.assigneeIds = data.assigneeIds;
+    }
+    if (data.dueDate !== undefined) {
+      updates.dueDate = data.dueDate ?? null;
+    }
+    if (data.location !== undefined) {
+      updates.location = data.location ?? null;
+    }
+    if (data.costEstimate !== undefined) {
+      updates.costEstimate = data.costEstimate ?? null;
+    }
+    if (data.notes !== undefined) {
+      updates.notes = data.notes ?? null;
+    }
+
+    await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), updates);
+  },
+
+  async deleteTodoItem(coupleId: string, todoId: string): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
+    await deleteDoc(doc(db, 'couples', coupleId, 'todoItems', todoId));
   },
 
   // Delete category (and related todos)
@@ -507,14 +598,19 @@ export const todoService = {
       );
     }
 
-    await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), {
+    const updates: Record<string, unknown> = {
       completed,
       completedAt: completed ? serverTimestamp() : null,
       completedBy: completed ? userId : null,
       proofImageUrl: completed ? proofImageUrl : null,
-      notes: options?.note ?? null,
       updatedAt: serverTimestamp()
-    });
+    };
+
+    if (options?.note !== undefined) {
+      updates.notes = options.note ?? null;
+    }
+
+    await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), updates);
 
     if (completed && proofImageUrl) {
       await milestoneService.createMilestone(coupleId, {
