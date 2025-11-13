@@ -23,6 +23,14 @@ service firebase.storage {
       allow read, write: if isCoupleMember(coupleId);
     }
 
+    // Chat message attachments under couples/{coupleId}/messages/{messageId}/{fileName}
+    match /couples/{coupleId}/messages/{messageId}/{fileName} {
+      allow read: if isCoupleMember(coupleId);
+      allow write: if isCoupleMember(coupleId)
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 8 * 1024 * 1024;
+    }
+
     // Milestone covers under couples/{coupleId}/milestones/{file}
     match /couples/{coupleId}/milestones/{fileName} {
       allow read: if isCoupleMember(coupleId);
