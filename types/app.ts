@@ -2,17 +2,6 @@ export type AuthStatus = "initializing" | "signedOut" | "profile" | "ready";
 
 export type AuthProvider = "anonymous" | "password" | "custom";
 
-export type PronounValue =
-  | "she/her"
-  | "he/him"
-  | "they/them"
-  | "she/they"
-  | "he/they"
-  | "xe/xem"
-  | "ze/zir"
-  | "fae/faer"
-  | "ask me";
-
 export type LoveLanguageValue =
   | "words"
   | "acts"
@@ -28,7 +17,6 @@ export type UserProfile = {
   displayName?: string;
   avatarUrl?: string;
   birthday?: string;
-  pronouns?: PronounValue;
   anniversaryDate?: string;
   coupleId?: string | null;
   email?: string | null;
@@ -206,7 +194,6 @@ export type AppAction =
         avatarUrl?: string;
         birthday?: string;
         anniversary?: string;
-        pronouns?: PronounValue;
         status?: string;
         about?: string;
         loveLanguages?: LoveLanguageValue[];

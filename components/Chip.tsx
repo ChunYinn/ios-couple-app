@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { StyleProp, View, ViewStyle } from "react-native";
 
 import { usePalette } from "../hooks/usePalette";
+import { getRelativeLuminance } from "../utils/color";
 import { CuteText } from "./CuteText";
 
 type ChipProps = {
@@ -9,22 +10,37 @@ type ChipProps = {
   leading?: ReactNode;
   tone?: "primary" | "secondary" | "neutral";
   style?: StyleProp<ViewStyle>;
+  backgroundColor?: string;
+  textColor?: string;
 };
 
-export const Chip = ({ label, leading, tone = "primary", style }: ChipProps) => {
+export const Chip = ({
+  label,
+  leading,
+  tone = "primary",
+  style,
+  backgroundColor,
+  textColor,
+}: ChipProps) => {
   const colors = usePalette();
 
-  const background =
-    tone === "primary"
+  const resolvedBackground =
+    backgroundColor ??
+    (tone === "primary"
       ? colors.primary
       : tone === "secondary"
         ? colors.secondary
-        : colors.backgroundMuted;
+        : colors.backgroundMuted);
 
-  const textColor =
-    tone === "primary" || tone === "secondary"
-      ? "#ffffff"
-      : colors.textSecondary;
+  const resolvedTextColor =
+    textColor ??
+    (backgroundColor != null
+      ? getRelativeLuminance(resolvedBackground) > 0.55
+        ? colors.text
+        : "#ffffff"
+      : tone === "primary" || tone === "secondary"
+        ? "#ffffff"
+        : colors.textSecondary);
 
   return (
     <View
@@ -36,7 +52,7 @@ export const Chip = ({ label, leading, tone = "primary", style }: ChipProps) => 
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 999,
-          backgroundColor: background,
+          backgroundColor: resolvedBackground,
         },
         style,
       ]}
@@ -45,7 +61,7 @@ export const Chip = ({ label, leading, tone = "primary", style }: ChipProps) => 
       <CuteText
         weight="semibold"
         style={{
-          color: textColor,
+          color: resolvedTextColor,
           fontSize: 13,
         }}
       >
