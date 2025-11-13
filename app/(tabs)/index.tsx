@@ -4,9 +4,9 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  FlatList,
   Image,
   Pressable,
-  ScrollView,
   View,
   Platform,
   useWindowDimensions,
@@ -310,7 +310,7 @@ export default function AnniversaryDashboardScreen() {
   };
 
   const milestoneReels = useMemo(
-    () => milestones.slice(0, 12),
+    () => [...milestones].slice(0, 24),
     [milestones]
   );
 
@@ -488,99 +488,111 @@ export default function AnniversaryDashboardScreen() {
             ) : undefined
           }
         />
-        <ScrollView
+        <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
+          data={[...milestoneReels, { id: "add-button" }]}
+          keyExtractor={(item, index) =>
+            item.id ? `${item.id}-${index}` : `add-${index}`
+          }
+          ItemSeparatorComponent={() => <View style={{ width: milestoneItemGap }} />}
           contentContainerStyle={{
             paddingVertical: 4,
             paddingRight: 8,
           }}
-        >
-          {milestones.length < 3 && (
-            <Pressable
-              onPress={() => router.push("/milestone/new")}
-              style={{
-                width: milestoneCardWidth,
-                alignItems: "center",
-                gap: milestoneItemGap,
-              }}
-            >
-              <View
-                style={{
-                  width: milestoneFrameSize,
-                  height: milestoneFrameSize,
-                  borderRadius: milestoneFrameSize / 2,
-                  borderWidth: 2,
-                  borderStyle: "dashed",
-                  borderColor: palette.primary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: palette.card,
-                }}
-              >
-                <MaterialIcons name="add" size={28} color={palette.primary} />
-              </View>
-              <CuteText tone="muted" style={{ fontSize: 12 }}>
-                Add
-              </CuteText>
-            </Pressable>
-          )}
-          {milestoneReels.map((milestone) => (
-            <Pressable
-              key={milestone.id}
-              onPress={() => router.push(`/milestone/${milestone.id}`)}
-              style={{
-                width: milestoneCardWidth,
-                alignItems: "center",
-                gap: milestoneItemGap,
-              }}
-            >
-              <View
-                style={{
-                  padding: 4,
-                  borderRadius: 999,
-                  borderWidth: 2,
-                  borderColor: palette.primary,
-                  backgroundColor: palette.card,
-                }}
-              >
-                {milestone.image ? (
-                  <Image
-                    source={{ uri: milestone.image }}
-                    style={{
-                      width: milestoneAvatarSize,
-                      height: milestoneAvatarSize,
-                      borderRadius: 999,
-                    }}
-                  />
-                ) : (
+          renderItem={({ item }) => {
+            if (item.id === "add-button") {
+              return (
+                <Pressable
+                  onPress={() => router.push("/milestone/new")}
+                  style={{
+                    width: milestoneCardWidth,
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
                   <View
                     style={{
-                      width: milestoneAvatarSize,
-                      height: milestoneAvatarSize,
-                      borderRadius: 999,
+                      width: milestoneFrameSize,
+                      height: milestoneFrameSize,
+                      borderRadius: milestoneFrameSize / 2,
+                      borderWidth: 2,
+                      borderStyle: "dashed",
+                      borderColor: palette.primary,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: palette.primarySoft,
+                      backgroundColor: palette.card,
                     }}
                   >
-                    <MaterialIcons
-                      name="auto-awesome"
-                      size={24}
-                      color={palette.primary}
-                    />
+                    <MaterialIcons name="add" size={28} color={palette.primary} />
                   </View>
-                )}
-              </View>
-              <CuteText
-                style={{ fontSize: 13, textAlign: "center" }}
-                numberOfLines={2}
+                </Pressable>
+              );
+            }
+
+            return (
+              <Pressable
+                onPress={() => router.push(`/milestone/${item.id}`)}
+                style={{
+                  width: milestoneCardWidth,
+                  alignItems: "center",
+                  gap: milestoneItemGap,
+                }}
               >
-                {milestone.title}
-              </CuteText>
-            </Pressable>
-          ))}
-        </ScrollView>
+                <View
+                  style={{
+                    padding: 4,
+                    borderRadius: 999,
+                    borderWidth: 2,
+                    borderColor: palette.primary,
+                    backgroundColor: palette.card,
+                  }}
+                >
+                  {item.image ? (
+                    <Image
+                      source={{ uri: item.image }}
+                      style={{
+                        width: milestoneAvatarSize,
+                        height: milestoneAvatarSize,
+                        borderRadius: 999,
+                      }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: milestoneAvatarSize,
+                        height: milestoneAvatarSize,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: palette.primarySoft,
+                      }}
+                    >
+                      <MaterialIcons
+                        name="auto-awesome"
+                        size={24}
+                        color={palette.primary}
+                      />
+                    </View>
+                  )}
+                </View>
+                <View style={{ height: 32, justifyContent: "flex-start" }}>
+                  <CuteText
+                    style={{
+                      fontSize: 12,
+                      textAlign: "center",
+                      color: palette.textSecondary,
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {item.title}
+                  </CuteText>
+                </View>
+              </Pressable>
+            );
+          }}
+        />
         {!milestones.length ? (
           <CuteCard
             background={palette.card}
