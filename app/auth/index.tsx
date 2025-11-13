@@ -62,7 +62,7 @@ export default function GetStartedScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, scaleAnim]);
 
   const handlePress = async () => {
     try {
@@ -216,7 +216,7 @@ export default function GetStartedScreen() {
 
             <View style={{ width: "100%", maxWidth: 320, gap: 12 }}>
               <CuteText tone="muted" style={{ fontSize: 12, textAlign: "center" }}>
-                You'll breeze through two quick steps:
+                You{"'"}ll breeze through two quick steps:
               </CuteText>
               <View style={{ gap: 10 }}>
                 {journey.map((step, index) => (

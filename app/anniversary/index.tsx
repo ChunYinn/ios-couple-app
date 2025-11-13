@@ -101,7 +101,7 @@ export default function AnniversaryScreen() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "We couldn't clear the anniversary right now."
+          : "We couldn\u2019t clear the anniversary right now."
       );
     } finally {
       setIsSaving(false);
@@ -125,7 +125,8 @@ export default function AnniversaryScreen() {
           Set your anniversary
         </CuteText>
         <CuteText tone="muted">
-          Celebrate your journey together - we'll track your days as a couple.
+          Celebrate your journey together - we{"'"}ll track your days as a
+          couple.
         </CuteText>
       </View>
 

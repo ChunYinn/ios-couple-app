@@ -1,13 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import {
-  ComponentProps,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -23,10 +17,6 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import {
-  AppDatePicker,
-  DateTimePickerEvent,
-} from "../../components/AppDatePicker";
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
 import { CuteDropdown } from "../../components/CuteDropdown";
@@ -38,7 +28,6 @@ import { useAppData } from "../../context/AppDataContext";
 import { todoService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
 import { TodoItem } from "../../types/app";
-import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 type CategoryFilterOption = {
   key: string;
@@ -48,14 +37,9 @@ type CategoryFilterOption = {
   isCustom?: boolean;
 };
 
-type IconName = ComponentProps<typeof MaterialIcons>["name"];
-
 type NewTodoFormValues = {
   title: string;
   categoryKey: string;
-  dueDate: Date | null;
-  location: string;
-  costEstimate: string;
   notes: string;
   assignees: string[];
 };
@@ -79,67 +63,13 @@ const CATEGORY_COLOR_PRESETS = [
   "#E1F5EA",
   "#FFF4D6",
 ];
+const DEFAULT_CATEGORY_COLOR = CATEGORY_COLOR_PRESETS[0];
 
 const formatCategoryLabelFromKey = (key: string) =>
   key
     .split(/[-_]/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-
-const groupTodosByDate = (items: TodoItem[]) => {
-  const today = new Date();
-  const startOfToday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate()
-  );
-  const startOfTomorrow = new Date(startOfToday);
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  const endOfWeek = new Date(startOfToday);
-  endOfWeek.setDate(endOfWeek.getDate() + 7);
-
-  const buckets: Record<"today" | "tomorrow" | "week" | "later", TodoItem[]> = {
-    today: [],
-    tomorrow: [],
-    week: [],
-    later: [],
-  };
-
-  items.forEach((item) => {
-    if (!item.dueDate) {
-      buckets.later.push(item);
-      return;
-    }
-    const date = parseLocalDate(item.dueDate);
-    if (date < startOfToday) {
-      buckets.today.push(item);
-    } else if (date >= startOfToday && date < startOfTomorrow) {
-      buckets.today.push(item);
-    } else if (date >= startOfTomorrow && date < endOfWeek) {
-      buckets.tomorrow.push(item);
-    } else if (date >= endOfWeek) {
-      buckets.later.push(item);
-    } else {
-      buckets.week.push(item);
-    }
-  });
-
-  return [
-    { key: "today", label: "Today", items: buckets.today },
-    { key: "tomorrow", label: "Tomorrow", items: buckets.tomorrow },
-    { key: "week", label: "This Week", items: buckets.week },
-    { key: "later", label: "Later", items: buckets.later },
-  ].filter((group) => group.items.length);
-};
-
-const formatDueDateLabel = (value?: string) => {
-  if (!value) return "Flexible date";
-  const parsed = parseLocalDate(value);
-  return parsed.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-};
 
 export default function SharedListsScreen() {
   const palette = usePalette();
@@ -174,7 +104,7 @@ export default function SharedListsScreen() {
   const [manageCategoryName, setManageCategoryName] = useState("");
   const [manageCategoryEmoji, setManageCategoryEmoji] = useState("📝");
   const [manageCategoryColor, setManageCategoryColor] = useState(
-    CATEGORY_COLOR_PRESETS[0]
+    DEFAULT_CATEGORY_COLOR
   );
   const [manageCategorySaving, setManageCategorySaving] = useState(false);
   const [manageCategoryError, setManageCategoryError] = useState<string | null>(
@@ -204,11 +134,6 @@ export default function SharedListsScreen() {
     () => uniqueTodoItems.find((item) => item.id === editingTodoId) ?? null,
     [uniqueTodoItems, editingTodoId]
   );
-
-  const startOfToday = useMemo(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }, []);
 
   const closeDetailModal = () => {
     setDetailModalVisible(false);
@@ -302,7 +227,7 @@ export default function SharedListsScreen() {
   const resetManageCategoryForm = () => {
     setManageCategoryName("");
     setManageCategoryEmoji("📝");
-    setManageCategoryColor(CATEGORY_COLOR_PRESETS[0]);
+    setManageCategoryColor(DEFAULT_CATEGORY_COLOR);
     setManageCategorySaving(false);
     setManageCategoryError(null);
   };
@@ -449,20 +374,19 @@ export default function SharedListsScreen() {
     [filteredTodos]
   );
 
-  const groupedTodosByDate = useMemo(
-    () => groupTodosByDate(filteredTodos),
-    [filteredTodos]
-  );
-
-  const formatAssigneesText = (assignees: string[]) => {
-    if (!assignees.length) return "Unassigned";
+  const getAssigneeDisplay = (assignees: string[]) => {
     const hasMe = assignees.includes("me");
     const hasPartner = assignees.includes("partner");
     if (hasMe && hasPartner) {
-      return `${myName} & ${partnerName}`;
+      return { label: "You & Partner", icon: "groups" as const };
     }
-    if (hasPartner) return partnerName;
-    return myName;
+    if (hasPartner) {
+      return { label: "Partner", icon: "person" as const };
+    }
+    if (hasMe) {
+      return { label: "You", icon: "person" as const };
+    }
+    return { label: "Unassigned", icon: "help-outline" as const };
   };
 
   const handleToggleTodo = async (todo: TodoItem, value: boolean) => {
@@ -480,6 +404,22 @@ export default function SharedListsScreen() {
     } catch (error) {
       console.error("Failed to toggle todo", error);
     }
+  };
+
+  const confirmToggleTodo = (todo: TodoItem, value: boolean) => {
+    Alert.alert(
+      value ? "Mark this as done?" : "Reopen this to-do?",
+      value
+        ? "We'll move it into your completed tab."
+        : "It will show up under your active to-dos again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: value ? "Mark done" : "Reopen",
+          onPress: () => handleToggleTodo(todo, value),
+        },
+      ]
+    );
   };
 
   const renderAssigneeAvatars = (assigneeIds: string[]) => {
@@ -535,34 +475,6 @@ export default function SharedListsScreen() {
     );
   };
 
-  const renderInfoRow = (icon: IconName, text: string) => (
-    <View
-      key={`${icon}-${text}`}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <MaterialIcons name={icon} size={14} color={palette.textSecondary} />
-      <CuteText tone="muted" style={{ fontSize: 12, flexShrink: 1 }}>
-        {text}
-      </CuteText>
-    </View>
-  );
-
-  const formatCompletionLabel = (todo: TodoItem) => {
-    if (!todo.completedAt) return "Completed";
-    try {
-      return `Completed ${new Date(todo.completedAt).toLocaleDateString(
-        undefined,
-        { month: "short", day: "numeric" }
-      )}`;
-    } catch {
-      return "Completed";
-    }
-  };
-
   const renderMissionCard = (
     item: TodoItem,
     completionMode: "complete" | "undo" = "complete"
@@ -571,11 +483,10 @@ export default function SharedListsScreen() {
     const categoryKey = item.categoryKey ?? item.categoryId;
     const categoryMeta = categoryLookup.get(categoryKey);
     const emoji = categoryMeta?.emoji ?? "📝";
-    const completionLabel =
-      completionMode === "undo" ? formatCompletionLabel(item) : null;
-    const dueDateObj = item.dueDate ? parseLocalDate(item.dueDate) : null;
-    const isOverdue =
-      !!dueDateObj && !item.completed && dueDateObj < startOfToday;
+    const categoryLabel = categoryMeta?.label ?? "General";
+    const categoryAccent = categoryMeta?.color ?? palette.primarySoft;
+
+    const assigneeAvatars = renderAssigneeAvatars(item.assigneeIds);
 
     return (
       <Pressable
@@ -585,124 +496,87 @@ export default function SharedListsScreen() {
           setDetailModalVisible(true);
         }}
         style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 12,
-          borderRadius: 18,
+          borderRadius: 20,
           backgroundColor: palette.card,
-          padding: 16,
-          shadowColor: "#000",
-          shadowOpacity: 0.06,
-          shadowRadius: 10,
-          elevation: 2,
+          padding: 14,
           borderWidth: 1,
           borderColor: isCompleted ? palette.primarySoft : palette.border,
-          opacity: isCompleted && completionMode === "complete" ? 0.75 : 1,
-          position: "relative",
+          shadowColor: "#000",
+          shadowOpacity: 0.03,
+          shadowRadius: 6,
+          elevation: 1,
+          gap: 12,
         }}
       >
-        <View
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: categoryMeta?.color ?? palette.primarySoft,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <CuteText style={{ fontSize: 22 }}>{emoji}</CuteText>
-        </View>
-        <View style={{ flex: 1, gap: 10 }}>
-          <CuteText
-            weight="semibold"
-            style={[
-              { fontSize: 16 },
-              isCompleted && {
-                textDecorationLine: "line-through",
-                color: palette.textSecondary,
-              },
-            ]}
-          >
-            {item.title}
-          </CuteText>
-          <View
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              confirmToggleTodo(item, !isCompleted);
+            }}
             style={{
-              flexDirection: "row",
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: isCompleted ? palette.primary : palette.border,
+              backgroundColor: isCompleted ? palette.primary : palette.card,
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
+              justifyContent: "center",
             }}
           >
+            {isCompleted ? (
+              <MaterialIcons name="check" size={18} color="#fff" />
+            ) : null}
+          </Pressable>
+          <View style={{ flex: 1, gap: 10 }}>
+            <View>
+              <CuteText
+                weight="semibold"
+                numberOfLines={2}
+                style={{
+                  flex: 1,
+                  fontSize: 16,
+                  color: isCompleted ? palette.textSecondary : palette.text,
+                  textDecorationLine: isCompleted ? "line-through" : "none",
+                }}
+              >
+                {item.title}
+              </CuteText>
+            </View>
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 6,
-                backgroundColor: palette.primarySoft,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 999,
+                justifyContent: "space-between",
+                gap: 12,
               }}
             >
-              <MaterialIcons
-                name="calendar-today"
-                size={14}
-                color={isOverdue ? "#B42318" : palette.text}
-              />
-              <CuteText
-                style={{
-                  fontSize: 12,
-                  color: isOverdue ? "#B42318" : palette.text,
-                }}
-              >
-                {item.dueDate ? formatDueDateLabel(item.dueDate) : "Flexible"}
-              </CuteText>
-            </View>
-            {isOverdue ? (
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
+                  gap: 6,
                   borderRadius: 999,
-                  backgroundColor: "#F8B4B4",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: isCompleted
+                    ? palette.primarySoft
+                    : categoryAccent,
                 }}
               >
-                <MaterialIcons name="warning" size={14} color="#4A2222" />
-                <CuteText style={{ fontSize: 11, color: "#4A2222" }}>
-                  Overdue
+                <CuteText style={{ fontSize: 14 }}>{emoji}</CuteText>
+                <CuteText style={{ fontSize: 12, color: palette.text }}>
+                  {categoryLabel}
                 </CuteText>
               </View>
-            ) : null}
+              {assigneeAvatars}
+            </View>
           </View>
-          {completionLabel ? (
-            <CuteText tone="muted" style={{ fontSize: 11 }}>
-              {completionLabel}
-            </CuteText>
-          ) : null}
-        </View>
-        <View style={{ position: "absolute", top: 12, right: 12 }}>
-          {renderAssigneeAvatars(item.assigneeIds)}
         </View>
       </Pressable>
     );
   };
-
-  const detailDueDate = selectedTodo?.dueDate
-    ? parseLocalDate(selectedTodo.dueDate)
-    : null;
-  const detailOverdue =
-    !!detailDueDate &&
-    !!selectedTodo &&
-    !selectedTodo.completed &&
-    detailDueDate < startOfToday;
-  const detailDueText = selectedTodo?.dueDate
-    ? `Due ${formatDueDateLabel(selectedTodo.dueDate)}`
-    : "Flexible date";
 
   const handleCreateTodo = async (values: NewTodoFormValues) => {
     if (!coupleId) {
@@ -715,12 +589,7 @@ export default function SharedListsScreen() {
     if (!values.assignees.length) {
       throw new Error("Select at least one assignee");
     }
-    const trimmedLocation = values.location.trim();
-    const trimmedCost = values.costEstimate.trim();
     const trimmedNotes = values.notes.trim();
-    const dueDateString = values.dueDate
-      ? formatDateToYMD(values.dueDate.toISOString())
-      : undefined;
 
     try {
       const id = await todoService.createTodoItem(coupleId, {
@@ -728,9 +597,6 @@ export default function SharedListsScreen() {
         categoryKey: values.categoryKey,
         title: trimmedTitle,
         assigneeIds: values.assignees,
-        dueDate: dueDateString,
-        location: trimmedLocation || undefined,
-        costEstimate: trimmedCost || undefined,
         notes: trimmedNotes || undefined,
       });
       dispatch({
@@ -741,9 +607,6 @@ export default function SharedListsScreen() {
           categoryKey: values.categoryKey,
           title: trimmedTitle,
           assigneeIds: values.assignees,
-          dueDate: dueDateString,
-          location: trimmedLocation || undefined,
-          costEstimate: trimmedCost || undefined,
           notes: trimmedNotes || undefined,
         },
       });
@@ -863,12 +726,7 @@ export default function SharedListsScreen() {
     if (!values.assignees.length) {
       throw new Error("Select at least one assignee");
     }
-    const trimmedLocation = values.location.trim();
-    const trimmedCost = values.costEstimate.trim();
     const trimmedNotes = values.notes.trim();
-    const dueDateValue = values.dueDate
-      ? formatDateToYMD(values.dueDate.toISOString())
-      : null;
 
     try {
       await todoService.updateTodoItem(coupleId, todoId, {
@@ -876,9 +734,6 @@ export default function SharedListsScreen() {
         categoryKey: values.categoryKey,
         title: trimmedTitle,
         assigneeIds: values.assignees,
-        dueDate: dueDateValue,
-        location: trimmedLocation || null,
-        costEstimate: trimmedCost || null,
         notes: trimmedNotes || null,
       });
       dispatch({
@@ -890,9 +745,6 @@ export default function SharedListsScreen() {
             categoryKey: values.categoryKey,
             title: trimmedTitle,
             assigneeIds: values.assignees,
-            dueDate: dueDateValue ?? undefined,
-            location: trimmedLocation || undefined,
-            costEstimate: trimmedCost || undefined,
             notes: trimmedNotes || undefined,
           },
         },
@@ -972,352 +824,311 @@ export default function SharedListsScreen() {
   }
 
   return (
-    <Screen
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        gap: 24,
-      }}
-    >
+    <Screen scrollable={false} style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flex: 1,
+          paddingHorizontal: 20,
+          paddingTop: 24,
+          paddingBottom: 12,
           gap: 12,
-          paddingHorizontal: 4,
         }}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: palette.card,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#000",
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-            elevation: 2,
-          }}
-        >
-          <MaterialIcons
-            name="arrow-back"
-            size={20}
-            color={palette.textSecondary}
-          />
-        </Pressable>
-        <CuteText
-          weight="bold"
-          style={{ fontSize: 20, flex: 1, textAlign: "center" }}
-        >
-          To-dos
-        </CuteText>
-        <Pressable
-          onPress={() => setTodoModalVisible(true)}
+        <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 999,
-            backgroundColor: palette.primary,
-            shadowColor: palette.primary,
-            shadowOpacity: 0.35,
-            shadowRadius: 8,
-            elevation: 3,
+            justifyContent: "space-between",
+            gap: 12,
+            paddingHorizontal: 4,
           }}
         >
-          <MaterialIcons name="add-circle" size={18} color="#fff" />
-          <CuteText weight="bold" style={{ color: "#fff" }}>
-            Add
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.card,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={palette.textSecondary}
+            />
+          </Pressable>
+          <CuteText
+            weight="bold"
+            style={{ fontSize: 20, flex: 1, textAlign: "center" }}
+          >
+            To-dos
           </CuteText>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={() => setTodoModalVisible(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: palette.primary,
+              shadowColor: palette.primary,
+              shadowOpacity: 0.35,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <MaterialIcons name="add-circle" size={18} color="#fff" />
+            <CuteText weight="bold" style={{ color: "#fff" }}>
+              Add
+            </CuteText>
+          </Pressable>
+        </View>
 
       <ScrollView
+        style={{ flexGrow: 0 }}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          gap: 10,
-          paddingBottom: 8,
+          gap: 8,
+          paddingBottom: 4,
           paddingHorizontal: 2,
         }}
-      >
-        {categoryFilters.map((filter) => {
-          const isActive = filter.key === activeCategoryKey;
-          const counts = categoryCounts.get(filter.key);
-          const openCount = counts?.todo ?? 0;
-          const doneCount = counts?.done ?? 0;
-          const countLabel =
-            openCount > 0
-              ? `${openCount} open`
-              : doneCount > 0
-              ? `${doneCount} done`
-              : "No missions";
-          return (
+        >
+          {categoryFilters.map((filter) => {
+            const isActive = filter.key === activeCategoryKey;
+            const counts = categoryCounts.get(filter.key);
+            const totalCount = (counts?.todo ?? 0) + (counts?.done ?? 0);
+            const labelWithCount = `${filter.label}${
+              totalCount ? ` (${totalCount})` : ""
+            }`;
+            const chipBackground = isActive ? palette.primary : palette.card;
+            const chipBorder = isActive ? palette.primary : palette.border;
+            const chipTextColor = isActive ? "#fff" : palette.text;
+            return (
             <Pressable
               key={filter.key}
               onPress={() => setActiveCategoryKey(filter.key)}
               style={{
-                width: 104,
-                padding: 12,
-                borderRadius: 18,
+                flexDirection: "row",
                 alignItems: "center",
-                backgroundColor: isActive ? filter.color : palette.card,
-                shadowColor: "#000",
-                shadowOpacity: isActive ? 0.12 : 0.05,
-                shadowRadius: isActive ? 10 : 6,
-                elevation: isActive ? 3 : 1,
-                position: "relative",
                 gap: 8,
-              }}
-            >
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: isActive ? "#fff" : palette.background,
-                  alignItems: "center",
-                  justifyContent: "center",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: chipBackground,
+                borderWidth: 1,
+                  borderColor: chipBorder,
+                  shadowColor: "#000",
+                  shadowOpacity: isActive ? 0.15 : 0.05,
+                  shadowRadius: 8,
+                  elevation: isActive ? 3 : 0,
                 }}
               >
-                <CuteText style={{ fontSize: 22 }}>{filter.emoji}</CuteText>
-              </View>
-              <CuteText
-                weight="bold"
-                style={{
-                  fontSize: 12,
-                  textAlign: "center",
-                  color: palette.text,
-                }}
-              >
-                {filter.label}
-              </CuteText>
-              <CuteText
-                style={{
-                  fontSize: 11,
-                  color: palette.textSecondary,
-                  textAlign: "center",
-                }}
-              >
-                {countLabel}
-              </CuteText>
-              {isActive ? (
                 <View
                   style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    backgroundColor: palette.success,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
                     alignItems: "center",
                     justifyContent: "center",
-                    borderWidth: 2,
-                    borderColor: "#fff",
+                    backgroundColor: isActive
+                      ? "#ffffff26"
+                      : palette.primarySoft,
                   }}
                 >
-                  <MaterialIcons name="check" size={12} color={palette.text} />
+                  <CuteText style={{ fontSize: 16, color: chipTextColor }}>
+                    {filter.emoji}
+                  </CuteText>
                 </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
+                <CuteText
+                  weight={isActive ? "bold" : "semibold"}
+                  style={{
+                    fontSize: 13,
+                    color: chipTextColor,
+                  }}
+                >
+                  {labelWithCount}
+                </CuteText>
+              </Pressable>
+            );
+          })}
         <Pressable
           onPress={openCategoryManager}
           style={{
-            width: 110,
-            padding: 12,
-            borderRadius: 18,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
+            gap: 6,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            borderRadius: 999,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: palette.primary,
             backgroundColor: palette.card,
-            gap: 6,
+         }}
+       >
+         <MaterialIcons name="apps" size={18} color={palette.primary} />
+            <CuteText weight="bold" style={{ color: palette.primary }}>
+              Manage
+            </CuteText>
+          </Pressable>
+        </ScrollView>
+        <View
+          style={{
+            position: "relative",
+            flexDirection: "row",
+            borderRadius: 999,
+            padding: 4,
+            backgroundColor: palette.primarySoft,
           }}
         >
-          <MaterialIcons name="apps" size={20} color={palette.primary} />
-          <CuteText
-            weight="bold"
-            style={{ fontSize: 12, color: palette.primary }}
-          >
-            Manage
-          </CuteText>
-        </Pressable>
-      </ScrollView>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          marginTop: -4,
-        }}
-      >
-        <MaterialIcons
-          name="filter-alt"
-          size={16}
-          color={palette.textSecondary}
-        />
-        <CuteText tone="muted" style={{ fontSize: 12 }}>
-          {`${activeCategory?.label ?? "All missions"} • ${
-            upcomingTodos.length
-          } open / ${completedTodos.length} done`}
-        </CuteText>
-      </View>
-
-      <View
-        style={{
-          position: "relative",
-          flexDirection: "row",
-          borderRadius: 999,
-          padding: 4,
-          backgroundColor: palette.primarySoft,
-        }}
-      >
-        <View
-          style={[
-            {
-              position: "absolute",
-              top: 4,
-              bottom: 4,
-              width: "48%",
-              borderRadius: 999,
-              backgroundColor: palette.card,
-              shadowColor: "#000",
-              shadowOpacity: 0.08,
-              shadowRadius: 6,
-              elevation: 1,
-            },
-            activeView === "todo" ? { left: 4 } : { right: 4 },
-          ]}
-        />
-        {["todo", "done"].map((view) => {
-          const isActive = activeView === view;
-          return (
-            <Pressable
-              key={view}
-              onPress={() => setActiveView(view as "todo" | "done")}
-              style={{
-                flex: 1,
-                paddingVertical: 10,
+          <View
+            style={[
+              {
+                position: "absolute",
+                top: 4,
+                bottom: 4,
+                width: "48%",
                 borderRadius: 999,
-                alignItems: "center",
-                zIndex: 2,
-              }}
-            >
-              <CuteText
-                weight="bold"
+                backgroundColor: palette.card,
+                shadowColor: "#000",
+                shadowOpacity: 0.08,
+                shadowRadius: 6,
+                elevation: 1,
+              },
+              activeView === "todo" ? { left: 4 } : { right: 4 },
+            ]}
+          />
+          {["todo", "done"].map((view) => {
+            const isActive = activeView === view;
+            return (
+              <Pressable
+                key={view}
+                onPress={() => setActiveView(view as "todo" | "done")}
                 style={{
-                  color: isActive ? palette.text : palette.textSecondary,
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  alignItems: "center",
+                  zIndex: 2,
                 }}
               >
-                {view === "todo" ? "To-dos" : "Done"}
-              </CuteText>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {activeView === "todo" ? (
-        groupedTodosByDate.length ? (
-          groupedTodosByDate.map((group) => {
-            const sortedItems = [...group.items].sort(
-              (a, b) => Number(a.completed) - Number(b.completed)
+                <CuteText
+                  weight="bold"
+                  style={{
+                    color: isActive ? palette.text : palette.textSecondary,
+                  }}
+                >
+                  {view === "todo" ? "To-dos" : "Done"}
+                </CuteText>
+              </Pressable>
             );
-            return (
+          })}
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            marginTop: 6,
+          }}
+        >
+          <MaterialIcons
+            name="filter-alt"
+            size={16}
+            color={palette.textSecondary}
+          />
+          <CuteText tone="muted" style={{ fontSize: 12 }}>
+            {`${activeCategory?.label ?? "All missions"} • ${
+              upcomingTodos.length
+            } open / ${completedTodos.length} done`}
+          </CuteText>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ gap: 12, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {activeView === "todo" ? (
+            upcomingTodos.length ? (
+              <View style={{ gap: 10 }}>
+                {upcomingTodos.map((item) => renderMissionCard(item))}
+              </View>
+            ) : (
               <CuteCard
-                key={group.key}
                 background={palette.card}
-                padding={20}
-                style={{ gap: 16 }}
+                padding={24}
+                style={{ gap: 10 }}
+              >
+                <MaterialIcons
+                  name="playlist-add"
+                  size={42}
+                  color={palette.primary}
+                />
+                <CuteText weight="bold" style={{ fontSize: 18 }}>
+                  Nothing planned here yet
+                </CuteText>
+                <CuteText tone="muted" style={{ fontSize: 13 }}>
+                  Add a shared to-do and keep it tracked together.
+                </CuteText>
+                <CuteButton
+                  label="Add a to-do"
+                  onPress={() => setTodoModalVisible(true)}
+                />
+              </CuteCard>
+            )
+          ) : completedTodos.length ? (
+            <View style={{ gap: 10 }}>
+              {completedTodos.map((item) => renderMissionCard(item, "undo"))}
+            </View>
+          ) : (
+            <CuteCard
+              background={palette.card}
+              padding={20}
+              style={{ gap: 14 }}
+            >
+              <CuteText weight="bold" style={{ fontSize: 18 }}>
+                Overall progress
+              </CuteText>
+              <View
+                style={{
+                  height: 10,
+                  borderRadius: 999,
+                  backgroundColor: palette.primarySoft,
+                  overflow: "hidden",
+                }}
               >
                 <View
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    height: "100%",
+                    width: `${completedProgress * 100}%`,
+                    backgroundColor: palette.primary,
+                    borderRadius: 999,
                   }}
-                >
-                  <CuteText weight="bold" style={{ fontSize: 18 }}>
-                    {group.label}
-                  </CuteText>
-                  <CuteText tone="muted" style={{ fontSize: 12 }}>
-                    {group.items.length}{" "}
-                    {group.items.length === 1 ? "mission" : "missions"}
-                  </CuteText>
-                </View>
-                <View style={{ gap: 12 }}>
-                  {sortedItems.map((item) => renderMissionCard(item))}
-                </View>
-              </CuteCard>
-            );
-          })
-        ) : (
-          <CuteCard background={palette.card} padding={24} style={{ gap: 10 }}>
-            <MaterialIcons
-              name="playlist-add"
-              size={42}
-              color={palette.primary}
-            />
-            <CuteText weight="bold" style={{ fontSize: 18 }}>
-              Nothing planned here yet
-            </CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Add a shared to-do and keep it tracked together.
-            </CuteText>
-            <CuteButton
-              label="Add a to-do"
-              onPress={() => setTodoModalVisible(true)}
-            />
-          </CuteCard>
-        )
-      ) : completedTodos.length ? (
-        <CuteCard background={palette.card} padding={20} style={{ gap: 16 }}>
-          <CuteText weight="bold" style={{ fontSize: 18 }}>
-            Finished together
-          </CuteText>
-          <View style={{ gap: 12 }}>
-            {completedTodos.map((item) => renderMissionCard(item, "undo"))}
-          </View>
-        </CuteCard>
-      ) : (
-        <CuteCard background={palette.card} padding={20} style={{ gap: 14 }}>
-          <CuteText weight="bold" style={{ fontSize: 18 }}>
-            Overall progress
-          </CuteText>
-          <View
-            style={{
-              height: 10,
-              borderRadius: 999,
-              backgroundColor: palette.primarySoft,
-              overflow: "hidden",
-            }}
-          >
-            <View
-              style={{
-                height: "100%",
-                width: `${completedProgress * 100}%`,
-                backgroundColor: palette.primary,
-                borderRadius: 999,
-              }}
-            />
-          </View>
-          <CuteText tone="muted" style={{ fontSize: 12 }}>
-            {completedCount}/{totalCount === 1 ? completedCount : totalCount}{" "}
-            missions completed overall • {(completedProgress * 100).toFixed(0)}%
-          </CuteText>
-        </CuteCard>
-      )}
+                />
+              </View>
+              <CuteText tone="muted" style={{ fontSize: 12 }}>
+                {completedCount}/
+                {totalCount === 1 ? completedCount : totalCount} missions
+                completed overall • {(completedProgress * 100).toFixed(0)}%
+              </CuteText>
+            </CuteCard>
+          )}
+        </ScrollView>
+      </View>
 
       <CuteModal
         visible={Boolean(categoryEditor)}
@@ -1369,8 +1180,10 @@ export default function SharedListsScreen() {
                         height: 34,
                         borderRadius: 17,
                         backgroundColor: color,
-                        borderWidth: isActive ? 2 : 0,
-                        borderColor: palette.primary,
+                        borderWidth: isActive ? 2 : 1,
+                        borderColor: isActive
+                          ? palette.primary
+                          : palette.border,
                       }}
                     />
                   );
@@ -1595,8 +1408,10 @@ export default function SharedListsScreen() {
                             height: 34,
                             borderRadius: 17,
                             backgroundColor: color,
-                            borderWidth: isActive ? 2 : 0,
-                            borderColor: palette.primary,
+                            borderWidth: isActive ? 2 : 1,
+                            borderColor: isActive
+                              ? palette.primary
+                              : palette.border,
                           }}
                         />
                       );
@@ -1650,7 +1465,7 @@ export default function SharedListsScreen() {
       />
 
       <Modal
-        visible={detailModalVisible && Boolean(selectedTodo)}
+        visible={detailModalVisible}
         animationType="slide"
         transparent
         onRequestClose={closeDetailModal}
@@ -1689,165 +1504,347 @@ export default function SharedListsScreen() {
               }}
             />
             {selectedTodo ? (
-              <View style={{ gap: 20 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 16,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 24,
-                      backgroundColor:
-                        categoryLookup.get(
-                          selectedTodo.categoryKey ?? selectedTodo.categoryId
-                        )?.color ?? palette.primarySoft,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
+              (() => {
+                const categoryKey =
+                  selectedTodo.categoryKey ?? selectedTodo.categoryId;
+                const detailCategory = categoryLookup.get(categoryKey);
+                const detailEmoji = detailCategory?.emoji ?? "📝";
+                const detailLabel = detailCategory?.label ?? "General";
+                const detailAccent =
+                  detailCategory?.color ?? palette.primarySoft;
+                const assigneeDisplay = getAssigneeDisplay(
+                  selectedTodo.assigneeIds
+                );
+                const infoRowStyle = {
+                  flexDirection: "row" as const,
+                  alignItems: "center" as const,
+                  gap: 16,
+                  padding: 16,
+                  borderRadius: 22,
+                  backgroundColor: palette.card,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.05,
+                  shadowRadius: 12,
+                  elevation: 3,
+                };
+
+                return (
+                  <View style={{ gap: 18 }}>
                     <View
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 20,
-                        backgroundColor: "#fff",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 18,
+                        backgroundColor: palette.card,
+                        borderRadius: 32,
+                        padding: 20,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.08,
+                        shadowRadius: 18,
+                        elevation: 4,
                       }}
                     >
-                      <CuteText style={{ fontSize: 26 }}>
-                        {categoryLookup.get(
-                          selectedTodo.categoryKey ?? selectedTodo.categoryId
-                        )?.emoji ?? "📝"}
-                      </CuteText>
-                    </View>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <CuteText weight="bold" style={{ fontSize: 20 }}>
-                      {selectedTodo.title}
-                    </CuteText>
-                    <CuteText
-                      tone="muted"
-                      style={{ fontSize: 13, marginTop: 4 }}
-                    >
-                      {detailDueText}
-                    </CuteText>
-                    {detailOverdue ? (
                       <View
                         style={{
-                          marginTop: 6,
-                          alignSelf: "flex-start",
-                          flexDirection: "row",
+                          width: 60,
+                          height: 60,
+                          borderRadius: 26,
+                          backgroundColor: detailAccent,
                           alignItems: "center",
-                          gap: 6,
-                          paddingHorizontal: 12,
-                          paddingVertical: 4,
-                          borderRadius: 999,
-                          backgroundColor: "#F8B4B4",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 20,
+                            backgroundColor: "#fff",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <CuteText style={{ fontSize: 24 }}>
+                            {detailEmoji}
+                          </CuteText>
+                        </View>
+                      </View>
+                      <View style={{ flex: 1, gap: 8 }}>
+                        <CuteText weight="bold" style={{ fontSize: 22 }}>
+                          {selectedTodo.title}
+                        </CuteText>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                              borderRadius: 999,
+                              paddingHorizontal: 14,
+                              paddingVertical: 6,
+                              backgroundColor: palette.card,
+                            }}
+                          >
+                            <MaterialIcons
+                              name="label"
+                              size={14}
+                              color={palette.textSecondary}
+                            />
+                            <CuteText style={{ fontSize: 12 }}>
+                              {detailLabel}
+                            </CuteText>
+                          </View>
+                          {selectedTodo.completed ? (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                                borderRadius: 999,
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                backgroundColor: "#E6F6EE",
+                              }}
+                            >
+                              <MaterialIcons
+                                name="check-circle"
+                                size={16}
+                                color="#2A5B3D"
+                              />
+                              <CuteText style={{ fontSize: 12 }}>
+                                Completed
+                              </CuteText>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={infoRowStyle}>
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 18,
+                          backgroundColor: detailAccent,
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
                         <MaterialIcons
-                          name="warning"
-                          size={16}
-                          color="#4A2222"
+                          name="notes"
+                          size={20}
+                          color={palette.text}
                         />
-                        <CuteText style={{ fontSize: 12, color: "#4A2222" }}>
-                          Overdue
-                        </CuteText>
                       </View>
-                    ) : null}
-                  </View>
-                </View>
-                <View style={{ gap: 12 }}>
-                  {selectedTodo.location
-                    ? renderInfoRow("location-on", selectedTodo.location)
-                    : null}
-                  {selectedTodo.costEstimate
-                    ? renderInfoRow("attach-money", selectedTodo.costEstimate)
-                    : null}
-                  {selectedTodo.notes
-                    ? renderInfoRow("notes", selectedTodo.notes)
-                    : null}
-                  {selectedTodo.completed
-                    ? renderInfoRow(
-                        "check-circle",
-                        formatCompletionLabel(selectedTodo)
-                      )
-                    : null}
-                </View>
-                <View style={{ gap: 12 }}>
-                  <CuteText weight="semibold">Who’s doing this?</CuteText>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: 12,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: palette.border,
-                    }}
-                  >
-                    {renderAssigneeAvatars(selectedTodo.assigneeIds)}
-                    <CuteText tone="muted" style={{ fontSize: 13 }}>
-                      {formatAssigneesText(selectedTodo.assigneeIds)}
-                    </CuteText>
-                  </View>
-                </View>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <CuteButton
-                    label="Edit"
-                    tone="primary"
-                    icon={
-                      <MaterialIcons name="edit" size={18} color="#ffffff" />
-                    }
-                    style={{
-                      flex: 1,
-                      backgroundColor: palette.primary,
-                      borderWidth: 0,
-                    }}
-                    onPress={() => {
-                      if (!selectedTodo) return;
-                      setEditingTodoId(selectedTodo.id);
-                      closeDetailModal();
-                    }}
-                  />
-                  <CuteButton
-                    label={selectedTodo.completed ? "Undo" : "Done"}
-                    icon={
+                      <CuteText style={{ flex: 1 }}>
+                        {selectedTodo.notes?.trim() ||
+                          "No notes yet — tap Edit to add a sweet reminder."}
+                      </CuteText>
+                    </View>
+
+                    <View style={infoRowStyle}>
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 18,
+                          backgroundColor: detailAccent,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <MaterialIcons
+                          name={assigneeDisplay.icon}
+                          size={20}
+                          color={palette.text}
+                        />
+                      </View>
+                      <CuteText weight="bold" style={{ flex: 1 }}>
+                        {assigneeDisplay.label}
+                      </CuteText>
+                      {renderAssigneeAvatars(selectedTodo.assigneeIds) ?? (
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            borderWidth: 2,
+                            borderColor: palette.border,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <MaterialIcons
+                            name="person-outline"
+                            size={18}
+                            color={palette.textSecondary}
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: -12,
+                      }}
+                    >
                       <MaterialIcons
-                        name={selectedTodo.completed ? "undo" : "check-circle"}
-                        size={18}
-                        color="#ffffff"
+                        name="filter-alt"
+                        size={16}
+                        color={palette.textSecondary}
                       />
-                    }
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      if (!selectedTodo) return;
-                      handleToggleTodo(selectedTodo, !selectedTodo.completed);
-                      closeDetailModal();
-                    }}
-                  />
-                </View>
-                <CuteButton
-                  label="Delete to-do"
-                  tone="ghost"
-                  onPress={() => {
-                    closeDetailModal();
-                    confirmDeleteTodo(selectedTodo);
-                  }}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: palette.border,
-                  }}
+                      <CuteText tone="muted" style={{ fontSize: 12 }}>
+                        {`${activeCategory?.label ?? "All missions"} • ${
+                          upcomingTodos.length
+                        } open / ${completedTodos.length} done`}
+                      </CuteText>
+                    </View>
+
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      <Pressable
+                        onPress={() =>
+                          confirmToggleTodo(
+                            selectedTodo,
+                            !selectedTodo.completed
+                          )
+                        }
+                        style={{
+                          flex: 1,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          paddingVertical: 12,
+                          borderRadius: 18,
+                          backgroundColor: palette.primary,
+                          shadowColor: palette.primary,
+                          shadowOpacity: 0.2,
+                          shadowRadius: 8,
+                        }}
+                      >
+                        <MaterialIcons
+                          name={
+                            selectedTodo.completed ? "undo" : "check-circle"
+                          }
+                          size={18}
+                          color="#fff"
+                        />
+                        <CuteText style={{ color: "#fff" }} weight="bold">
+                          {selectedTodo.completed ? "Undo" : "Done"}
+                        </CuteText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setEditingTodoId(selectedTodo.id);
+                          closeDetailModal();
+                        }}
+                        style={{
+                          flex: 1,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          paddingVertical: 12,
+                          borderRadius: 18,
+                          backgroundColor: palette.primarySoft,
+                          borderWidth: 1,
+                          borderColor: palette.primary,
+                        }}
+                      >
+                        <MaterialIcons
+                          name="edit"
+                          size={18}
+                          color={palette.primary}
+                        />
+                        <CuteText
+                          weight="bold"
+                          style={{ color: palette.primary }}
+                        >
+                          Edit
+                        </CuteText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          closeDetailModal();
+                          confirmDeleteTodo(selectedTodo);
+                        }}
+                        style={{
+                          flex: 1,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          paddingVertical: 12,
+                          borderRadius: 18,
+                          backgroundColor: "#FFE7E7",
+                          borderWidth: 1,
+                          borderColor: "#F8B4B4",
+                        }}
+                      >
+                        <MaterialIcons
+                          name="delete"
+                          size={18}
+                          color="#B42318"
+                        />
+                        <CuteText style={{ color: "#B42318" }} weight="bold">
+                          Delete
+                        </CuteText>
+                      </Pressable>
+                    </View>
+
+                    <CuteButton
+                      label="Add to calendar"
+                      tone="ghost"
+                      icon={
+                        <MaterialIcons
+                          name="event"
+                          size={18}
+                          color={palette.primary}
+                        />
+                      }
+                      style={{
+                        backgroundColor: palette.card,
+                        borderWidth: 1,
+                        borderColor: palette.primarySoft,
+                        marginTop: 8,
+                      }}
+                      labelColor={palette.primary}
+                      onPress={() =>
+                        Alert.alert(
+                          "Calendar integration",
+                          "Scheduling is on the way. Soon you'll be able to drop this to-do onto your shared calendar."
+                        )
+                      }
+                    />
+                  </View>
+                );
+              })()
+            ) : (
+              <View
+                style={{
+                  paddingVertical: 30,
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <MaterialIcons
+                  name="hourglass-empty"
+                  size={28}
+                  color={palette.textSecondary}
                 />
+                <CuteText tone="muted">Loading this mission…</CuteText>
               </View>
-            ) : null}
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1882,17 +1879,12 @@ const TodoFormModal = ({
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [categoryKey, setCategoryKey] = useState(defaultCategoryKey);
-  const [location, setLocation] = useState("");
-  const [costEstimate, setCostEstimate] = useState("");
   const [notes, setNotes] = useState("");
   const [assignees, setAssignees] = useState<string[]>(["me"]);
-  const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [pendingDate, setPendingDate] = useState<Date>(new Date());
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [categoryFormVisible, setCategoryFormVisible] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryEmoji, setCategoryEmoji] = useState("📝");
-  const [categoryColor, setCategoryColor] = useState(CATEGORY_COLOR_PRESETS[0]);
+  const [categoryColor, setCategoryColor] = useState(DEFAULT_CATEGORY_COLOR);
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryNameError, setCategoryNameError] = useState<string | null>(
     null
@@ -1920,7 +1912,7 @@ const TodoFormModal = ({
   const resetCategoryForm = useCallback(() => {
     setCategoryName("");
     setCategoryEmoji("📝");
-    setCategoryColor(CATEGORY_COLOR_PRESETS[0]);
+    setCategoryColor(DEFAULT_CATEGORY_COLOR);
     setCategorySaving(false);
     setCategoryNameError(null);
   }, []);
@@ -1928,13 +1920,8 @@ const TodoFormModal = ({
   const resetForm = useCallback(() => {
     setTitle("");
     setCategoryKey(defaultCategoryKey);
-    setLocation("");
-    setCostEstimate("");
     setNotes("");
     setAssignees(["me"]);
-    setDueDate(null);
-    setPendingDate(new Date());
-    setDatePickerVisible(false);
     setCategoryFormVisible(false);
     setShowAssigneeError(false);
     resetCategoryForm();
@@ -1944,16 +1931,10 @@ const TodoFormModal = ({
     (todo: TodoItem) => {
       setTitle(todo.title);
       setCategoryKey(todo.categoryKey ?? todo.categoryId ?? defaultCategoryKey);
-      setLocation(todo.location ?? "");
-      setCostEstimate(todo.costEstimate ?? "");
       setNotes(todo.notes ?? "");
       setAssignees(
         todo.assigneeIds && todo.assigneeIds.length ? todo.assigneeIds : ["me"]
       );
-      const parsedDate = todo.dueDate ? parseLocalDate(todo.dueDate) : null;
-      setDueDate(parsedDate);
-      setPendingDate(parsedDate ?? new Date());
-      setDatePickerVisible(false);
       setCategoryFormVisible(false);
       setShowAssigneeError(false);
       resetCategoryForm();
@@ -2016,7 +1997,7 @@ const TodoFormModal = ({
       const id = await onCreateCategory({
         name: trimmedName,
         emoji: categoryEmoji,
-        color: categoryColor,
+        color: DEFAULT_CATEGORY_COLOR,
       });
       setCategoryKey(id);
       setCategoryFormVisible(false);
@@ -2050,9 +2031,6 @@ const TodoFormModal = ({
       await onSubmit({
         title: trimmedTitle,
         categoryKey,
-        dueDate,
-        location: location.trim(),
-        costEstimate: costEstimate.trim(),
         notes: notes.trim(),
         assignees,
       });
@@ -2064,30 +2042,6 @@ const TodoFormModal = ({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const openDatePicker = () => {
-    setPendingDate(dueDate ?? new Date());
-    setDatePickerVisible(true);
-  };
-
-  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === "android" && event.type === "dismissed") {
-      return;
-    }
-    if (date) {
-      setPendingDate(date);
-    }
-  };
-
-  const handleDateConfirm = () => {
-    setDueDate(pendingDate);
-    setDatePickerVisible(false);
-  };
-
-  const handleClearDate = () => {
-    setDueDate(null);
-    setDatePickerVisible(false);
   };
 
   return (
@@ -2276,8 +2230,10 @@ const TodoFormModal = ({
                                   height: 34,
                                   borderRadius: 17,
                                   backgroundColor: color,
-                                  borderWidth: isActive ? 2 : 0,
-                                  borderColor: palette.primary,
+                                  borderWidth: isActive ? 2 : 1,
+                                  borderColor: isActive
+                                    ? palette.primary
+                                    : palette.border,
                                 }}
                               />
                             );
@@ -2305,18 +2261,6 @@ const TodoFormModal = ({
                   ) : null}
                 </View>
                 <CuteTextInput
-                  label="Location (optional)"
-                  placeholder="Ex. Botanical gardens"
-                  value={location}
-                  onChangeText={setLocation}
-                />
-                <CuteTextInput
-                  label="Cost estimate (optional)"
-                  placeholder="Ex. $40 picnic supplies"
-                  value={costEstimate}
-                  onChangeText={setCostEstimate}
-                />
-                <CuteTextInput
                   label="Notes"
                   placeholder="Any sweet reminders?"
                   value={notes}
@@ -2324,38 +2268,6 @@ const TodoFormModal = ({
                   multiline
                   style={{ minHeight: 100, textAlignVertical: "top" }}
                 />
-                <View style={{ gap: 12 }}>
-                  <CuteText weight="semibold">Plan for</CuteText>
-                  <Pressable
-                    onPress={openDatePicker}
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderRadius: 18,
-                      borderWidth: 1,
-                      borderColor: palette.primarySoft,
-                      backgroundColor: palette.card,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <CuteText>
-                      {dueDate
-                        ? dueDate.toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })
-                        : "Tap to pick a day"}
-                    </CuteText>
-                    <MaterialIcons
-                      name="calendar-today"
-                      size={18}
-                      color={palette.textSecondary}
-                    />
-                  </Pressable>
-                </View>
                 <View style={{ gap: 12 }}>
                   <CuteText weight="semibold">Who’s doing this?</CuteText>
                   <View
@@ -2417,75 +2329,6 @@ const TodoFormModal = ({
               </ScrollView>
             </KeyboardAvoidingView>
           </View>
-          {datePickerVisible ? (
-            <Pressable
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "#1f172244",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: 20,
-              }}
-              onPress={() => setDatePickerVisible(false)}
-            >
-              <Pressable
-                onPress={(event) => event.stopPropagation()}
-                style={{
-                  width: "100%",
-                  borderRadius: 24,
-                  backgroundColor: palette.card,
-                  padding: 20,
-                  gap: 16,
-                  shadowColor: "#00000030",
-                  shadowOpacity: 0.2,
-                  shadowRadius: 16,
-                  shadowOffset: { width: 0, height: 8 },
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <CuteText weight="bold" style={{ fontSize: 18 }}>
-                    Pick a due date
-                  </CuteText>
-                  <Pressable onPress={() => setDatePickerVisible(false)}>
-                    <MaterialIcons
-                      name="close"
-                      size={20}
-                      color={palette.textSecondary}
-                    />
-                  </Pressable>
-                </View>
-                <AppDatePicker
-                  mode="date"
-                  display={Platform.OS === "ios" ? "inline" : "calendar"}
-                  value={pendingDate}
-                  onChange={handleDateChange}
-                />
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <CuteButton
-                    label="Clear"
-                    tone="ghost"
-                    onPress={handleClearDate}
-                    style={{ flex: 1 }}
-                  />
-                  <CuteButton
-                    label="Save date"
-                    onPress={handleDateConfirm}
-                    style={{ flex: 1 }}
-                  />
-                </View>
-              </Pressable>
-            </Pressable>
-          ) : null}
         </SafeAreaView>
       </Modal>
     </>

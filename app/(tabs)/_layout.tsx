@@ -78,6 +78,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="calendar"
+        listeners={guardTabPress(true)}
+        options={{
+          title: "Calendar",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="calendar-today" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="lists"
         listeners={guardTabPress(true)}
         options={{

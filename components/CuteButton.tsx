@@ -16,6 +16,7 @@ type CuteButtonProps = PressableProps & {
   tone?: Tone;
   icon?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  labelColor?: string;
 };
 
 export const CuteButton = ({
@@ -23,6 +24,7 @@ export const CuteButton = ({
   tone = "primary",
   icon,
   style,
+  labelColor,
   disabled,
   ...rest
 }: CuteButtonProps) => {
@@ -64,7 +66,7 @@ export const CuteButton = ({
       {icon}
       <Text
         style={{
-          color: textColor,
+          color: labelColor ?? textColor,
           fontWeight: "700",
           fontSize: 15,
         }}

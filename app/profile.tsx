@@ -51,6 +51,14 @@ const DEFAULT_STATUS = "";
 const DEFAULT_ABOUT =
   "Curious heart who loves to make memories that feel like magic.";
 const accentOptions = ["#FF8FAB", "#3A5BFF", "#1F9470", "#F6C28B", "#9B59FF"];
+const DEFAULT_FAVORITE_CATEGORY = "custom";
+
+const normalizeFavoriteEntries = (favorites?: ProfileFavorite[]) =>
+  favorites?.map((favorite) => ({
+    label: favorite.label,
+    value: favorite.value,
+    category: favorite.category ?? DEFAULT_FAVORITE_CATEGORY,
+  })) ?? [];
 const EDITOR_TAB_META: Record<
   EditorSection,
   { label: string; title: string }
@@ -150,7 +158,7 @@ export default function ProfileScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [favoriteEntries, setFavoriteEntries] = useState<ProfileFavorite[]>(
-    profile?.favorites ?? []
+    normalizeFavoriteEntries(profile?.favorites)
   );
 
   useEffect(() => {
@@ -186,7 +194,7 @@ export default function ProfileScreen() {
     setSaveError(null);
     setShowBirthdayPicker(false);
     setShowAnniversaryPicker(false);
-    setFavoriteEntries(profile.favorites ?? []);
+    setFavoriteEntries(normalizeFavoriteEntries(profile.favorites));
   }, [
     profile,
     auth.user.displayName,
@@ -429,6 +437,7 @@ export default function ProfileScreen() {
       );
       const sanitizedFavorites = favoriteEntries
         .map((entry) => ({
+          category: (entry.category ?? DEFAULT_FAVORITE_CATEGORY).trim() || DEFAULT_FAVORITE_CATEGORY,
           label: entry.label.trim(),
           value: entry.value.trim(),
         }))
@@ -592,7 +601,10 @@ export default function ProfileScreen() {
   );
 
   const addFavoriteEntry = useCallback(() => {
-    setFavoriteEntries((prev) => [...prev, { label: "", value: "" }]);
+    setFavoriteEntries((prev) => [
+      ...prev,
+      { label: "", value: "", category: DEFAULT_FAVORITE_CATEGORY },
+    ]);
   }, []);
 
   const removeFavoriteEntry = useCallback((index: number) => {
@@ -1032,7 +1044,7 @@ export default function ProfileScreen() {
           )}
           {viewingMe ? (
             <Pressable
-              onPress={openEditModal}
+              onPress={() => openEditModal()}
               style={{
                 position: "absolute",
                 bottom: 12,
