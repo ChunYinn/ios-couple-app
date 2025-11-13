@@ -39,6 +39,8 @@ export default function PrivateChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [inputHeight, setInputHeight] = useState(40);
+  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
+  const hasDraftText = draft.trim().length > 0;
   const markedReadRef = useRef<Set<string>>(new Set());
   const readPermissionWarnedRef = useRef(false);
 
@@ -143,7 +145,7 @@ export default function PrivateChatScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"] as ImagePicker.MediaType[],
         allowsMultipleSelection: false,
         quality: 0.8,
       });
@@ -161,25 +163,23 @@ export default function PrivateChatScreen() {
         return;
       }
 
-      setIsUploadingImage(true);
-      await messageService.sendImageMessage(coupleId, asset.uri);
+      setPendingImageUri(asset.uri);
       requestAnimationFrame(() => {
         scrollRef.current?.scrollToEnd({ animated: true });
       });
     } catch (error) {
-      console.error("Failed to send photo message", error);
+      console.error("Failed to select photo", error);
       Alert.alert(
-        "Photo not sent",
-        "We couldn't share that picture. Please try again."
+        "Photo not ready",
+        "We couldn't prepare that picture. Please try again."
       );
-    } finally {
-      setIsUploadingImage(false);
     }
   }, [coupleId, isUploadingImage]);
 
   const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
-    if (!trimmed.length || isSending) return;
+    const hasPayload = trimmed.length > 0 || Boolean(pendingImageUri);
+    if (!hasPayload || isSending) return;
     if (!coupleId) {
       Alert.alert(
         "Pair first",
@@ -190,9 +190,17 @@ export default function PrivateChatScreen() {
 
     try {
       setIsSending(true);
-      await messageService.sendMessage(coupleId, trimmed);
-      setDraft("");
-      setInputHeight(40);
+      if (pendingImageUri) {
+        setIsUploadingImage(true);
+        await messageService.sendImageMessage(coupleId, pendingImageUri);
+        setPendingImageUri(null);
+        setIsUploadingImage(false);
+      }
+      if (trimmed.length) {
+        await messageService.sendMessage(coupleId, trimmed);
+        setDraft("");
+        setInputHeight(40);
+      }
       requestAnimationFrame(() => {
         scrollRef.current?.scrollToEnd({ animated: true });
       });
@@ -204,8 +212,9 @@ export default function PrivateChatScreen() {
       );
     } finally {
       setIsSending(false);
+      setIsUploadingImage(false);
     }
-  }, [coupleId, draft, isSending]);
+  }, [coupleId, draft, isSending, pendingImageUri]);
 
   const formatMessageTime = useCallback((iso?: string) => {
     if (!iso) return "";
@@ -555,8 +564,49 @@ export default function PrivateChatScreen() {
             style={{
               paddingHorizontal: composerHorizontalPadding,
               paddingTop: 10,
+              backgroundColor: palette.background,
             }}
           >
+            {pendingImageUri ? (
+              <View
+                style={{
+                  marginBottom: 12,
+                  alignItems: "flex-start",
+                }}
+              >
+                <View
+                  style={{
+                    borderRadius: 18,
+                    overflow: "hidden",
+                    borderWidth: 1,
+                    borderColor: palette.primarySoft,
+                  }}
+                >
+                  <Image
+                    source={{ uri: pendingImageUri }}
+                    style={{ width: 160, height: 120 }}
+                    resizeMode="cover"
+                  />
+                  <Pressable
+                    onPress={() => setPendingImageUri(null)}
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: "#00000080",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <MaterialIcons name="close" size={16} color="#fff" />
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
             <View
               style={{
                 flexDirection: "row",
@@ -566,7 +616,7 @@ export default function PrivateChatScreen() {
                 paddingHorizontal: 16,
                 paddingVertical: composerPaddingVertical,
                 gap: 8,
-                borderWidth: 1,
+                borderWidth: 0.5,
                 borderColor: palette.primarySoft,
                 shadowColor: "#00000010",
                 shadowOpacity: 0.06,
@@ -584,7 +634,7 @@ export default function PrivateChatScreen() {
                 disabled={isUploadingImage}
               >
                 <MaterialIcons
-                  name="photo-camera"
+                  name="photo-library"
                   size={24}
                   color={palette.primary}
                 />
@@ -627,16 +677,24 @@ export default function PrivateChatScreen() {
               <Pressable
                 onPress={handleSend}
                 style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
                   backgroundColor: palette.primary,
-                  borderRadius: 999,
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
                   opacity:
-                    draft.trim().length && !isSending && !isUploadingImage
+                    (hasDraftText || pendingImageUri) &&
+                    !isSending &&
+                    !isUploadingImage
                       ? 1
-                      : 0.5,
+                      : 0.4,
                 }}
-                disabled={!draft.trim().length || isSending || isUploadingImage}
+                disabled={
+                  !(hasDraftText || pendingImageUri) ||
+                  isSending ||
+                  isUploadingImage
+                }
               >
                 <MaterialIcons name="send" size={22} color="#fff" />
               </Pressable>
