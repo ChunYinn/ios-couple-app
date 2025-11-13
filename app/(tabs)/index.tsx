@@ -26,10 +26,10 @@ import { DatePickerSheet } from "../../components/DatePickerSheet";
 
 type ActionRoute =
   | "/(tabs)/chat"
-  | "/(tabs)/gallery"
   | "/(tabs)/lists"
   | "/location"
-  | "/milestone/new";
+  | "/milestone/new"
+  | "/gallery";
 
 type QuickAction = {
   id: string;
@@ -477,7 +477,7 @@ export default function AnniversaryDashboardScreen() {
           title="Our Milestones"
           action={
             milestones.length ? (
-              <Pressable onPress={() => router.push("/(tabs)/gallery")}>
+              <Pressable onPress={() => router.push("/gallery")}>
                 <CuteText
                   weight="bold"
                   style={{ color: palette.primary, fontSize: 13 }}
