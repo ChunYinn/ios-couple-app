@@ -1314,7 +1314,7 @@ export default function SharedListsScreen() {
           </View>
           <CuteText tone="muted" style={{ fontSize: 12 }}>
             {completedCount}/{totalCount === 1 ? completedCount : totalCount}{" "}
-            missions completed overall • {completionPercent}%
+            missions completed overall • {(completedProgress * 100).toFixed(0)}%
           </CuteText>
         </CuteCard>
       )}
