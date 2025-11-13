@@ -50,10 +50,9 @@ export default function NewMilestoneScreen() {
       return;
     }
     const imageMediaType =
-      (ImagePicker as any)?.MediaType?.images ??
-      ImagePicker.MediaTypeOptions.Images;
+      ((ImagePicker as any)?.MediaType?.images as ImagePicker.MediaType | undefined) ?? "images";
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: imageMediaType,
+      mediaTypes: [imageMediaType] as ImagePicker.MediaType[],
       allowsMultipleSelection: false,
       allowsEditing: true,
       aspect: [4, 3],
