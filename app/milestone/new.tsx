@@ -99,7 +99,7 @@ export default function NewMilestoneScreen() {
         achievedAt: now,
         dayCount,
       });
-      router.replace("/(tabs)/gallery");
+      router.replace("/gallery");
     } catch (err) {
       console.error("Failed to save milestone", err);
       setError(
