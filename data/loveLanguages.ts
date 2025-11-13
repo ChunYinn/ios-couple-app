@@ -12,6 +12,7 @@ export type LoveLanguageOption = {
   key: LoveLanguageKey;
   label: string;
   description: string;
+  emoji: string;
 };
 
 export const LOVE_LANGUAGES: LoveLanguageOption[] = [
@@ -19,41 +20,49 @@ export const LOVE_LANGUAGES: LoveLanguageOption[] = [
     key: "words",
     label: "Words of Affirmation",
     description: "Encouraging texts, handwritten notes, and thoughtful compliments.",
+    emoji: "💬",
   },
   {
     key: "acts",
     label: "Acts of Service",
     description: "Helpful gestures that lighten the load—laundry, dishes, errands.",
+    emoji: "🤝",
   },
   {
     key: "gifts",
     label: "Gift Giving",
     description: "Surprises and little tokens that show you were thinking of them.",
+    emoji: "🎁",
   },
   {
     key: "time",
     label: "Quality Time",
     description: "Unplugging together for date nights, cozy chats, or shared hobbies.",
+    emoji: "🕒",
   },
   {
     key: "touch",
     label: "Physical Touch",
     description: "Warm hugs, cuddles, hand-holding—affection you can feel.",
+    emoji: "🤗",
   },
   {
     key: "support",
     label: "Emotional Support",
     description: "Being an attentive listener and holding space for each other.",
+    emoji: "🫶",
   },
   {
     key: "adventures",
     label: "Shared Adventures",
     description: "Trying new things together and making memories in fresh places.",
+    emoji: "🗺️",
   },
   {
     key: "kindness",
     label: "Words of Kindness",
     description: "Gentle check-ins, love notes, and daily encouragement.",
+    emoji: "🌸",
   },
 ];
 

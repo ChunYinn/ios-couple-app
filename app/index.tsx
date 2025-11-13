@@ -23,7 +23,7 @@ export default function LoadingScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, scaleAnim]);
 
   return (
     <LinearGradient

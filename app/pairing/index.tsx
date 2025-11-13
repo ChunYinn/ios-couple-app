@@ -427,7 +427,8 @@ export default function PairingScreen() {
         <CuteCard background={palette.card} padding={18} style={{ gap: 8 }}>
           <CuteText weight="bold">How it works</CuteText>
           <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Share your invite code with your partner. Once they join, you'll be connected in a private space just for two.
+            Share your invite code with your partner. Once they join, you{"'"}ll
+            be connected in a private space just for two.
           </CuteText>
         </CuteCard>
         <CuteText tone="muted" style={{ fontSize: 12, textAlign: "center" }}>

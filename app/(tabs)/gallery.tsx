@@ -143,6 +143,14 @@ export default function MilestoneArchiveScreen() {
     );
   }
 
+  const handleBack = () => {
+    try {
+      router.back();
+    } catch {
+      router.push("/");
+    }
+  };
+
   return (
     <Screen scrollable={false} style={{ flex: 1 }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
@@ -158,8 +166,29 @@ export default function MilestoneArchiveScreen() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 12,
           }}
         >
+          <Pressable
+            onPress={handleBack}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: palette.card,
+              borderWidth: 1,
+              borderColor: palette.border,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#00000015",
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+            accessibilityLabel="Go back"
+          >
+            <MaterialIcons name="arrow-back" size={20} color={palette.text} />
+          </Pressable>
           <View style={{ gap: 4, flex: 1 }}>
             <CuteText weight="bold" style={{ fontSize: 26 }}>
               Our Milestones

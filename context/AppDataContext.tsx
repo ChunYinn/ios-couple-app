@@ -115,6 +115,7 @@ const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
     profile.favorites?.map((favorite) => ({
       label: favorite.label,
       value: favorite.value,
+      category: favorite.category ?? "custom",
     })) ?? [],
 });
 

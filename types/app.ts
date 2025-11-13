@@ -32,6 +32,7 @@ export type AuthState = {
 export type ProfileFavorite = {
   label: string;
   value: string;
+  category?: string;
 };
 
 export type PartnerProfile = {
