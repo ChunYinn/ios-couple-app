@@ -23,14 +23,12 @@ import { CuteButton } from "../../components/CuteButton";
 import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
 import { CuteTextInput } from "../../components/CuteTextInput";
-import { PronounSelect } from "../../components/PronounSelect";
 import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
 import { DEFAULT_LOVE_LANGUAGES } from "../../data/loveLanguages";
 import { usePalette } from "../../hooks/usePalette";
 import { firebaseAuth } from "../../firebase/config";
 import { userService } from "../../firebase/services";
-import { PronounValue } from "../../types/app";
 import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
@@ -56,8 +54,6 @@ export default function ProfileSetupScreen() {
 
   const initialDisplayName =
     existingProfile?.displayName ?? authUser.displayName ?? "";
-  const initialPronouns =
-    (authUser.pronouns as PronounValue | undefined) ?? null;
   const initialBirthday = authUser.birthday
     ? formatDateToYMD(authUser.birthday)
     : "";
@@ -65,7 +61,6 @@ export default function ProfileSetupScreen() {
     existingProfile?.avatarUrl ?? authUser.avatarUrl ?? undefined;
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
-  const [pronouns, setPronouns] = useState<PronounValue | null>(initialPronouns);
   const [birthday, setBirthday] = useState(initialBirthday);
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
@@ -233,7 +228,6 @@ export default function ProfileSetupScreen() {
         displayName: trimmedName,
         avatarUrl: nextAvatarUrl ?? null,
         birthday: birthdayValue,
-        pronouns: pronouns ?? null,
         authProvider: "anonymous",
         email: "",
         coupleId: authUser.coupleId ?? null,
@@ -260,7 +254,6 @@ export default function ProfileSetupScreen() {
           displayName: trimmedName,
           avatarUrl: nextAvatarUrl,
           birthday: birthdayValue ?? undefined,
-          pronouns: pronouns ?? undefined,
           status: existingProfile?.status ?? DEFAULT_STATUS,
           about: existingProfile?.about ?? DEFAULT_ABOUT,
           loveLanguages: existingProfile?.loveLanguages ?? DEFAULT_LOVE_LANGUAGES,
@@ -387,10 +380,6 @@ export default function ProfileSetupScreen() {
               autoCorrect={false}
               returnKeyType="done"
             />
-          </View>
-
-          <View style={{ gap: 12 }}>
-            <PronounSelect value={pronouns} onChange={setPronouns} />
           </View>
 
           <View style={{ gap: 12 }}>

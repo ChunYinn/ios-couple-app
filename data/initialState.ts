@@ -8,7 +8,6 @@ export const initialState: AppState = {
       displayName: undefined,
       avatarUrl: undefined,
       birthday: undefined,
-      pronouns: undefined,
       anniversaryDate: undefined,
       coupleId: null,
       email: undefined,

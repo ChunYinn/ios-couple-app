@@ -1,5 +1,5 @@
 import { FieldValue, Timestamp } from "firebase/firestore";
-import { PronounValue, LoveLanguageValue } from "../types/app";
+import { LoveLanguageValue, ProfileFavorite } from "../types/app";
 
 // ============= USER TYPES =============
 export interface DBUser {
@@ -9,13 +9,13 @@ export interface DBUser {
   displayName: string;
   avatarUrl: string | null;
   birthday: string | null; // YYYY-MM-DD
-  pronouns: PronounValue | null;
   coupleId: string | null;
   status?: string | null;
   about?: string | null;
   loveLanguages?: string[] | null;
   accentColor?: string | null;
   anniversaryDate?: string | null;
+  favorites?: ProfileFavorite[] | null;
   createdAt: Timestamp | FieldValue;
   lastSeenAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
