@@ -2,7 +2,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { Image, Pressable, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
 import { Screen } from "../../components/Screen";
@@ -55,7 +55,9 @@ export default function NewMilestoneScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: imageMediaType,
       allowsMultipleSelection: false,
-      quality: 0.85,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.9,
     });
     if (!result.canceled && result.assets?.length) {
       setImageUri(result.assets[0].uri);
@@ -149,172 +151,241 @@ export default function NewMilestoneScreen() {
   }
 
   return (
-    <Screen
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 32,
-        gap: 20,
-      }}
-    >
+    <Screen scrollable={false} style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
+        <View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: palette.card,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#000",
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-            elevation: 2,
+            gap: 12,
           }}
         >
-          <MaterialIcons
-            name="arrow-back"
-            size={20}
-            color={palette.textSecondary}
-          />
-        </Pressable>
-        <CuteText weight="bold" style={{ fontSize: 20 }}>
-          New Milestone
-        </CuteText>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <Pressable
-        onPress={handlePickImage}
-        style={{
-          height: 220,
-          borderRadius: 28,
-          borderWidth: imageUri ? 0 : 2,
-          borderStyle: imageUri ? "solid" : "dashed",
-          borderColor: palette.primary,
-          overflow: "hidden",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: palette.card,
-        }}
-      >
-        {imageUri ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={{ width: "100%", height: "100%" }}
-          />
-        ) : (
-          <View style={{ alignItems: "center", gap: 8 }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.card,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#00000025",
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
             <MaterialIcons
-              name="add-a-photo"
-              size={30}
-              color={palette.primary}
+              name="arrow-back"
+              size={20}
+              color={palette.textSecondary}
             />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <CuteText weight="bold" style={{ fontSize: 22 }}>
+              Add a new milestone
+            </CuteText>
             <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Tap to add a cover photo
+              Let{"'"}s cherish a fresh memory together.
             </CuteText>
           </View>
-        )}
-      </Pressable>
+        </View>
 
-      <View style={{ gap: 14 }}>
-        <View
-          style={{
-            backgroundColor: palette.card,
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 6,
-            borderWidth: 1,
-            borderColor: palette.primarySoft,
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingTop: 20,
+            paddingBottom: 160,
+            gap: 16,
           }}
         >
-          <TextInput
-            placeholder="Milestone name (e.g. 500 days together)"
-            placeholderTextColor={palette.textSecondary}
-            value={title}
-            onChangeText={setTitle}
-            style={{
-              fontSize: 16,
-              paddingVertical: 10,
-              color: palette.text,
-            }}
-          />
-        </View>
-        <View
-          style={{
-            backgroundColor: palette.card,
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 6,
-            borderWidth: 1,
-            borderColor: palette.primarySoft,
-          }}
-        >
-          <TextInput
-            placeholder="What made this moment special?"
-            placeholderTextColor={palette.textSecondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            style={{
-              fontSize: 15,
-              paddingVertical: 10,
-              minHeight: 60,
-              color: palette.text,
-              textAlignVertical: "top",
-            }}
-          />
-        </View>
-        <View
-          style={{
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: palette.primarySoft,
-            backgroundColor: palette.card,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            gap: 4,
-          }}
-        >
-          <CuteText tone="muted" style={{ fontSize: 12 }}>
-            Captured automatically
-          </CuteText>
-          <CuteText weight="semibold">{formattedToday}</CuteText>
-          {computedDayCount !== undefined ? (
-            <CuteText tone="muted" style={{ fontSize: 12 }}>
-              {computedDayCount} days since your anniversary
+          <View style={{ gap: 8 }}>
+            <CuteText weight="semibold" style={{ fontSize: 14 }}>
+              Add a photo*
             </CuteText>
-          ) : (
-            <CuteText tone="muted" style={{ fontSize: 12 }}>
-              We'll sync this milestone with today's date and your anniversary.
-            </CuteText>
-          )}
-        </View>
-        {error ? (
-          <CuteText style={{ fontSize: 13, color: palette.primary }}>
-            {error}
-          </CuteText>
-        ) : null}
+            <Pressable
+              onPress={handlePickImage}
+              style={{
+                height: 220,
+                borderRadius: 28,
+                borderWidth: imageUri ? 0 : 2,
+                borderStyle: imageUri ? "solid" : "dashed",
+                borderColor: `${palette.primary}80`,
+                overflow: "hidden",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: palette.background,
+              }}
+            >
+              {imageUri ? (
+                <Image
+                  source={{ uri: imageUri }}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              ) : (
+                <View style={{ alignItems: "center", gap: 6 }}>
+                  <MaterialIcons
+                    name="add-a-photo"
+                    size={34}
+                    color={palette.primary}
+                  />
+                  <CuteText weight="semibold" style={{ color: palette.text }}>
+                    Tap to upload a photo
+                  </CuteText>
+                  <CuteText tone="muted" style={{ fontSize: 12 }}>
+                    A photo is required
+                  </CuteText>
+                </View>
+              )}
+            </Pressable>
+            {error && !imageUri ? (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <MaterialIcons name="error" size={16} color="#D95C5C" />
+                <CuteText style={{ color: "#D95C5C", fontSize: 12 }}>
+                  {error}
+                </CuteText>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ gap: 12 }}>
+            <View style={{ gap: 6 }}>
+              <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                Milestone name*
+              </CuteText>
+              <View
+                style={{
+                  backgroundColor: palette.card,
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderWidth: 1,
+                  borderColor: palette.primarySoft,
+                }}
+              >
+                <TextInput
+                  placeholder="e.g. 500 days together"
+                  placeholderTextColor={palette.textSecondary}
+                  value={title}
+                  onChangeText={setTitle}
+                  style={{
+                    fontSize: 16,
+                    paddingVertical: 10,
+                    color: palette.text,
+                  }}
+                />
+              </View>
+            </View>
+
+            <View style={{ gap: 6 }}>
+              <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                What made this moment special?
+              </CuteText>
+              <View
+                style={{
+                  backgroundColor: palette.card,
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderWidth: 1,
+                  borderColor: palette.primarySoft,
+                }}
+              >
+                <TextInput
+                  placeholder="Write a little story..."
+                  placeholderTextColor={palette.textSecondary}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  style={{
+                    fontSize: 15,
+                    paddingVertical: 10,
+                    minHeight: 80,
+                    color: palette.text,
+                    textAlignVertical: "top",
+                  }}
+                />
+              </View>
+            </View>
+
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: palette.primarySoft,
+                backgroundColor: palette.card,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                gap: 12,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  height: 48,
+                  width: 48,
+                  borderRadius: 24,
+                  backgroundColor: `${palette.secondary}50`,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <MaterialIcons
+                  name="calendar-month"
+                  size={22}
+                  color={palette.secondary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <CuteText weight="bold">{formattedToday}</CuteText>
+                {computedDayCount !== undefined ? (
+                  <CuteText tone="muted" style={{ fontSize: 13 }}>
+                    {computedDayCount} days since your anniversary
+                  </CuteText>
+                ) : (
+                  <CuteText tone="muted" style={{ fontSize: 13 }}>
+                    We{"'"}ll align this milestone with today{"'"}s date.
+                  </CuteText>
+                )}
+              </View>
+            </View>
+            {error && imageUri ? (
+              <CuteText style={{ fontSize: 13, color: "#D95C5C" }}>
+                {error}
+              </CuteText>
+            ) : null}
+          </View>
+        </ScrollView>
       </View>
 
-      <View style={{ gap: 12 }}>
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: palette.primarySoft,
+          backgroundColor: `${palette.background}F2`,
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 24,
+          gap: 12,
+        }}
+      >
         <Pressable
           onPress={handleSave}
           disabled={saving}
           style={{
             borderRadius: 999,
-            paddingVertical: 14,
+            paddingVertical: 16,
             alignItems: "center",
             backgroundColor: palette.primary,
             opacity: saving ? 0.6 : 1,
+            shadowColor: palette.primary,
+            shadowOpacity: 0.25,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
           }}
         >
           <CuteText style={{ color: "#fff", fontSize: 16 }} weight="bold">
@@ -328,7 +399,7 @@ export default function NewMilestoneScreen() {
             borderRadius: 999,
             paddingVertical: 14,
             alignItems: "center",
-            backgroundColor: palette.card,
+            backgroundColor: palette.background,
             borderWidth: 1,
             borderColor: palette.primarySoft,
           }}

@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ImageBackground, Pressable, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CuteText } from "../../components/CuteText";
 import { usePalette } from "../../hooks/usePalette";
@@ -71,74 +72,69 @@ export default function MilestoneViewerScreen() {
     );
   }
 
-  const overlay = (
-    <LinearGradient
-      colors={["#000000D0", "#00000010", "#000000D0"]}
-      style={{ flex: 1, padding: 24 }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <View style={{ flex: 1, gap: 4 }}>
-          <CuteText style={{ color: "#fff", fontSize: 24 }} weight="bold">
+  const content = (
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 32 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            marginTop: 6,
+          }}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: "#00000040",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: "#ffffff33",
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Close milestone"
+          >
+            <MaterialIcons name="close" size={22} color="#fff" />
+          </Pressable>
+        </View>
+
+        <View style={{ flex: 1, justifyContent: "flex-end", gap: 18 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {milestone.dayCount ? (
+              <View
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  backgroundColor: "#ffffff30",
+                }}
+              >
+                <CuteText style={{ color: "#fff", fontSize: 13 }} weight="bold">
+                  {milestone.dayCount} days
+                </CuteText>
+              </View>
+            ) : null}
+            {formattedDate ? (
+              <CuteText tone="muted" style={{ color: "#ffffffcc", fontSize: 13 }}>
+                {formattedDate}
+              </CuteText>
+            ) : null}
+          </View>
+          <CuteText style={{ color: "#fff", fontSize: 32 }} weight="bold">
             {milestone.title}
           </CuteText>
-          {formattedDate ? (
-            <CuteText tone="muted" style={{ color: "#fff" }}>
-              {formattedDate}
-            </CuteText>
-          ) : null}
-        </View>
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: "#00000060",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Close milestone"
-        >
-          <MaterialIcons name="close" size={24} color="#fff" />
-        </Pressable>
-      </View>
-
-      <View style={{ flex: 1 }} />
-
-      <View style={{ gap: 10 }}>
-        {milestone.dayCount ? (
-          <View
-            style={{
-              alignSelf: "flex-start",
-              backgroundColor: "#00000050",
-              borderRadius: 999,
-              paddingHorizontal: 16,
-              paddingVertical: 6,
-            }}
+          <CuteText
+            style={{ color: "#ffffffde", fontSize: 16, lineHeight: 24 }}
           >
-            <CuteText style={{ color: "#fff", fontSize: 13 }}>
-              {milestone.dayCount} days together
-            </CuteText>
-          </View>
-        ) : null}
-        {milestone.description ? (
-          <CuteText style={{ color: "#fff", fontSize: 16 }}>
-            {milestone.description}
+            {milestone.description ??
+              "Capture a few words about this memory to keep the feelings vivid."}
           </CuteText>
-        ) : (
-          <CuteText tone="muted" style={{ color: "#fff", fontSize: 14 }}>
-            Tap the add button to update this story with more notes or photos.
-          </CuteText>
-        )}
+        </View>
       </View>
-    </LinearGradient>
+    </SafeAreaView>
   );
 
   return (
@@ -150,16 +146,38 @@ export default function MilestoneViewerScreen() {
           resizeMode="cover"
           style={{ flex: 1 }}
         >
-          {overlay}
+          <LinearGradient
+            colors={["rgba(0,0,0,0.7)", "transparent"]}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 200,
+            }}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.4)", "rgba(0,0,0,0.85)"]}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "65%",
+            }}
+            pointerEvents="none"
+          />
+          {content}
         </ImageBackground>
       ) : (
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: palette.primarySoft,
-          }}
-        >
-          {overlay}
+        <View style={{ flex: 1, backgroundColor: palette.primarySoft }}>
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.35)"]}
+            style={{ position: "absolute", inset: 0 }}
+            pointerEvents="none"
+          />
+          {content}
         </View>
       )}
     </View>
