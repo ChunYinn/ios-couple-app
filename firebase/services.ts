@@ -43,6 +43,7 @@ import {
   DBLocation,
   DBInvite,
   DBNotification,
+  DBCalendarEvent,
   timestampToDate,
   dateToString,
   daysBetween
@@ -1007,6 +1008,88 @@ export const milestoneService = {
   }
 };
 
+type CalendarEventInput = {
+  title: string;
+  owner: "together" | "hers" | "his";
+  startAt: Date;
+  endAt: Date;
+  location?: string;
+  notes?: string;
+  allDay?: boolean;
+  createdBy: string;
+};
+
+export const calendarService = {
+  subscribeToEvents(
+    coupleId: string,
+    callback: (events: DBCalendarEvent[]) => void,
+    onError?: (error: Error) => void
+  ): Unsubscribe {
+    const eventsRef = collection(db, "couples", coupleId, "calendarEvents");
+    const q = query(eventsRef, orderBy("startAt", "asc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const events = snapshot.docs.map((docSnapshot) => {
+          const payload = docSnapshot.data() as DBCalendarEvent;
+          return { ...payload, id: docSnapshot.id };
+        });
+        callback(events);
+      },
+      (error) => {
+        console.error("Calendar subscription failed:", error);
+        onError?.(error);
+      }
+    );
+  },
+
+  async addEvent(coupleId: string, input: CalendarEventInput): Promise<string> {
+    const ref = doc(collection(db, "couples", coupleId, "calendarEvents"));
+    await setDoc(ref, {
+      title: input.title,
+      owner: input.owner,
+      startAt: Timestamp.fromDate(input.startAt),
+      endAt: Timestamp.fromDate(input.endAt),
+      location: input.location ?? null,
+      notes: input.notes ?? null,
+      allDay: Boolean(input.allDay),
+      createdBy: input.createdBy,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return ref.id;
+  },
+
+  async updateEvent(
+    coupleId: string,
+    eventId: string,
+    data: Partial<Omit<CalendarEventInput, "createdBy">>
+  ): Promise<void> {
+    const payload: Partial<DBCalendarEvent> & {
+      updatedAt: ReturnType<typeof serverTimestamp>;
+    } = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (data.title !== undefined) payload.title = data.title;
+    if (data.owner) payload.owner = data.owner;
+    if (data.startAt) payload.startAt = Timestamp.fromDate(data.startAt);
+    if (data.endAt) payload.endAt = Timestamp.fromDate(data.endAt);
+    if (data.location !== undefined) payload.location = data.location ?? null;
+    if (data.notes !== undefined) payload.notes = data.notes ?? null;
+    if (data.allDay !== undefined) payload.allDay = data.allDay;
+
+    await updateDoc(
+      doc(db, "couples", coupleId, "calendarEvents", eventId),
+      payload
+    );
+  },
+
+  async deleteEvent(coupleId: string, eventId: string): Promise<void> {
+    await deleteDoc(doc(db, "couples", coupleId, "calendarEvents", eventId));
+  },
+};
+
 // Export all services
 export default {
   user: userService,
@@ -1017,5 +1100,6 @@ export default {
   memory: memoryService,
   location: locationService,
   invite: inviteService,
-  milestone: milestoneService
+  milestone: milestoneService,
+  calendar: calendarService
 };

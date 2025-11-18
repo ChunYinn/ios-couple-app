@@ -124,6 +124,21 @@ export interface DBTodoItem {
   proofImageUrl?: string | null;
 }
 
+// ============= CALENDAR TYPES =============
+export interface DBCalendarEvent {
+  id?: string;
+  title: string;
+  owner: "together" | "hers" | "his";
+  startAt: Timestamp | FieldValue;
+  endAt: Timestamp | FieldValue;
+  location?: string | null;
+  notes?: string | null;
+  allDay?: boolean;
+  createdBy: string;
+  createdAt: Timestamp | FieldValue;
+  updatedAt: Timestamp | FieldValue;
+}
+
 // ============= MEMORY TYPES =============
 export interface DBMemory {
   id?: string;
