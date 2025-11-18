@@ -95,6 +95,13 @@ export const CuteModal = ({
 
   const sheetHandlers = panResponder ? panResponder.panHandlers : undefined;
 
+  const topInset = respectTopInset ? insets.top : 0;
+  const resolvedPaddingTop = fullScreen
+    ? topInset + 12
+    : 16 + topInset;
+  const resolvedMarginTop =
+    fullScreen || !respectTopInset ? 0 : Math.max(insets.top - 8, 0);
+
   return (
     <Modal
       transparent
@@ -133,14 +140,11 @@ export const CuteModal = ({
                   borderTopLeftRadius: fullScreen ? 0 : 28,
                   borderTopRightRadius: fullScreen ? 0 : 28,
                   paddingHorizontal: 20,
-                  paddingTop: fullScreen ? 12 : 16,
+                  paddingTop: resolvedPaddingTop,
                   paddingBottom: fullScreen ? 24 : 32,
                   gap: 16,
                   flex: fullScreen ? 1 : undefined,
-                  marginTop:
-                    fullScreen || !respectTopInset
-                      ? 0
-                      : Math.max(insets.top - 8, 0),
+                  marginTop: resolvedMarginTop,
                 },
                 contentStyle,
               ]}

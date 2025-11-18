@@ -145,6 +145,14 @@ service cloud.firestore {
           resource.data.recipientId == request.auth.uid; // Only recipient can mark as read
         allow delete: if false;
       }
+
+      // CALENDAR EVENTS Subcollection
+      match /calendarEvents/{eventId} {
+        allow read: if isCoupleMember(coupleId);
+        allow create: if isCoupleMember(coupleId) &&
+          request.resource.data.createdBy == request.auth.uid;
+        allow update, delete: if isCoupleMember(coupleId);
+      }
     }
 
     // INVITES Collection - special handling

@@ -1,0 +1,20 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fce7f3" />
+      <stop offset="50%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#ede9fe" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1200" height="720" fill="url(#bg)" />
+  <rect x="40" y="40" width="1120" height="640" fill="none" stroke="#d4cfff" stroke-width="6" stroke-dasharray="24 16" rx="36" />
+  <text x="50%" y="45%" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="48" fill="#5c3c92">
+    Drop your screen collage here
+  </text>
+  <text x="50%" y="55%" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" fill="#5c3c92">
+    Replace docs/screenshots/app-preview-placeholder.svg
+  </text>
+  <text x="50%" y="65%" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#8b5cf6">
+    Suggested: dashboard · calendar · chat · lists
+  </text>
+</svg>
