@@ -4,9 +4,7 @@ An Expo + React Native experience for couples who want a single place to plan da
 
 ## Screenshots
 
-![Placeholder collage of the dashboard, calendar, chat, and lists screens](docs/screenshots/app-preview-placeholder.svg)
-
-> Replace `docs/screenshots/app-preview-placeholder.svg` with your own exported image (ideally ~1200×720) and update the caption to describe what you showcase.
+![Dashboard, calendar, chat, and lists screens from the app](docs/screenshots/coupleapp-pic.png)
 
 ## Feature Tour
 
