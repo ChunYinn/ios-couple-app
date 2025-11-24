@@ -99,7 +99,7 @@ export default function SettingsScreen() {
   const handleSignOut = () => {
     Alert.alert(
       "Sign out?",
-      "Signing out removes your anonymous profile from this device and may delete any unsynced data. You can always start fresh, but the current memories may be lost.",
+      "You'll return to the sign-in screen. Unsynced changes on this device may be lost, but your account stays safe with your email and password.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -237,7 +237,7 @@ export default function SettingsScreen() {
           Account
         </CuteText>
         <CuteText tone="muted" style={{ fontSize: 13 }}>
-          Sign out to start over. This removes the local anonymous account and its data.
+          Sign out to switch accounts or start fresh. Make sure changes are synced before leaving.
         </CuteText>
         <CuteButton
           label="Sign out"

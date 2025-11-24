@@ -5,7 +5,7 @@ import { LoveLanguageValue, ProfileFavorite } from "../types/app";
 export interface DBUser {
   uid: string;
   email: string;
-  authProvider: "anonymous" | "password" | "custom";
+  authProvider: "password" | "custom";
   displayName: string;
   avatarUrl: string | null;
   birthday: string | null; // YYYY-MM-DD

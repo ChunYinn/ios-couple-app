@@ -4,6 +4,7 @@ import { useLayoutEffect } from "react";
 
 import { lightPalette } from "../theme/palette";
 import { AppDataProvider, useAppData } from "../context/AppDataContext";
+import { SignupProvider } from "../context/SignupContext";
 
 const lightNavigationTheme = {
   ...DefaultTheme,
@@ -68,9 +69,11 @@ const Navigator = () => {
 export default function RootLayout() {
   return (
     <ThemeProvider value={lightNavigationTheme}>
-      <AppDataProvider>
-        <Navigator />
-      </AppDataProvider>
+      <SignupProvider>
+        <AppDataProvider>
+          <Navigator />
+        </AppDataProvider>
+      </SignupProvider>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,6 @@
 export type AuthStatus = "initializing" | "signedOut" | "profile" | "ready";
 
-export type AuthProvider = "anonymous" | "password" | "custom";
+export type AuthProvider = "password" | "custom";
 
 export type LoveLanguageValue =
   | "words"

@@ -11,7 +11,7 @@ const sections = [
   {
     title: "Information We Collect",
     body: [
-      "Account data: an anonymous identifier and display name generated when you first open the app (no email required).",
+      "Account data: your email address, display name, and any optional profile details you add (like a photo or birthday).",
       "Relationship data: anniversary date, couple profiles, messages, shared photos, and to-do lists.",
       "Device data: Firebase Cloud Messaging token for push notifications.",
       "Location data (optional): live-location sharing between partners when enabled.",

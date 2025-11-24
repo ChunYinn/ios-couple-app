@@ -11,7 +11,7 @@ export const initialState: AppState = {
       anniversaryDate: undefined,
       coupleId: null,
       email: undefined,
-      isAnonymous: undefined,
+      isAnonymous: false,
     },
   },
   pairing: {

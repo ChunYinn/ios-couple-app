@@ -32,7 +32,7 @@ An Expo + React Native experience for couples who want a single place to plan da
 - Node.js 20+
 - npm 10+
 - An Expo account (optional, but helpful for running on devices)
-- A Firebase project with Web credentials and the following products enabled: Auth (email/password + anonymous), Firestore, Storage, Functions (for invite redemption)
+- A Firebase project with Web credentials and the following products enabled: Auth (email/password), Firestore, Storage, Functions (for invite redemption)
 
 ### 1. Configure environment variables
 

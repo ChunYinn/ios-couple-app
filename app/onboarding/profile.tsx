@@ -205,6 +205,9 @@ export default function ProfileSetupScreen() {
       return;
     }
 
+    const emailValue = (firebaseAuth.currentUser?.email ?? authUser.email ?? "").trim();
+    const authProvider = state.auth.provider ?? "password";
+
     setError(null);
     setLoading(true);
 
@@ -228,8 +231,8 @@ export default function ProfileSetupScreen() {
         displayName: trimmedName,
         avatarUrl: nextAvatarUrl ?? null,
         birthday: birthdayValue,
-        authProvider: "anonymous",
-        email: "",
+        authProvider,
+        email: emailValue,
         coupleId: authUser.coupleId ?? null,
         status: DEFAULT_STATUS,
         about: DEFAULT_ABOUT,

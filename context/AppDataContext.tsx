@@ -47,7 +47,6 @@ import {
   normalizeLoveLanguages,
 } from "../data/loveLanguages";
 import { LoveLanguageValue } from "../types/app";
-import { authService } from "../services/authService";
 import { calculateDaysTogether, formatDateToYMD } from "../utils/dateUtils";
 
 const AppDataContext = createContext<{
@@ -289,12 +288,22 @@ const reducer = (state: AppState, action: AppAction): AppState => {
     case "SIGN_OUT": {
       return {
         ...initialState,
+        auth: {
+          ...initialState.auth,
+          status: "signedOut",
+          user: { ...initialState.auth.user },
+        },
         settings: state.settings,
       };
     }
     case "RESET_SESSION": {
       return {
         ...initialState,
+        auth: {
+          ...initialState.auth,
+          status: "signedOut",
+          user: { ...initialState.auth.user },
+        },
         settings: state.settings,
       };
     }
@@ -798,23 +807,10 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   }, [state]);
 
   useEffect(() => {
-    const ensureAnonymous = async () => {
-      try {
-        await authService.ensureAnonymousSession();
-      } catch (error) {
-        console.error("Failed to ensure anonymous session", error);
-      }
-    };
-
-    if (!firebaseAuth.currentUser) {
-      ensureAnonymous();
-    }
-
     const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
       if (firebaseUser) {
-        const providerId = firebaseUser.isAnonymous
-          ? "anonymous"
-          : firebaseUser.providerData[0]?.providerId === "password"
+        const providerId =
+          firebaseUser.providerData[0]?.providerId === "password"
             ? "password"
             : "custom";
 
@@ -824,12 +820,11 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             provider: providerId,
             uid: firebaseUser.uid,
             email: firebaseUser.email,
-            isAnonymous: firebaseUser.isAnonymous,
+            isAnonymous: false,
           },
         });
       } else {
         dispatch({ type: "RESET_SESSION" });
-        ensureAnonymous();
       }
     });
 
@@ -876,7 +871,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             coupleId: user.coupleId,
             status: nextStatus,
             email: user.email ?? undefined,
-            isAnonymous: user.authProvider === "anonymous",
+            isAnonymous: false,
             anniversaryDate: user.anniversaryDate ?? undefined,
           },
         });

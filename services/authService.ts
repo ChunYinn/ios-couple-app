@@ -1,7 +1,7 @@
 import {
-  EmailAuthProvider,
-  linkWithCredential,
-  signInAnonymously,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
   User,
@@ -11,44 +11,26 @@ import { firebaseAuth } from "../firebase/config";
 import { userService } from "../firebase/services";
 
 export const authService = {
-  /**
-   * Ensure that the device has an anonymous Firebase session.
-   * Returns the existing user if already signed in.
-   */
-  async ensureAnonymousSession(): Promise<User> {
-    if (firebaseAuth.currentUser) {
-      return firebaseAuth.currentUser;
-    }
-    const { user } = await signInAnonymously(firebaseAuth);
+  async signInWithEmail(email: string, password: string): Promise<User> {
+    const { user } = await signInWithEmailAndPassword(
+      firebaseAuth,
+      email.trim(),
+      password
+    );
     return user;
   },
 
-  async createAnonymousAccount(): Promise<User> {
-    return this.ensureAnonymousSession();
+  async signUpWithEmail(email: string, password: string): Promise<User> {
+    const { user } = await createUserWithEmailAndPassword(
+      firebaseAuth,
+      email.trim(),
+      password
+    );
+    return user;
   },
 
-  async upgradeAnonymousUser(email: string, password: string): Promise<User> {
-    const currentUser = firebaseAuth.currentUser;
-    if (!currentUser) {
-      throw new Error("No authenticated user to upgrade");
-    }
-    if (!currentUser.isAnonymous) {
-      return currentUser;
-    }
-
-    const credential = EmailAuthProvider.credential(email, password);
-    const { user } = await linkWithCredential(currentUser, credential);
-
-    try {
-      await userService.updateUser(user.uid, {
-        authProvider: "password",
-        email: user.email ?? email,
-      });
-    } catch (error) {
-      console.warn("Failed to update user document after upgrade", error);
-    }
-
-    return user;
+  async sendPasswordReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(firebaseAuth, email.trim());
   },
 
   async updateDisplayName(displayName: string): Promise<void> {
