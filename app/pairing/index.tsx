@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, View, useColorScheme } from "react-native";
+import { Pressable, View, useColorScheme, Share, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -37,6 +37,7 @@ export default function PairingScreen() {
 
   const [joinCode, setJoinCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
 
@@ -44,10 +45,6 @@ export default function PairingScreen() {
   const inviteLink =
     pairing.inviteLink ?? (inviteCode ? `https://couple.ly/invite/${inviteCode}` : null);
 
-  const qrPlaceholder = useMemo(
-    () => inviteCode?.split("").join(" ") ?? "------",
-    [inviteCode]
-  );
   const generateLabel = isGenerating ? "Generating..." : "Generate invite";
   const joinLabel = isJoining ? "Joining..." : "Join couple";
 
@@ -66,20 +63,18 @@ export default function PairingScreen() {
       })) ?? [],
   });
 
-  const handleCreateInvite = async () => {
+  const handleCreateInvite = async (refresh = false) => {
     if (!auth.user.uid) {
       setErrorMessage("Please sign in again to generate a fresh invite.");
       return;
     }
     try {
       setIsGenerating(true);
-      const ownerName =
-        profiles.me?.displayName ?? auth.user.displayName ?? "You";
-
+      const ownerName = profiles.me?.displayName ?? auth.user.displayName ?? "You";
       const hostAnniversary = auth.user.anniversaryDate ?? null;
+
       let coupleId = pairing.coupleId ?? auth.user.coupleId;
-      let code = pairing.inviteCode ?? null;
-      let qrData = pairing.qrCodeData ?? null;
+      let code = refresh ? null : pairing.inviteCode ?? null;
       let shareLink = pairing.inviteLink ?? null;
 
       if (!coupleId) {
@@ -110,14 +105,6 @@ export default function PairingScreen() {
       if (hostAnniversary) {
         await coupleService.setAnniversary(coupleId, hostAnniversary);
       }
-      if (code) {
-        qrData = `COUPLE:${code}`;
-        shareLink = `https://couple.ly/invite/${code}`;
-      }
-
-      if (!coupleId) {
-        throw new Error("We couldn't create your invite just yet. Please try again.");
-      }
 
       const ensuredCode = await inviteService.createInvite(
         coupleId,
@@ -126,8 +113,12 @@ export default function PairingScreen() {
         code ?? undefined
       );
 
+      if (refresh || !code) {
+        shareLink = `https://couple.ly/invite/${ensuredCode}`;
+        await coupleService.setInviteMetadata(coupleId, ensuredCode);
+      }
+
       const finalLink = shareLink ?? `https://couple.ly/invite/${ensuredCode}`;
-      const finalQr = qrData ?? `COUPLE:${ensuredCode}`;
 
       dispatch({
         type: "CREATE_INVITE",
@@ -135,10 +126,11 @@ export default function PairingScreen() {
           coupleId,
           inviteCode: ensuredCode,
           inviteLink: finalLink,
-          qrCodeData: finalQr,
+          qrCodeData: null,
         },
       });
       setErrorMessage(null);
+      setInfoMessage(null);
     } catch (error) {
       console.error("Failed to create invite", error);
       setErrorMessage(
@@ -155,14 +147,22 @@ export default function PairingScreen() {
     const trimmed = joinCode.trim().toUpperCase();
     if (!trimmed) {
       setErrorMessage("Enter the 6-digit invite code your partner shared.");
+      setInfoMessage(null);
       return;
     }
     if (trimmed.length !== 6) {
       setErrorMessage("Invite codes are six characters long.");
+      setInfoMessage(null);
       return;
     }
     if (!auth.user.uid) {
       setErrorMessage("Please sign in again before joining.");
+      setInfoMessage(null);
+      return;
+    }
+    if (auth.user.coupleId && pairing.isPaired) {
+      setErrorMessage("You're already paired. Reset pairing before joining another code.");
+      setInfoMessage(null);
       return;
     }
 
@@ -250,6 +250,7 @@ export default function PairingScreen() {
       });
       setJoinCode("");
       setErrorMessage(null);
+      setInfoMessage("You're paired! Hang tight while we sync profiles.");
     } catch (error) {
       console.error("Failed to join couple", error);
       setErrorMessage(
@@ -262,10 +263,33 @@ export default function PairingScreen() {
     }
   };
 
-  const handleReset = () => {
-    dispatch({ type: "RESET_PAIRING" });
-    setJoinCode("");
-    setErrorMessage(null);
+  const handleCopyInvite = async () => {
+    const link =
+      inviteLink ??
+      (inviteCode ? `https://couple.ly/invite/${inviteCode}` : null);
+    if (!link) {
+      setErrorMessage("Generate an invite first.");
+      setInfoMessage(null);
+      return;
+    }
+    try {
+      const webClipboard =
+        typeof globalThis !== "undefined"
+          ? (globalThis as any).navigator?.clipboard
+          : null;
+      if (Platform.OS === "web" && webClipboard?.writeText) {
+        await webClipboard.writeText(link);
+        setInfoMessage("Invite link copied!");
+      } else {
+        await Share.share({ message: link });
+        setInfoMessage("Invite link ready to share!");
+      }
+      setErrorMessage(null);
+    } catch (err) {
+      console.error("Copy/share invite failed", err);
+      setErrorMessage("Couldn't copy the invite. Please try again.");
+      setInfoMessage(null);
+    }
   };
 
   return (
@@ -312,7 +336,12 @@ export default function PairingScreen() {
         <CuteCard
           background={palette.card}
           padding={20}
-          style={{ gap: 12, borderWidth: 1, borderColor: palette.border }}
+          style={{
+            gap: 12,
+            borderWidth: 1,
+            borderColor: palette.primary + "55",
+            borderStyle: "dashed",
+          }}
         >
           <View
             style={{
@@ -328,48 +357,50 @@ export default function PairingScreen() {
             Generate a private invite code, deep link, and QR to share with your person.
           </CuteText>
           {inviteCode ? (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 14, alignItems: "center" }}>
               <View
                 style={{
                   borderWidth: 1,
-                  borderColor: palette.border,
+                  borderColor: palette.primary + "99",
+                  borderStyle: "dashed",
                   borderRadius: 20,
-                  padding: 16,
+                  padding: 18,
+                  gap: 10,
                   alignItems: "center",
-                  gap: 6,
+                  backgroundColor: palette.background,
                 }}
               >
                 <CuteText tone="muted" style={{ fontSize: 12 }}>
                   Your invite code
                 </CuteText>
-                <CuteText weight="bold" style={{ fontSize: 28 }}>
-                  {inviteCode}
-                </CuteText>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <CuteText weight="bold" style={{ fontSize: 34, letterSpacing: 2 }}>
+                    {inviteCode}
+                  </CuteText>
+                  <Pressable
+                    onPress={handleCopyInvite}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      backgroundColor: palette.primary,
+                    }}
+                    hitSlop={8}
+                  >
+                    <MaterialIcons name="content-copy" size={18} color="#fff" />
+                  </Pressable>
+                </View>
                 <CuteText tone="muted" style={{ fontSize: 12 }}>
-                  Share this with your partner.
+                  Share this code with your partner.
                 </CuteText>
               </View>
-              <CuteCard
-                background={palette.primarySoft}
-                padding={16}
-                style={{ alignItems: "center", gap: 8 }}
-              >
-                <CuteText weight="bold">QR preview</CuteText>
-                <CuteText tone="muted" style={{ fontSize: 12 }}>
-                  {qrPlaceholder}
-                </CuteText>
-              </CuteCard>
-              <CuteCard background={palette.background} padding={16} style={{ gap: 6 }}>
-                <CuteText weight="bold">Invite link</CuteText>
-                <CuteText tone="muted" style={{ fontSize: 13 }}>
-                  {inviteLink}
-                </CuteText>
-              </CuteCard>
               <CuteButton
-                label="Reset invite"
+                label="Refresh code"
                 tone="ghost"
-                onPress={handleReset}
+                onPress={() => handleCreateInvite(true)}
                 disabled={isGenerating}
+                icon={<MaterialIcons name="refresh" size={18} color={palette.primary} />}
+                labelColor={palette.primary}
+                style={{ minWidth: 200 }}
               />
             </View>
           ) : (
@@ -377,6 +408,7 @@ export default function PairingScreen() {
               label={generateLabel}
               onPress={handleCreateInvite}
               disabled={isGenerating}
+              style={{ alignSelf: "center", minWidth: 200 }}
             />
           )}
         </CuteCard>
@@ -384,7 +416,12 @@ export default function PairingScreen() {
         <CuteCard
           background={palette.card}
           padding={20}
-          style={{ gap: 12, borderWidth: 1, borderColor: palette.border }}
+          style={{
+            gap: 12,
+            borderWidth: 1,
+            borderColor: palette.border,
+            borderStyle: "dashed",
+          }}
         >
           <View
             style={{
@@ -406,6 +443,7 @@ export default function PairingScreen() {
             onChangeText={(value) => {
               setJoinCode(value);
               setErrorMessage(null);
+              setInfoMessage(null);
             }}
             keyboardType="number-pad"
             maxLength={6}
@@ -413,6 +451,11 @@ export default function PairingScreen() {
           {errorMessage ? (
             <CuteText tone="muted" style={{ fontSize: 12, color: palette.primary }}>
               {errorMessage}
+            </CuteText>
+          ) : null}
+          {infoMessage && !errorMessage ? (
+            <CuteText tone="muted" style={{ fontSize: 12, color: palette.text }}>
+              {infoMessage}
             </CuteText>
           ) : null}
           <CuteButton
@@ -423,18 +466,16 @@ export default function PairingScreen() {
         </CuteCard>
       </View>
 
-      <View style={{ gap: 12 }}>
-        <CuteCard background={palette.card} padding={18} style={{ gap: 8 }}>
-          <CuteText weight="bold">How it works</CuteText>
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Share your invite code with your partner. Once they join, you{"'"}ll
-            be connected in a private space just for two.
-          </CuteText>
-        </CuteCard>
-        <CuteText tone="muted" style={{ fontSize: 12, textAlign: "center" }}>
-          Signed in as {auth.user.displayName ?? "you"}
-        </CuteText>
-      </View>
+      <CuteText
+        style={{
+          fontSize: 12,
+          textAlign: "center",
+          color: palette.primary,
+          fontWeight: "600",
+        }}
+      >
+        Signed in as {auth.user.displayName ?? "you"}
+      </CuteText>
     </Screen>
   );
 }

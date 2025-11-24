@@ -113,40 +113,8 @@ export default function NewMilestoneScreen() {
   };
 
   if (!pairing.isPaired) {
-    return (
-      <Screen scrollable={false}>
-        <View
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-            gap: 16,
-          }}
-        >
-          <MaterialIcons name="lock" size={40} color={palette.primary} />
-          <CuteText weight="bold" style={{ fontSize: 22 }}>
-            Pair to add milestones
-          </CuteText>
-          <CuteText tone="muted" style={{ textAlign: "center" }}>
-            Connect with your partner to start sharing milestone stories.
-          </CuteText>
-          <Pressable
-            onPress={() => router.push("/pairing")}
-            style={{
-              paddingHorizontal: 24,
-              paddingVertical: 12,
-              borderRadius: 999,
-              backgroundColor: palette.primary,
-            }}
-          >
-            <CuteText style={{ color: "#fff" }} weight="bold">
-              Pair now
-            </CuteText>
-          </Pressable>
-        </View>
-      </Screen>
-    );
+    router.replace("/pairing");
+    return null;
   }
 
   return (

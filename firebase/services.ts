@@ -225,6 +225,15 @@ export const coupleService = {
     });
   },
 
+  async setInviteMetadata(coupleId: string, inviteCode: string): Promise<void> {
+    await updateDoc(doc(db, 'couples', coupleId), {
+      inviteCode,
+      inviteLink: `coupleapp://join/${inviteCode}`,
+      qrCodeData: `COUPLE:${inviteCode}`,
+      lastActivityAt: serverTimestamp()
+    });
+  },
+
   // Calculate days together
   getDaysTogether(anniversaryDate: string | null): number {
     if (!anniversaryDate) return 0;
