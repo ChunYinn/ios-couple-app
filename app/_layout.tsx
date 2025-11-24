@@ -32,17 +32,17 @@ const Navigator = () => {
     }
 
     const inAuthGroup = segments[0] === "auth";
-    const inOnboardingGroup = segments[0] === "onboarding";
+    const inProfileFlow = inAuthGroup && segments[1] === "profile";
     const inTabsGroup = segments[0] === "(tabs)";
     const onLoadingScreen = !segments[0];
 
     if (state.auth.status === "signedOut" && !inAuthGroup) {
       router.replace("/auth");
-    } else if (state.auth.status === "profile" && !inOnboardingGroup) {
-      router.replace("/onboarding/profile");
+    } else if (state.auth.status === "profile" && !inProfileFlow) {
+      router.replace("/auth/profile");
     } else if (
       state.auth.status === "ready" &&
-      (inAuthGroup || inOnboardingGroup || onLoadingScreen) &&
+      (inAuthGroup || onLoadingScreen) &&
       !inTabsGroup
     ) {
       router.replace("/(tabs)");

@@ -8,7 +8,7 @@ An Expo + React Native experience for couples who want a single place to plan da
 
 ## Feature Tour
 
-- **Personal onboarding & pairing** – `app/onboarding/profile.tsx` guides each partner through avatars, birthdays, and love languages. `app/pairing/index.tsx` handles invite codes, QR links, and Cloud Function redemption so two accounts can merge into one couple space.
+- **Personal onboarding & pairing** – `app/auth/profile.tsx` guides each partner through avatars, birthdays, and love languages. `app/pairing/index.tsx` handles invite codes, QR links, and Cloud Function redemption so two accounts can merge into one couple space.
 - **Anniversary dashboard** – The home tab (`app/(tabs)/index.tsx`) celebrates days together, tracks the anniversary date, and surfaces quick actions for chat, location sharing, milestones, or shared plans.
 - **Shared calendar** – `app/(tabs)/calendar.tsx` renders a color-coded view of “we”, “hers”, and “his” calendars with day/month/year filters, event drills, notes, and reminders backed by `calendarService`.
 - **Lists & planning** – The lists tab (`app/(tabs)/lists.tsx`) lets both partners manage categorized todos, moods, cost estimates, and proof photos. Custom categories sync through `todoService`.
@@ -77,7 +77,7 @@ Use the on-screen CLI to launch iOS Simulator (`i`), Android Emulator (`a`), or 
 ## Project Structure
 
 ```
-app/                   # File-based routing for screens (tabs, onboarding, pairing, etc.)
+app/                   # File-based routing for screens (tabs, auth, pairing, etc.)
 components/            # Cute* UI primitives (cards, text, buttons, dropdowns)
 context/AppDataContext.tsx   # Centralized reducer-powered store for auth, chat, todos, gallery, etc.
 firebase/              # Config, typed services, security rules, and Cloud Functions

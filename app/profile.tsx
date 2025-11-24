@@ -163,7 +163,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (viewingMe && !profile) {
-      router.replace("/onboarding/profile");
+      router.replace("/auth/profile");
     }
   }, [viewingMe, profile]);
 
