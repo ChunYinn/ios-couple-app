@@ -25,6 +25,7 @@ import { useAppData } from "../../context/AppDataContext";
 const design = {
   primary: "#F8B4D9",
   primaryContent: "#4A223B",
+  secondary: "#A6E3E9",
   background: "#FDF7FA",
   surface: "#FFFFFF",
   textMain: "#5C4B56",
@@ -117,10 +118,10 @@ export default function LoginScreen() {
     <Screen>
       <StatusBar barStyle="dark-content" />
       <LinearGradient
-        colors={[design.primary + "33", design.background]}
+        colors={[design.primary + "33", design.background, design.secondary + "22"]}
         style={{ flex: 1, backgroundColor: design.background }}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: design.background }}>
           <KeyboardAvoidingView

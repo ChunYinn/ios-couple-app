@@ -1,4 +1,9 @@
+import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { updateProfile } from "firebase/auth";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,26 +12,24 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { MaterialIcons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
-import { updateProfile } from "firebase/auth";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Screen } from "../../components/Screen";
+import {
+  AppDatePicker,
+  DateTimePickerEvent,
+} from "../../components/AppDatePicker";
 import { CuteButton } from "../../components/CuteButton";
-import { CuteText } from "../../components/CuteText";
-import { CuteTextInput } from "../../components/CuteTextInput";
-import { AppDatePicker, DateTimePickerEvent } from "../../components/AppDatePicker";
 import { CuteModal } from "../../components/CuteModal";
-import { useSignupDraft } from "../../context/SignupContext";
+import { CuteText } from "../../components/CuteText";
 import { useAppData } from "../../context/AppDataContext";
-import { authService } from "../../services/authService";
-import { userService } from "../../firebase/services";
+import { useSignupDraft } from "../../context/SignupContext";
 import { DEFAULT_LOVE_LANGUAGES } from "../../data/loveLanguages";
 import { firebaseAuth } from "../../firebase/config";
+import { userService } from "../../firebase/services";
+import { authService } from "../../services/authService";
 import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
@@ -63,7 +66,9 @@ export default function SignupProfileScreen() {
   const [displayName, setDisplayName] = useState("");
   const [birthday, setBirthday] = useState("");
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
+    undefined
+  );
   const [avatarUploadUri, setAvatarUploadUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,39 +96,10 @@ export default function SignupProfileScreen() {
     return true;
   };
 
-  const requestCameraAccess = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "Please allow camera access to snap a quick picture."
-      );
-      return false;
-    }
-    return true;
-  };
-
   const handlePickImage = async () => {
     if (!(await requestLibraryAccess())) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      setAvatarPreview(uri);
-      setAvatarUploadUri(uri);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    if (!(await requestCameraAccess())) return;
-
-    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: "images",
       allowsEditing: true,
       aspect: [1, 1],
@@ -252,33 +228,42 @@ export default function SignupProfileScreen() {
     }
   };
 
-  const ctaDisabled = loading || !displayName.trim().length || !birthday.trim().length;
+  const ctaDisabled =
+    loading || !displayName.trim().length || !birthday.trim().length;
 
   return (
-    <Screen>
-      <StatusBar style="dark" />
-      <LinearGradient
-        colors={[design.background, design.secondary + "1A"]}
+    <LinearGradient
+      colors={[
+        design.primary + "33",
+        design.background,
+        design.secondary + "22",
+      ]}
+      style={{ flex: 1 }}
+      start={{ x: 0.15, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+    >
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <SafeAreaView
         style={{ flex: 1 }}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
+        edges={["top", "right", "bottom", "left"]}
       >
         <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={{
+            flexGrow: 1,
             paddingHorizontal: 20,
             paddingVertical: 28,
             gap: 20,
-            minHeight: "100%",
             justifyContent: "center",
           }}
           showsVerticalScrollIndicator={false}
         >
           <View style={{ gap: 8, alignItems: "center" }}>
-            <CuteText weight="bold" style={{ fontSize: 30, color: design.textMain }}>
-              Create your profile 💖
-            </CuteText>
-            <CuteText tone="muted" style={{ textAlign: "center", fontSize: 14 }}>
-              Add your details so your shared space feels personal.
+            <CuteText
+              weight="bold"
+              style={{ fontSize: 30, color: design.textMain }}
+            >
+              Create your profile
             </CuteText>
           </View>
 
@@ -290,13 +275,16 @@ export default function SignupProfileScreen() {
                   width: 140,
                   height: 140,
                   borderRadius: 70,
-                  borderWidth: 4,
+                  borderWidth: 2,
                   borderStyle: "dashed",
-                  borderColor: design.primary + "66",
-                  backgroundColor: design.primary + "1F",
+                  borderColor: design.primary + "80",
+                  backgroundColor: design.background,
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
+                  shadowColor: design.primary,
+                  shadowOpacity: 0.12,
+                  shadowRadius: 10,
                 }}
               >
                 {avatarPreview ? (
@@ -305,7 +293,16 @@ export default function SignupProfileScreen() {
                     style={{ width: 140, height: 140 }}
                   />
                 ) : (
-                  <MaterialIcons name="add-a-photo" size={40} color={design.textSubtle} />
+                  <View style={{ alignItems: "center", gap: 8 }}>
+                    <MaterialIcons
+                      name="add-a-photo"
+                      size={34}
+                      color={design.textSubtle}
+                    />
+                    <CuteText tone="muted" style={{ fontSize: 13 }}>
+                      Tap to upload
+                    </CuteText>
+                  </View>
                 )}
               </Pressable>
               {avatarPreview ? (
@@ -329,36 +326,20 @@ export default function SignupProfileScreen() {
                     shadowRadius: 6,
                   }}
                 >
-                  <MaterialIcons name="close" size={18} color={design.errorText} />
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={design.errorText}
+                  />
                 </Pressable>
               ) : null}
             </View>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <CuteButton
-                label="Upload"
-                onPress={handlePickImage}
-                tone="secondary"
-                icon={<MaterialIcons name="upload-file" size={18} color={design.primary} />}
-                labelColor={design.primaryContent}
-                style={{
-                  paddingHorizontal: 16,
-                  backgroundColor: design.primary + "33",
-                }}
-              />
-              <CuteButton
-                label="Take photo"
-                onPress={handleTakePhoto}
-                tone="secondary"
-                icon={<MaterialIcons name="photo-camera" size={18} color={design.textMain} />}
-                labelColor={design.textMain}
-                style={{
-                  paddingHorizontal: 16,
-                  backgroundColor: design.surface,
-                  borderWidth: 1,
-                  borderColor: design.border,
-                }}
-              />
-            </View>
+            <CuteText
+              tone="muted"
+              style={{ fontSize: 12, textAlign: "center" }}
+            >
+              Tap the circle to upload a profile photo.
+            </CuteText>
           </View>
 
           <View
@@ -396,11 +377,21 @@ export default function SignupProfileScreen() {
                   color={design.textSubtle}
                   style={{ marginRight: 8 }}
                 />
-                <CuteTextInput
+                <TextInput
                   value={displayName}
                   onChangeText={setDisplayName}
                   placeholder="e.g., Your Sweetheart"
-                  style={{ borderWidth: 0, paddingHorizontal: 0, flex: 1 }}
+                  placeholderTextColor={design.textSubtle}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    paddingHorizontal: 0,
+                    color: design.textMain,
+                    fontSize: 16,
+                  }}
+                  autoCapitalize="words"
+                  textContentType="name"
+                  returnKeyType="done"
                 />
               </View>
               {!displayName.trim().length && error ? (
@@ -428,11 +419,21 @@ export default function SignupProfileScreen() {
                   backgroundColor: design.surface,
                 }}
               >
-                <MaterialIcons name="cake" size={20} color={design.textSubtle} />
+                <MaterialIcons
+                  name="cake"
+                  size={20}
+                  color={design.textSubtle}
+                />
                 <CuteText style={{ flex: 1, color: design.textMain }}>
-                  {birthday ? formatBirthdayLabel(birthday) : "Select your birthday"}
+                  {birthday
+                    ? formatBirthdayLabel(birthday)
+                    : "Select your birthday"}
                 </CuteText>
-                <MaterialIcons name="arrow-drop-down" size={22} color={design.textSubtle} />
+                <MaterialIcons
+                  name="arrow-drop-down"
+                  size={22}
+                  color={design.textSubtle}
+                />
               </Pressable>
             </View>
           </View>
@@ -447,7 +448,10 @@ export default function SignupProfileScreen() {
                 borderColor: design.primary + "55",
               }}
             >
-              <CuteText tone="accent" style={{ textAlign: "center", fontSize: 13 }}>
+              <CuteText
+                tone="accent"
+                style={{ textAlign: "center", fontSize: 13 }}
+              >
                 {error}
               </CuteText>
             </View>
@@ -467,27 +471,27 @@ export default function SignupProfileScreen() {
             style={{ borderRadius: 16, paddingVertical: 14 }}
           />
         </ScrollView>
-      </LinearGradient>
 
-      <CuteModal
-        visible={showBirthdayPicker}
-        onRequestClose={() => setShowBirthdayPicker(false)}
-        title="Pick a birthday"
-        contentStyle={{ alignItems: "center", gap: 16 }}
-      >
-        <AppDatePicker
-          value={selectedBirthdayDate}
-          mode="date"
-          onChange={handleBirthdayPickerChange}
-          maximumDate={new Date()}
-        />
-        <CuteButton
-          label="Done"
-          tone="secondary"
-          onPress={() => setShowBirthdayPicker(false)}
-          style={{ minWidth: 140 }}
-        />
-      </CuteModal>
-    </Screen>
+        <CuteModal
+          visible={showBirthdayPicker}
+          onRequestClose={() => setShowBirthdayPicker(false)}
+          title="Pick a birthday"
+          contentStyle={{ alignItems: "center", gap: 16 }}
+        >
+          <AppDatePicker
+            value={selectedBirthdayDate}
+            mode="date"
+            onChange={handleBirthdayPickerChange}
+            maximumDate={new Date()}
+          />
+          <CuteButton
+            label="Done"
+            tone="secondary"
+            onPress={() => setShowBirthdayPicker(false)}
+            style={{ minWidth: 140 }}
+          />
+        </CuteModal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }

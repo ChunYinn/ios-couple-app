@@ -70,12 +70,33 @@ export default function SignupScreen() {
     ]).start();
   }, [bounceAnim, fadeAnim]);
 
-  const validEmail = email.trim().length > 0 && email.includes("@");
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validEmail = emailRegex.test(email.trim());
   const passwordsMatch = password.trim() === confirm.trim();
   const strongPassword = password.trim().length >= 6;
 
-  const signupDisabled =
-    loading || !validEmail || !strongPassword || !passwordsMatch || emailStatus === "taken";
+  const signupDisabled = loading;
+
+  const resetValidationState = () => {
+    setError(null);
+    setSubmitted(false);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    resetValidationState();
+    setEmailStatus("idle");
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    resetValidationState();
+  };
+
+  const handleConfirmChange = (value: string) => {
+    setConfirm(value);
+    resetValidationState();
+  };
 
   const handleContinue = async () => {
     setSubmitted(true);
@@ -90,6 +111,10 @@ export default function SignupScreen() {
     }
     if (!passwordsMatch) {
       setError("Passwords need to match.");
+      return;
+    }
+    if (emailStatus === "taken") {
+      setError(takenMessage);
       return;
     }
 
@@ -131,7 +156,7 @@ export default function SignupScreen() {
   };
 
   const renderConfirmMessage = () => {
-    if (!submitted && !confirm.trim()) return null;
+    if (!submitted) return null;
     if (!passwordsMatch) {
       return { text: "Passwords need to match.", tone: "accent" as const };
     }
@@ -140,6 +165,9 @@ export default function SignupScreen() {
     }
     return null;
   };
+
+  const emailMessage = renderEmailMessage();
+  const confirmMessage = renderConfirmMessage();
 
   return (
     <Screen>
@@ -310,7 +338,7 @@ export default function SignupScreen() {
                       />
                       <TextInput
                         value={email}
-                        onChangeText={setEmail}
+                        onChangeText={handleEmailChange}
                         placeholder="Signup Email"
                         placeholderTextColor={design.textSubtle}
                         keyboardType="email-address"
@@ -330,9 +358,9 @@ export default function SignupScreen() {
                         }}
                       />
                     </View>
-                    {renderEmailMessage() ? (
-                      <CuteText tone={renderEmailMessage()!.tone} style={{ fontSize: 12 }}>
-                        {renderEmailMessage()!.text}
+                    {emailMessage ? (
+                      <CuteText tone={emailMessage.tone} style={{ fontSize: 12 }}>
+                        {emailMessage.text}
                       </CuteText>
                     ) : null}
                   </View>
@@ -358,7 +386,7 @@ export default function SignupScreen() {
                       />
                       <TextInput
                         value={password}
-                        onChangeText={setPassword}
+                        onChangeText={handlePasswordChange}
                         placeholder="Signup Password"
                         placeholderTextColor={design.textSubtle}
                         secureTextEntry
@@ -399,7 +427,7 @@ export default function SignupScreen() {
                       />
                       <TextInput
                         value={confirm}
-                        onChangeText={setConfirm}
+                        onChangeText={handleConfirmChange}
                         placeholder="Signup Confirm"
                         placeholderTextColor={design.textSubtle}
                         secureTextEntry
@@ -413,16 +441,16 @@ export default function SignupScreen() {
                           color: design.textMain,
                           borderWidth: 1,
                           borderColor: design.primary + "33",
-                        fontSize: 15,
-                      }}
-                    />
+                          fontSize: 15,
+                        }}
+                      />
+                    </View>
+                    {confirmMessage ? (
+                      <CuteText tone={confirmMessage.tone} style={{ fontSize: 12 }}>
+                        {confirmMessage.text}
+                      </CuteText>
+                    ) : null}
                   </View>
-                  {renderConfirmMessage() ? (
-                    <CuteText tone={renderConfirmMessage()!.tone} style={{ fontSize: 12 }}>
-                      {renderConfirmMessage()!.text}
-                    </CuteText>
-                  ) : null}
-                </View>
                 </View>
                 <CuteButton
                   label={loading ? "Next..." : "Next →"}
@@ -471,7 +499,7 @@ export default function SignupScreen() {
                   </CuteText>
                 </Pressable>
 
-                {error || emailStatus === "taken" ? (
+                {submitted && (error || emailStatus === "taken") ? (
                   <View
                     style={{
                       flexDirection: "row",
