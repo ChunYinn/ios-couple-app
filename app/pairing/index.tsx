@@ -1,17 +1,28 @@
-import { useState } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, View, useColorScheme, Share, Platform } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { useState } from "react";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  Share,
+  View,
+  useColorScheme,
+} from "react-native";
 
-import { Screen } from "../../components/Screen";
-import { CuteText } from "../../components/CuteText";
-import { usePalette } from "../../hooks/usePalette";
-import { CuteCard } from "../../components/CuteCard";
 import { CuteButton } from "../../components/CuteButton";
+import { CuteCard } from "../../components/CuteCard";
+import { CuteText } from "../../components/CuteText";
 import { CuteTextInput } from "../../components/CuteTextInput";
+import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
+import {
+  DEFAULT_LOVE_LANGUAGES,
+  normalizeLoveLanguages,
+} from "../../data/loveLanguages";
+import { firebaseApp } from "../../firebase/config";
 import {
   coupleService,
   inviteService,
@@ -19,12 +30,8 @@ import {
   userService,
 } from "../../firebase/services";
 import { DBProfile } from "../../firebase/types";
+import { usePalette } from "../../hooks/usePalette";
 import { PartnerProfile } from "../../types/app";
-import {
-  DEFAULT_LOVE_LANGUAGES,
-  normalizeLoveLanguages,
-} from "../../data/loveLanguages";
-import { firebaseApp } from "../../firebase/config";
 import { calculateDaysTogether } from "../../utils/dateUtils";
 
 export default function PairingScreen() {
@@ -43,12 +50,16 @@ export default function PairingScreen() {
 
   const inviteCode = pairing.inviteCode;
   const inviteLink =
-    pairing.inviteLink ?? (inviteCode ? `https://couple.ly/invite/${inviteCode}` : null);
+    pairing.inviteLink ??
+    (inviteCode ? `https://couple.ly/invite/${inviteCode}` : null);
 
   const generateLabel = isGenerating ? "Generating..." : "Generate invite";
   const joinLabel = isJoining ? "Joining..." : "Join couple";
 
-  const mapDbProfileToPartner = (uid: string, profile: DBProfile): PartnerProfile => ({
+  const mapDbProfileToPartner = (
+    uid: string,
+    profile: DBProfile
+  ): PartnerProfile => ({
     uid,
     displayName: profile.displayName,
     status: profile.status,
@@ -68,9 +79,15 @@ export default function PairingScreen() {
       setErrorMessage("Please sign in again to generate a fresh invite.");
       return;
     }
+    if (pairing.inviteCode && !refresh) {
+      setErrorMessage(null);
+      Alert.alert("Invite ready", "Copy or share this invite with your partner.");
+      return;
+    }
     try {
       setIsGenerating(true);
-      const ownerName = profiles.me?.displayName ?? auth.user.displayName ?? "You";
+      const ownerName =
+        profiles.me?.displayName ?? auth.user.displayName ?? "You";
       const hostAnniversary = auth.user.anniversaryDate ?? null;
 
       let coupleId = pairing.coupleId ?? auth.user.coupleId;
@@ -161,7 +178,9 @@ export default function PairingScreen() {
       return;
     }
     if (auth.user.coupleId && pairing.isPaired) {
-      setErrorMessage("You're already paired. Reset pairing before joining another code.");
+      setErrorMessage(
+        "You're already paired. Reset pairing before joining another code."
+      );
       setInfoMessage(null);
       return;
     }
@@ -174,7 +193,9 @@ export default function PairingScreen() {
       const coupleId = (response.data as { coupleId?: string })?.coupleId;
 
       if (!coupleId) {
-        throw new Error("We couldn't verify that invite. Try again in a moment.");
+        throw new Error(
+          "We couldn't verify that invite. Try again in a moment."
+        );
       }
 
       const myProfile = profiles.me;
@@ -217,8 +238,8 @@ export default function PairingScreen() {
         profileData.partner && profileData.partner.uid !== auth.user.uid
           ? profileData.partner
           : profileData.me && profileData.me.uid !== auth.user.uid
-            ? profileData.me
-            : undefined;
+          ? profileData.me
+          : undefined;
 
       if (!partnerEntry) {
         setErrorMessage(
@@ -279,12 +300,12 @@ export default function PairingScreen() {
           : null;
       if (Platform.OS === "web" && webClipboard?.writeText) {
         await webClipboard.writeText(link);
-        setInfoMessage("Invite link copied!");
       } else {
         await Share.share({ message: link });
-        setInfoMessage("Invite link ready to share!");
       }
       setErrorMessage(null);
+      setInfoMessage(null);
+      Alert.alert("Invite code copied !!");
     } catch (err) {
       console.error("Copy/share invite failed", err);
       setErrorMessage("Couldn't copy the invite. Please try again.");
@@ -354,7 +375,8 @@ export default function PairingScreen() {
             <MaterialIcons name="launch" size={20} color={palette.primary} />
           </View>
           <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Generate a private invite code, deep link, and QR to share with your person.
+            Generate a private invite code, deep link, and QR to share with your
+            person.
           </CuteText>
           {inviteCode ? (
             <View style={{ gap: 14, alignItems: "center" }}>
@@ -373,8 +395,17 @@ export default function PairingScreen() {
                 <CuteText tone="muted" style={{ fontSize: 12 }}>
                   Your invite code
                 </CuteText>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <CuteText weight="bold" style={{ fontSize: 34, letterSpacing: 2 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <CuteText
+                    weight="bold"
+                    style={{ fontSize: 34, letterSpacing: 2 }}
+                  >
                     {inviteCode}
                   </CuteText>
                   <Pressable
@@ -398,7 +429,13 @@ export default function PairingScreen() {
                 tone="ghost"
                 onPress={() => handleCreateInvite(true)}
                 disabled={isGenerating}
-                icon={<MaterialIcons name="refresh" size={18} color={palette.primary} />}
+                icon={
+                  <MaterialIcons
+                    name="refresh"
+                    size={18}
+                    color={palette.primary}
+                  />
+                }
                 labelColor={palette.primary}
                 style={{ minWidth: 200 }}
               />
@@ -412,6 +449,29 @@ export default function PairingScreen() {
             />
           )}
         </CuteCard>
+
+        {infoMessage ? (
+          <CuteCard
+            background={palette.primary + "12"}
+            padding={14}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              borderWidth: 1,
+              borderColor: palette.primary + "60",
+            }}
+          >
+            <MaterialIcons
+              name="check-circle"
+              size={18}
+              color={palette.primary}
+            />
+            <CuteText style={{ flex: 1, color: palette.text }}>
+              {infoMessage}
+            </CuteText>
+          </CuteCard>
+        ) : null}
 
         <CuteCard
           background={palette.card}
@@ -449,12 +509,18 @@ export default function PairingScreen() {
             maxLength={6}
           />
           {errorMessage ? (
-            <CuteText tone="muted" style={{ fontSize: 12, color: palette.primary }}>
+            <CuteText
+              tone="muted"
+              style={{ fontSize: 12, color: palette.primary }}
+            >
               {errorMessage}
             </CuteText>
           ) : null}
           {infoMessage && !errorMessage ? (
-            <CuteText tone="muted" style={{ fontSize: 12, color: palette.text }}>
+            <CuteText
+              tone="muted"
+              style={{ fontSize: 12, color: palette.text }}
+            >
               {infoMessage}
             </CuteText>
           ) : null}
