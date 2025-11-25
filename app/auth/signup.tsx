@@ -1,7 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { fetchSignInMethodsForEmail } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +18,7 @@ import { CuteButton } from "../../components/CuteButton";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
 import { useSignupDraft } from "../../context/SignupContext";
-import { firebaseAuth } from "../../firebase/config";
+import { authService } from "../../services/authService";
 
 const design = {
   primary: "#F8B4D9",
@@ -49,8 +48,7 @@ export default function SignupScreen() {
 
   const bounceAnim = useRef(new Animated.Value(0.92)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const takenMessage =
-    "That email is already registered. Try signing in instead.";
+  const takenMessage = "This email is already registered.";
 
   useEffect(() => {
     Animated.parallel([
@@ -119,29 +117,27 @@ export default function SignupScreen() {
     setLoading(true);
     setError(null);
     try {
-      const methods = await fetchSignInMethodsForEmail(
-        firebaseAuth,
-        trimmedEmail
-      );
-      const isTaken = methods.length > 0;
-      if (isTaken) {
-        setEmailStatus("taken");
-        setError(takenMessage);
-        setLoading(false);
-        return;
-      }
-      setEmailStatus("available");
+      // Attempt to create the user immediately
+      await authService.signUpWithEmail(trimmedEmail, password.trim());
+
+      // If successful, we are now signed in.
       setDraft({
         email: trimmedEmail,
         password: password.trim(),
         confirm: confirm.trim(),
       });
+
       setLoading(false);
       router.push("/auth/profile");
-    } catch {
-      setEmailStatus("idle");
-      setError("We couldn't verify your email right now. Try again.");
+    } catch (err: any) {
       setLoading(false);
+      if (err.code === "auth/email-already-in-use") {
+        setEmailStatus("taken");
+        setError(takenMessage);
+      } else {
+        console.error("Signup error:", err);
+        setError("We couldn't create your account. Please try again.");
+      }
     }
   };
 
@@ -477,7 +473,7 @@ export default function SignupScreen() {
                   </CuteText>
                 </Pressable>
 
-                {submitted && (error || emailStatus === "taken") ? (
+                {submitted && error && emailStatus !== "taken" ? (
                   <View
                     style={{
                       flexDirection: "row",
@@ -496,7 +492,7 @@ export default function SignupScreen() {
                       color={design.primaryContent}
                     />
                     <CuteText tone="accent" style={{ fontSize: 13, flex: 1 }}>
-                      {error ?? takenMessage}
+                      {error}
                     </CuteText>
                   </View>
                 ) : null}

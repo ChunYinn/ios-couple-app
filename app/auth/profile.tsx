@@ -6,20 +6,20 @@ import { StatusBar } from "expo-status-bar";
 import { updateProfile } from "firebase/auth";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Platform,
+    Pressable,
+    ScrollView,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  AppDatePicker,
-  DateTimePickerEvent,
+    AppDatePicker,
+    DateTimePickerEvent,
 } from "../../components/AppDatePicker";
 import { CuteButton } from "../../components/CuteButton";
 import { CuteModal } from "../../components/CuteModal";
@@ -152,17 +152,11 @@ export default function SignupProfileScreen() {
     setError(null);
 
     try {
-      // Create auth account if not already signed in
-      if (
-        firebaseAuth.currentUser &&
-        firebaseAuth.currentUser.email &&
-        firebaseAuth.currentUser.email !== draft.email
-      ) {
-        await authService.signOut();
-      }
+      // Attempt to create the user now
       if (!firebaseAuth.currentUser) {
         await authService.signUpWithEmail(draft.email, draft.password);
       }
+      
       const currentUser = firebaseAuth.currentUser;
       if (!currentUser) {
         throw new Error("We couldn't create your account. Please try again.");
@@ -184,7 +178,7 @@ export default function SignupProfileScreen() {
         avatarUrl: nextAvatarUrl ?? null,
         birthday: birthdayValue,
         authProvider: "password",
-        email: draft.email,
+        email: currentUser.email ?? draft.email,
         coupleId: null,
         status: DEFAULT_STATUS,
         about: DEFAULT_ABOUT,
@@ -218,6 +212,12 @@ export default function SignupProfileScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("Profile setup failed:", err);
+      if (err.code === "auth/email-already-in-use") {
+        // Redirect back to signup with error
+        router.replace("/auth/signup?error=taken");
+        return;
+      }
+      
       const message =
         err instanceof Error
           ? err.message
@@ -486,7 +486,6 @@ export default function SignupProfileScreen() {
           />
           <CuteButton
             label="Done"
-            tone="secondary"
             onPress={() => setShowBirthdayPicker(false)}
             style={{ minWidth: 140 }}
           />
