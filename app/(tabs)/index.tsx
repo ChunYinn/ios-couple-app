@@ -617,65 +617,7 @@ export default function AnniversaryDashboardScreen() {
         ) : null}
       </View>
 
-      <View>
-        <SectionHeader
-          title="Quick Actions"
-          description="Jump into your favourite shared spaces."
-        />
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            marginHorizontal: -6,
-          }}
-        >
-          {quickActions.map((action) => (
-            <Pressable
-              key={action.id}
-              onPress={() =>
-                handleActionPress(action.route, action.requiresPair)
-              }
-              style={{
-                width: quickActionCardWidth,
-                marginHorizontal: 6,
-                marginBottom: 12,
-                backgroundColor: palette.card,
-                borderRadius: 20,
-                paddingVertical: 18,
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#00000015",
-                shadowOpacity: 0.08,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 2,
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: palette.primary,
-                  borderRadius: 999,
-                  padding: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <MaterialIcons
-                  name={action.icon as keyof typeof MaterialIcons.glyphMap}
-                  size={24}
-                  color="#ffffff"
-                />
-              </View>
-              <CuteText weight="semibold">{action.label}</CuteText>
-              {!isPaired && action.requiresPair ? (
-                <CuteText tone="muted" style={{ fontSize: 11, marginTop: 4 }}>
-                  Pair to unlock
-                </CuteText>
-              ) : null}
-            </Pressable>
-          ))}
-        </View>
-      </View>
+      {/* Quick Actions removed per request */}
 
       <View>
         <SectionHeader title="Our Profiles" />
