@@ -226,13 +226,6 @@ export default function PairingScreen() {
       setInfoMessage(null);
       return;
     }
-    if (auth.user.coupleId && pairing.ownerUid === auth.user.uid) {
-      setErrorMessage(
-        "You're already hosting an invite. Share your code or reset pairing before joining a new one."
-      );
-      setInfoMessage(null);
-      return;
-    }
 
     try {
       setIsJoining(true);

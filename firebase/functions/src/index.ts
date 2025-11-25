@@ -42,10 +42,17 @@ export const redeemInvite = onCall({ region: "australia-southeast1" }, async (re
 
   const userData = userDoc.data();
   if (userData?.coupleId) {
-    throw new HttpsError(
-      "failed-precondition",
-      "You're already paired with another account. Remove that pairing before joining a new invite."
-    );
+    const currentCoupleRef = db.collection("couples").doc(userData.coupleId);
+    const currentCoupleSnap = await currentCoupleRef.get();
+    const currentCouple = currentCoupleSnap.data();
+
+    if (currentCouple?.isPaired) {
+      throw new HttpsError(
+        "failed-precondition",
+        "You're already paired with another account. Remove that pairing before joining a new invite."
+      );
+    }
+    // If the user is hosting an unpaired invite, allow them to join another code.
   }
 
   if (!inviteDoc.exists) {
