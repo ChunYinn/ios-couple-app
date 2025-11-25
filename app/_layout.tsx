@@ -10,6 +10,7 @@ import { useEffect, useRef } from "react";
 
 import { AppDataProvider, useAppData } from "../context/AppDataContext";
 import { SignupProvider } from "../context/SignupContext";
+import { ToastProvider } from "../context/ToastContext";
 import { lightPalette } from "../theme/palette";
 
 const lightNavigationTheme = {
@@ -102,7 +103,9 @@ export default function RootLayout() {
     <ThemeProvider value={lightNavigationTheme}>
       <SignupProvider>
         <AppDataProvider>
-          <Navigator />
+          <ToastProvider>
+            <Navigator />
+          </ToastProvider>
         </AppDataProvider>
       </SignupProvider>
     </ThemeProvider>

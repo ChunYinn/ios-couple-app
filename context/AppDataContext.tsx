@@ -968,7 +968,11 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribeCouple = coupleService.subscribeToCouple(
       coupleId,
       (couple) => {
-        if (!couple) return;
+        if (!couple) {
+          // Couple doc deleted/unbound — reset local pairing.
+          dispatch({ type: "RESET_PAIRING" });
+          return;
+        }
         const daysTogether = couple.anniversaryDate
           ? calculateDaysTogether(couple.anniversaryDate)
           : 0;

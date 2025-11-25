@@ -1,19 +1,20 @@
-import { StatusBar } from "expo-status-bar";
-import { Alert, Pressable, useColorScheme, View } from "react-native";
-import { useState } from "react";
-import { router } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { signOut } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { useState } from "react";
+import { Alert, Pressable, useColorScheme, View } from "react-native";
 
-import { Screen } from "../components/Screen";
-import { CuteText } from "../components/CuteText";
-import { usePalette } from "../hooks/usePalette";
-import { CuteCard } from "../components/CuteCard";
 import { CuteButton } from "../components/CuteButton";
+import { CuteCard } from "../components/CuteCard";
+import { CuteText } from "../components/CuteText";
+import { Screen } from "../components/Screen";
 import { useAppData } from "../context/AppDataContext";
+import { useToast } from "../context/ToastContext";
 import { firebaseApp, firebaseAuth } from "../firebase/config";
 import { userService } from "../firebase/services";
+import { usePalette } from "../hooks/usePalette";
 
 const accentChoices = ["#FF8FAB", "#F6C28B", "#3A5BFF", "#1F9470", "#9B59FF"];
 
@@ -24,14 +25,19 @@ export default function SettingsScreen() {
     state: { settings, pairing, auth },
     dispatch,
   } = useAppData();
+  const { showToast } = useToast();
   const [pendingAccent, setPendingAccent] = useState(settings.accent);
   const [unbinding, setUnbinding] = useState(false);
 
   const coupleId = pairing.coupleId ?? auth.user.coupleId;
+  const isPaired = pairing.isPaired && Boolean(coupleId);
   const dangerColor = "#D95C5C";
 
   const applyAccent = async () => {
-    dispatch({ type: "SET_PROFILE_ACCENT", payload: { accentColor: pendingAccent } });
+    dispatch({
+      type: "SET_PROFILE_ACCENT",
+      payload: { accentColor: pendingAccent },
+    });
     if (auth.user.uid) {
       try {
         await userService.updateUser(auth.user.uid, {
@@ -61,7 +67,7 @@ export default function SettingsScreen() {
 
   const handleUnbind = async () => {
     if (!coupleId) {
-      Alert.alert("Not paired", "You need to be paired before you can unbind.");
+      showToast({ tone: "info", message: "You're not paired right now." });
       return;
     }
     try {
@@ -70,23 +76,25 @@ export default function SettingsScreen() {
       const unbind = httpsCallable(functions, "unbindCouple");
       await unbind({ coupleId });
       dispatch({ type: "RESET_PAIRING" });
-      Alert.alert("Unbound", "Couple removed successfully.");
-      router.replace("/pairing");
+      showToast({ tone: "success", message: "Couple removed successfully." });
+      router.replace("/");
     } catch (error) {
       console.error("Failed to unbind couple", error);
-      Alert.alert(
-        "Couldn't unbind",
-        error instanceof Error
-          ? error.message
-          : "We couldn't remove your couple right now. Try again in a moment."
-      );
+      showToast({
+        tone: "error",
+        title: "Couldn't unbind",
+        message:
+          error instanceof Error
+            ? error.message
+            : "We couldn't remove your couple right now. Try again in a moment.",
+      });
     } finally {
       setUnbinding(false);
     }
   };
 
   const confirmUnbind = () => {
-    if (!coupleId) {
+    if (!isPaired) {
       Alert.alert("Not paired", "You need to be paired before you can unbind.");
       return;
     }
@@ -136,10 +144,14 @@ export default function SettingsScreen() {
             elevation: 2,
           }}
         >
-          <MaterialIcons name="arrow-back" size={20} color={palette.textSecondary} />
+          <MaterialIcons
+            name="arrow-back"
+            size={20}
+            color={palette.textSecondary}
+          />
         </Pressable>
         <CuteText weight="bold" style={{ fontSize: 20 }}>
-          Cute Settings
+          Settings
         </CuteText>
         <View style={{ width: 32 }} />
       </View>
@@ -182,16 +194,21 @@ export default function SettingsScreen() {
           Account
         </CuteText>
         <CuteText tone="muted" style={{ fontSize: 13 }}>
-          Sign out to switch accounts or start fresh. Make sure changes are synced before leaving.
+          Sign out to switch accounts or start fresh. Make sure changes are
+          synced before leaving.
         </CuteText>
-        <CuteButton
-          label="Unbind & delete couple"
-          tone="ghost"
-          onPress={confirmUnbind}
-          disabled={!coupleId || unbinding}
-          icon={<MaterialIcons name="link-off" size={18} color={dangerColor} />}
-          labelColor={dangerColor}
-        />
+        {isPaired ? (
+          <CuteButton
+            label={unbinding ? "Unbinding..." : "Unbind & delete couple"}
+            tone="ghost"
+            onPress={confirmUnbind}
+            disabled={unbinding}
+            icon={
+              <MaterialIcons name="link-off" size={18} color={dangerColor} />
+            }
+            labelColor={dangerColor}
+          />
+        ) : null}
         <CuteButton
           label="Sign out"
           tone="ghost"

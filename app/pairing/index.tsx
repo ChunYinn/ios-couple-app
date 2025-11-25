@@ -4,13 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  Share,
-  View,
-  useColorScheme,
-} from "react-native";
+import { Alert, Pressable, Share, View, useColorScheme } from "react-native";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
@@ -33,6 +27,7 @@ import { DBProfile } from "../../firebase/types";
 import { usePalette } from "../../hooks/usePalette";
 import { PartnerProfile } from "../../types/app";
 import { calculateDaysTogether } from "../../utils/dateUtils";
+import { useToast } from "../../context/ToastContext";
 
 export default function PairingScreen() {
   const palette = usePalette();
@@ -41,6 +36,7 @@ export default function PairingScreen() {
     state: { pairing, auth, profiles },
     dispatch,
   } = useAppData();
+  const { showToast } = useToast();
 
   const [joinCode, setJoinCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,7 +110,11 @@ export default function PairingScreen() {
     }
     if (pairing.inviteCode && !refresh) {
       setErrorMessage(null);
-      Alert.alert("Invite ready", "Copy or share this invite with your partner.");
+      showToast({
+        tone: "info",
+        title: "Invite ready",
+        message: "Share this code with your partner.",
+      });
       return;
     }
     try {
@@ -335,14 +335,14 @@ export default function PairingScreen() {
       await Clipboard.setStringAsync(code);
       setErrorMessage(null);
       setInfoMessage(null);
-      Alert.alert("Copied", "Invite code copied!");
+      showToast({ tone: "success", message: "Invite code copied!" });
     } catch (err) {
       console.error("Copy invite failed", err);
       try {
         await Share.share({ message: code });
         setErrorMessage(null);
         setInfoMessage(null);
-        Alert.alert("Share", "Invite code ready to share.");
+        showToast({ tone: "info", message: "Invite code ready to share." });
       } catch (shareErr) {
         console.error("Share invite failed", shareErr);
         setErrorMessage("Couldn't copy the invite. Please try again.");
