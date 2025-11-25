@@ -1,24 +1,23 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, View } from "react-native";
 
-import { Screen } from "../../components/Screen";
 import { CuteText } from "../../components/CuteText";
-import { usePalette } from "../../hooks/usePalette";
+import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
 import { milestoneService } from "../../firebase/services";
+import { usePalette } from "../../hooks/usePalette";
 import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
+import { MILESTONE_STEPS } from "../../data/milestoneSteps";
 
 export default function NewMilestoneScreen() {
   const palette = usePalette();
   const {
-    state: { pairing, auth, dashboard },
+    state: { pairing, auth, dashboard, milestones },
   } = useAppData();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,9 +44,34 @@ export default function NewMilestoneScreen() {
     }
     return Math.max(
       0,
-      Math.floor((today.getTime() - anniversary.getTime()) / (1000 * 60 * 60 * 24))
+      Math.floor(
+        (today.getTime() - anniversary.getTime()) / (1000 * 60 * 60 * 24)
+      )
     );
   }, [dashboard.anniversaryDate, today]);
+  const daysTogether = dashboard.daysTogether || computedDayCount || 0;
+
+  const achievedDayCounts = useMemo(
+    () =>
+      new Set(
+        milestones
+          .map((m) => m.dayCount)
+          .filter((day): day is number => typeof day === "number")
+      ),
+    [milestones]
+  );
+
+  const eligibleStep = useMemo(() => {
+    return MILESTONE_STEPS.find(
+      (step) =>
+        daysTogether >= step.dayCount && !achievedDayCounts.has(step.dayCount)
+    );
+  }, [achievedDayCounts, daysTogether]);
+
+  const nextStep = useMemo(
+    () => MILESTONE_STEPS.find((step) => step.dayCount > daysTogether),
+    [daysTogether]
+  );
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -56,7 +80,9 @@ export default function NewMilestoneScreen() {
       return;
     }
     const imageMediaType =
-      ((ImagePicker as any)?.MediaType?.images as ImagePicker.MediaType | undefined) ?? "images";
+      ((ImagePicker as any)?.MediaType?.images as
+        | ImagePicker.MediaType
+        | undefined) ?? "images";
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: [imageMediaType] as ImagePicker.MediaType[],
       allowsMultipleSelection: false,
@@ -75,35 +101,31 @@ export default function NewMilestoneScreen() {
       setError("Pair your account to start saving milestones.");
       return;
     }
-    if (!imageUri) {
-      setError("Add a photo to make this milestone pop.");
+    if (!eligibleStep) {
+      setError("No milestone unlocked yet.");
       return;
     }
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle.length) {
-      setError("Give this milestone a short name.");
+    if (!imageUri) {
+      setError("Add a photo to celebrate this milestone.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
       const now = new Date();
-      let dayCount = computedDayCount;
-      if (!dayCount && dashboard.anniversaryDate) {
+      let achievedAt = now;
+      if (dashboard.anniversaryDate) {
         const anniversary = parseLocalDate(dashboard.anniversaryDate);
         if (!Number.isNaN(anniversary.getTime())) {
-          dayCount = Math.max(
-            0,
-            Math.floor((now.getTime() - anniversary.getTime()) / (1000 * 60 * 60 * 24))
-          );
+          achievedAt = new Date(anniversary);
+          achievedAt.setDate(achievedAt.getDate() + eligibleStep.dayCount);
         }
       }
       await milestoneService.createMilestoneWithImage(coupleId, {
-        title: trimmedTitle,
-        description: description.trim() || undefined,
+        title: eligibleStep.label,
         imageUri,
-        achievedAt: now,
-        dayCount,
+        achievedAt,
+        dayCount: eligibleStep.dayCount,
       });
       router.replace("/gallery");
     } catch (err) {
@@ -157,9 +179,6 @@ export default function NewMilestoneScreen() {
           <View style={{ flex: 1 }}>
             <CuteText weight="bold" style={{ fontSize: 22 }}>
               Add a new milestone
-            </CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Let{"'"}s cherish a fresh memory together.
             </CuteText>
           </View>
         </View>
@@ -226,60 +245,38 @@ export default function NewMilestoneScreen() {
           <View style={{ gap: 12 }}>
             <View style={{ gap: 6 }}>
               <CuteText weight="semibold" style={{ fontSize: 14 }}>
-                Milestone name*
+                Milestone
               </CuteText>
               <View
                 style={{
                   backgroundColor: palette.card,
                   borderRadius: 20,
                   paddingHorizontal: 16,
-                  paddingVertical: 6,
+                  paddingVertical: 12,
                   borderWidth: 1,
                   borderColor: palette.primarySoft,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
                 }}
               >
-                <TextInput
-                  placeholder="e.g. 500 days together"
-                  placeholderTextColor={palette.textSecondary}
-                  value={title}
-                  onChangeText={setTitle}
-                  style={{
-                    fontSize: 16,
-                    paddingVertical: 10,
-                    color: palette.text,
-                  }}
+                <MaterialIcons
+                  name="auto-awesome"
+                  size={22}
+                  color={palette.primary}
                 />
-              </View>
-            </View>
-
-            <View style={{ gap: 6 }}>
-              <CuteText weight="semibold" style={{ fontSize: 14 }}>
-                What made this moment special?
-              </CuteText>
-              <View
-                style={{
-                  backgroundColor: palette.card,
-                  borderRadius: 20,
-                  paddingHorizontal: 16,
-                  paddingVertical: 6,
-                  borderWidth: 1,
-                  borderColor: palette.primarySoft,
-                }}
-              >
-                <TextInput
-                  placeholder="Write a little story..."
-                  placeholderTextColor={palette.textSecondary}
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  style={{
-                    fontSize: 15,
-                    paddingVertical: 10,
-                    minHeight: 80,
-                    color: palette.text,
-                    textAlignVertical: "top",
-                  }}
-                />
+                <View style={{ flex: 1 }}>
+                  <CuteText weight="bold" style={{ fontSize: 16 }}>
+                    {eligibleStep ? eligibleStep.label : "Milestone locked"}
+                  </CuteText>
+                  <CuteText tone="muted" style={{ fontSize: 13 }}>
+                    {eligibleStep
+                      ? "Unlocked—add your memory for this milestone."
+                      : nextStep
+                      ? `Unlocks at ${nextStep.label}`
+                      : "You're all caught up on milestones!"}
+                  </CuteText>
+                </View>
               </View>
             </View>
 

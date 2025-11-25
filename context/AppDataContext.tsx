@@ -800,6 +800,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
 export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
+  const fetchedPartnerOnceRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -966,8 +967,10 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const uid = state.auth.user.uid;
     const coupleId = state.auth.user.coupleId;
     if (!uid || !coupleId) {
+      fetchedPartnerOnceRef.current = false;
       return;
     }
+    fetchedPartnerOnceRef.current = false;
 
     const unsubscribeCouple = coupleService.subscribeToCouple(
       coupleId,
@@ -1030,6 +1033,34 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
               : null,
           },
         });
+
+        if (!partnerProfile && !fetchedPartnerOnceRef.current) {
+          fetchedPartnerOnceRef.current = true;
+          profileService
+            .getCoupleProfiles(coupleId)
+            .then((profilesData) => {
+              const partnerEntry =
+                profilesData.partner && profilesData.partner.uid !== uid
+                  ? profilesData.partner
+                  : profilesData.me && profilesData.me.uid !== uid
+                  ? profilesData.me
+                  : undefined;
+              if (partnerEntry) {
+                dispatch({
+                  type: "UPDATE_PROFILES",
+                  payload: {
+                    partner: mapProfileFromDb(
+                      partnerEntry.uid,
+                      partnerEntry
+                    ),
+                  },
+                });
+              }
+            })
+            .catch((err) => {
+              console.warn("Failed to fetch partner profile", err);
+            });
+        }
       }
     );
 
