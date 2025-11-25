@@ -69,6 +69,44 @@ export default function PairingScreen() {
     loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
   });
 
+  const normalizeFunctionsCode = (code?: string) =>
+    code?.startsWith("functions/") ? code.replace("functions/", "") : code;
+
+  const resolveJoinErrorMessage = (error: unknown) => {
+    const typed = error as { code?: string; message?: string };
+    const rawCode = typeof typed?.code === "string" ? typed.code : undefined;
+    const code = normalizeFunctionsCode(rawCode);
+    const message = typeof typed?.message === "string" ? typed.message : null;
+
+    switch (code) {
+      case "invalid-argument":
+        return "That invite code looks invalid. Double-check the 6 characters.";
+      case "not-found":
+        return "We couldn't find that invite. Ask your partner for a fresh code.";
+      case "already-exists":
+        return "This invite was already used. Ask your partner to refresh their invite.";
+      case "deadline-exceeded":
+        return "This invite expired. Ask your partner to generate a new code.";
+      case "failed-precondition":
+        return (
+          message ??
+          "You can't join this invite. Make sure you're not already paired and try again."
+        );
+      case "unauthenticated":
+        return "Please sign in again before joining.";
+      case "unavailable":
+        return "We couldn't connect to join right now. Check your connection and try again.";
+      default:
+        if (message?.toLowerCase().includes("network")) {
+          return "Network issue while joining. Try again in a moment.";
+        }
+        return (
+          message ??
+          "We couldn't join with that code. Double-check and try again."
+        );
+    }
+  };
+
   const handleCreateInvite = async (refresh = false) => {
     if (!auth.user.uid) {
       setErrorMessage("Please sign in again to generate a fresh invite.");
@@ -171,9 +209,9 @@ export default function PairingScreen() {
       setInfoMessage(null);
       return;
     }
-    if (auth.user.coupleId && pairing.isPaired) {
+    if (auth.user.coupleId || pairing.isPaired) {
       setErrorMessage(
-        "You're already paired. Reset pairing before joining another code."
+        "You're already paired. Reset pairing before joining a new invite."
       );
       setInfoMessage(null);
       return;
@@ -181,6 +219,8 @@ export default function PairingScreen() {
 
     try {
       setIsJoining(true);
+      setErrorMessage(null);
+      setInfoMessage(null);
       const functions = getFunctions(firebaseApp, "australia-southeast1");
       const redeemInvite = httpsCallable(functions, "redeemInvite");
       const response = await redeemInvite({ code: trimmed });
@@ -266,11 +306,8 @@ export default function PairingScreen() {
       setInfoMessage("You're paired! Hang tight while we sync profiles.");
     } catch (error) {
       console.error("Failed to join couple", error);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "We couldn't join with that code. Double-check and try again."
-      );
+      setErrorMessage(resolveJoinErrorMessage(error));
+      setInfoMessage(null);
     } finally {
       setIsJoining(false);
     }

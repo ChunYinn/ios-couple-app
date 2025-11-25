@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
@@ -22,6 +22,12 @@ export default function NewMilestoneScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pairing.isPaired) {
+      router.replace("/pairing");
+    }
+  }, [pairing.isPaired]);
 
   const coupleId = auth.user.coupleId;
   const today = useMemo(() => new Date(), []);
@@ -113,7 +119,6 @@ export default function NewMilestoneScreen() {
   };
 
   if (!pairing.isPaired) {
-    router.replace("/pairing");
     return null;
   }
 
