@@ -38,35 +38,47 @@ import {
   normalizeLoveLanguages,
 } from "../data/loveLanguages";
 import { firebaseAuth } from "../firebase/config";
-import { coupleService, profileService, userService } from "../firebase/services";
+import {
+  coupleService,
+  profileService,
+  userService,
+} from "../firebase/services";
 import { usePalette } from "../hooks/usePalette";
 import {
   calculateDaysTogether,
   formatDateToYMD,
   parseLocalDate,
 } from "../utils/dateUtils";
-import { ProfileFavorite } from "../types/app";
 
 const DEFAULT_STATUS = "";
-const DEFAULT_ABOUT =
-  "Curious heart who loves to make memories that feel like magic.";
-const accentOptions = ["#FF8FAB", "#3A5BFF", "#1F9470", "#F6C28B", "#9B59FF"];
-const DEFAULT_FAVORITE_CATEGORY = "custom";
-
-const normalizeFavoriteEntries = (favorites?: ProfileFavorite[]) =>
-  favorites?.map((favorite) => ({
-    label: favorite.label,
-    value: favorite.value,
-    category: favorite.category ?? DEFAULT_FAVORITE_CATEGORY,
-  })) ?? [];
-const EDITOR_TAB_META: Record<
-  EditorSection,
-  { label: string; title: string }
-> = {
-  about: { label: "Basics", title: "Edit your basics" },
-  loveLanguages: { label: "Love languages", title: "Love languages" },
-  favorites: { label: "Favorites", title: "Favorites & preferences" },
+const buildDefaultAbout = (name?: string | null) => {
+  const trimmedName = name?.trim();
+  if (trimmedName) {
+    return `Hi, I'm ${trimmedName}!`;
+  }
+  return "Hi, I'm excited to meet you!";
 };
+const LEGACY_DEFAULT_ABOUT =
+  "Curious heart who loves to make memories that feel like magic.";
+const resolveAbout = (about?: string | null, name?: string | null) => {
+  const trimmedName = name?.trim();
+  const previousNamedDefault = trimmedName ? `Hi I'm ${trimmedName}.` : null;
+  const previousFallbackDefault = "Hi I'm excited to meet you.";
+  if (
+    !about ||
+    about === LEGACY_DEFAULT_ABOUT ||
+    about === previousFallbackDefault ||
+    (previousNamedDefault && about === previousNamedDefault)
+  ) {
+    return buildDefaultAbout(name);
+  }
+  return about;
+};
+const EDITOR_TAB_META: Record<EditorSection, { label: string; title: string }> =
+  {
+    about: { label: "Basics", title: "Edit your basics" },
+    loveLanguages: { label: "Love languages", title: "Love languages" },
+  };
 
 const formatBirthdayLabel = (value: string | undefined) => {
   if (!value) {
@@ -104,7 +116,7 @@ const resolveLoveLanguages = (loveLanguages?: string[]) => {
   );
 };
 
-type EditorSection = "about" | "loveLanguages" | "favorites";
+type EditorSection = "about" | "loveLanguages";
 
 export default function ProfileScreen() {
   const palette = usePalette();
@@ -131,7 +143,9 @@ export default function ProfileScreen() {
   const [editStatus, setEditStatus] = useState(
     profile?.status ?? DEFAULT_STATUS
   );
-  const [editAbout, setEditAbout] = useState(profile?.about ?? DEFAULT_ABOUT);
+  const [editAbout, setEditAbout] = useState(() =>
+    resolveAbout(profile?.about, profile?.displayName ?? auth.user.displayName)
+  );
   const [selectedLoveLanguages, setSelectedLoveLanguages] = useState<
     LoveLanguageOption[]
   >(() => resolveLoveLanguages(profile?.loveLanguages));
@@ -157,9 +171,6 @@ export default function ProfileScreen() {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [favoriteEntries, setFavoriteEntries] = useState<ProfileFavorite[]>(
-    normalizeFavoriteEntries(profile?.favorites)
-  );
 
   useEffect(() => {
     if (viewingMe && !profile) {
@@ -173,7 +184,7 @@ export default function ProfileScreen() {
     }
     setDisplayNameInput(profile.displayName ?? auth.user.displayName ?? "");
     setEditStatus(profile.status ?? DEFAULT_STATUS);
-    setEditAbout(profile.about ?? DEFAULT_ABOUT);
+    setEditAbout(resolveAbout(profile.about, profile.displayName));
     setSelectedLoveLanguages(resolveLoveLanguages(profile.loveLanguages));
     setSelectedAccent(profile.accentColor ?? palette.primary);
     setBirthdayInput(
@@ -194,7 +205,6 @@ export default function ProfileScreen() {
     setSaveError(null);
     setShowBirthdayPicker(false);
     setShowAnniversaryPicker(false);
-    setFavoriteEntries(normalizeFavoriteEntries(profile.favorites));
   }, [
     profile,
     auth.user.displayName,
@@ -431,17 +441,19 @@ export default function ProfileScreen() {
       }
 
       const trimmedStatus = editStatus.trim();
-      const trimmedAbout = editAbout.trim() || DEFAULT_ABOUT;
+      const aboutInput = editAbout.trim();
+      const previousNamedDefault = `Hi I'm ${trimmedName}.`;
+      const previousFallbackDefault = "Hi I'm excited to meet you.";
+      const trimmedAbout =
+        aboutInput &&
+        aboutInput !== LEGACY_DEFAULT_ABOUT &&
+        aboutInput !== previousFallbackDefault &&
+        aboutInput !== previousNamedDefault
+          ? aboutInput
+          : buildDefaultAbout(trimmedName);
       const loveLanguageKeys = selectedLoveLanguages.map(
         (option) => option.key
       );
-      const sanitizedFavorites = favoriteEntries
-        .map((entry) => ({
-          category: (entry.category ?? DEFAULT_FAVORITE_CATEGORY).trim() || DEFAULT_FAVORITE_CATEGORY,
-          label: entry.label.trim(),
-          value: entry.value.trim(),
-        }))
-        .filter((entry) => entry.label.length && entry.value.length);
       const normalizedBirthday = birthdayInput
         ? formatDateToYMD(birthdayInput)
         : null;
@@ -469,7 +481,6 @@ export default function ProfileScreen() {
         accentColor: selectedAccent,
         birthday: normalizedBirthday,
         anniversaryDate: normalizedAnniversary || null,
-        favorites: sanitizedFavorites,
       });
 
       if (auth.user.coupleId) {
@@ -482,7 +493,6 @@ export default function ProfileScreen() {
           anniversary: normalizedAnniversary || null,
           avatarUrl: nextAvatarUrl ?? null,
           loveLanguages: loveLanguageKeys,
-          favorites: sanitizedFavorites,
         });
       }
 
@@ -520,7 +530,6 @@ export default function ProfileScreen() {
             anniversary: normalizedAnniversary || undefined,
             avatarUrl: nextAvatarUrl,
             loveLanguages: loveLanguageKeys,
-            favorites: sanitizedFavorites,
           },
         },
       });
@@ -578,7 +587,7 @@ export default function ProfileScreen() {
     [activeTab, hasPartnerProfile]
   );
 
-  const editorTabOrder: EditorSection[] = ["about", "loveLanguages", "favorites"];
+  const editorTabOrder: EditorSection[] = ["about", "loveLanguages"];
   const activeEditorMeta =
     EDITOR_TAB_META[activeEditorSection] ?? EDITOR_TAB_META.about;
 
@@ -587,31 +596,6 @@ export default function ProfileScreen() {
       setActiveEditorSection("about");
     }
   }, [activeEditorSection]);
-
-  const updateFavoriteEntry = useCallback(
-    (index: number, field: "label" | "value", value: string) => {
-      setFavoriteEntries((prev) =>
-        prev.map((entry, entryIndex) =>
-          entryIndex === index ? { ...entry, [field]: value } : entry
-        )
-      );
-      setSaveError(null);
-    },
-    []
-  );
-
-  const addFavoriteEntry = useCallback(() => {
-    setFavoriteEntries((prev) => [
-      ...prev,
-      { label: "", value: "", category: DEFAULT_FAVORITE_CATEGORY },
-    ]);
-  }, []);
-
-  const removeFavoriteEntry = useCallback((index: number) => {
-    setFavoriteEntries((prev) =>
-      prev.filter((_, entryIndex) => entryIndex !== index)
-    );
-  }, []);
 
   if (!profile) {
     return (
@@ -650,8 +634,8 @@ export default function ProfileScreen() {
       value: profileBirthdayValue
         ? formatBirthdayLabel(profileBirthdayValue)
         : viewingMe
-          ? "Add your birthday so we can plan sweet surprises."
-          : "Not shared yet.",
+        ? "Add your birthday so we can plan sweet surprises."
+        : "Not shared yet.",
     },
     {
       key: "anniversary",
@@ -660,12 +644,10 @@ export default function ProfileScreen() {
       value: formattedAnniversary
         ? formattedAnniversary
         : viewingMe
-          ? "Add your anniversary so we can count your days together."
-          : "No anniversary is set yet.",
+        ? "Add your anniversary so we can count your days together."
+        : "No anniversary is set yet.",
     },
   ];
-
-  const favoritesList = profile.favorites ?? [];
 
   const renderEditButton = (section: EditorSection) => {
     if (!viewingMe) {
@@ -772,39 +754,6 @@ export default function ProfileScreen() {
               </CuteText>
             </Pressable>
           </View>
-
-          <View style={{ gap: 12 }}>
-            <CuteText weight="semibold">Accent color</CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Choose the hue that styles your highlights across the app.
-            </CuteText>
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
-              {accentOptions.map((color) => (
-                <Pressable
-                  key={color}
-                  onPress={() => {
-                    setSelectedAccent(color);
-                    setSaveError(null);
-                  }}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: color,
-                    borderWidth: selectedAccent === color ? 4 : 2,
-                    borderColor:
-                      selectedAccent === color ? palette.card : "#ffffffaa",
-                  }}
-                />
-              ))}
-            </View>
-          </View>
         </View>
       );
     }
@@ -832,7 +781,9 @@ export default function ProfileScreen() {
                     onPress={() => toggleLoveLanguage(option)}
                     style={{
                       borderWidth: 1,
-                      borderColor: isSelected ? palette.primary : palette.border,
+                      borderColor: isSelected
+                        ? palette.primary
+                        : palette.border,
                       borderRadius: 20,
                       padding: 16,
                       backgroundColor: isSelected
@@ -886,7 +837,9 @@ export default function ProfileScreen() {
                       </CuteText>
                     </View>
                     <MaterialIcons
-                      name={isSelected ? "check-circle" : "radio-button-unchecked"}
+                      name={
+                        isSelected ? "check-circle" : "radio-button-unchecked"
+                      }
                       size={22}
                       color={isSelected ? palette.primary : palette.border}
                     />
@@ -899,77 +852,7 @@ export default function ProfileScreen() {
       );
     }
 
-    return (
-      <View style={{ gap: 16 }}>
-        <CuteText weight="semibold">Favorites & preferences</CuteText>
-        <CuteText tone="muted" style={{ fontSize: 13 }}>
-          Save go-to treats, drinks, shows, or anything your partner should know.
-        </CuteText>
-        {favoriteEntries.length ? (
-          favoriteEntries.map((favorite, index) => (
-            <View
-              key={`favorite-entry-${index}`}
-              style={{
-                borderWidth: 1,
-                borderColor: palette.border,
-                borderRadius: 18,
-                padding: 16,
-                gap: 12,
-              }}
-            >
-              <CuteTextInput
-                label="Label"
-                placeholder="e.g. Favorite food"
-                value={favorite.label}
-                onChangeText={(text) =>
-                  updateFavoriteEntry(index, "label", text)
-                }
-              />
-              <CuteTextInput
-                label="Value"
-                placeholder="e.g. Sushi"
-                value={favorite.value}
-                onChangeText={(text) =>
-                  updateFavoriteEntry(index, "value", text)
-                }
-              />
-              <Pressable
-                onPress={() => removeFavoriteEntry(index)}
-                style={{
-                  alignSelf: "flex-end",
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                }}
-              >
-                <CuteText tone="accent" weight="semibold">
-                  Remove
-                </CuteText>
-              </Pressable>
-            </View>
-          ))
-        ) : (
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Add your first favorite to make thoughtful surprises easy.
-          </CuteText>
-        )}
-        <Pressable
-          onPress={addFavoriteEntry}
-          style={{
-            borderRadius: 16,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: 1,
-            borderColor: palette.primary,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <CuteText tone="accent" weight="semibold">
-            Add favorite
-          </CuteText>
-        </Pressable>
-      </View>
-    );
+    return null;
   };
 
   return (
@@ -1125,16 +1008,16 @@ export default function ProfileScreen() {
                 opacity: option.disabled ? 0.5 : 1,
               }}
             >
-                <CuteText
-                  weight={isActive ? "bold" : "medium"}
-                  style={{ fontSize: 13 }}
-                  tone={isActive ? "default" : "muted"}
-                  numberOfLines={1}
-                >
-                  {option.label}
-                </CuteText>
-              </Pressable>
-            );
+              <CuteText
+                weight={isActive ? "bold" : "medium"}
+                style={{ fontSize: 13 }}
+                tone={isActive ? "default" : "muted"}
+                numberOfLines={1}
+              >
+                {option.label}
+              </CuteText>
+            </Pressable>
+          );
         })}
       </View>
 
@@ -1151,14 +1034,11 @@ export default function ProfileScreen() {
             <CuteText weight="bold" style={{ fontSize: 18 }}>
               {viewingMe ? "About Me" : `About ${profileFirstName}`}
             </CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              A little snapshot about what makes this heart unique.
-            </CuteText>
           </View>
           {renderEditButton("about")}
         </View>
         <CuteText tone="muted" style={{ lineHeight: 20 }}>
-          {profile.about ?? DEFAULT_ABOUT}
+          {resolveAbout(profile.about, profile.displayName)}
         </CuteText>
         <View
           style={{
@@ -1240,72 +1120,6 @@ export default function ProfileScreen() {
         )}
       </CuteCard>
 
-      <CuteCard background={palette.card} padding={20} style={{ gap: 16 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
-          <View style={{ flex: 1, gap: 4 }}>
-            <CuteText weight="bold" style={{ fontSize: 18 }}>
-              Favorites & Preferences
-            </CuteText>
-            <CuteText tone="muted" style={{ fontSize: 13 }}>
-              Quick cues for go-to treats, drinks, and cozy plans.
-            </CuteText>
-          </View>
-          {renderEditButton("favorites")}
-        </View>
-        {favoritesList.length ? (
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              gap: 12,
-            }}
-          >
-            {favoritesList.map((favorite, index) => (
-              <View
-                key={`favorite-display-${index}`}
-                style={{
-                  flexBasis: "48%",
-                  minWidth: "48%",
-                  flexGrow: 1,
-                  borderRadius: 16,
-                  padding: 14,
-                  backgroundColor: palette.backgroundMuted,
-                  borderWidth: 1,
-                  borderColor: palette.border,
-                }}
-              >
-                <CuteText
-                  tone="muted"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: 1,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {favorite.label}
-                </CuteText>
-                <CuteText weight="semibold" style={{ marginTop: 4 }}>
-                  {favorite.value}
-                </CuteText>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            {viewingMe
-              ? "Add your go-to favorites so your partner always knows what delights you."
-              : `${profileFirstName} hasn't shared their favorites yet.`}
-          </CuteText>
-        )}
-      </CuteCard>
-
       <Modal
         visible={editModalVisible && viewingMe}
         animationType="fade"
@@ -1320,141 +1134,146 @@ export default function ProfileScreen() {
               backgroundColor: palette.background,
             }}
           >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderColor: palette.border,
-            }}
-          >
-            <Pressable
-              onPress={closeModal}
+            <View
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
+                flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: palette.card,
-                shadowColor: "#00000020",
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-              }}
-            >
-              <MaterialIcons
-                name="arrow-back"
-                size={20}
-                color={palette.textSecondary}
-              />
-            </Pressable>
-            <CuteText weight="bold" style={{ fontSize: 18 }}>
-              {activeEditorMeta.title}
-            </CuteText>
-            <Pressable
-              onPress={handleSaveProfile}
-              disabled={savingProfile}
-              style={{ paddingHorizontal: 8, paddingVertical: 6 }}
-            >
-              <CuteText
-                tone="accent"
-                weight="semibold"
-                style={{ opacity: savingProfile ? 0.5 : 1 }}
-              >
-                {savingProfile ? "Saving..." : "Done"}
-              </CuteText>
-            </Pressable>
-          </View>
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={safeInsets.bottom + 24}
-            style={{ flex: 1 }}
-          >
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{
-                gap: 18,
-                paddingBottom: safeInsets.bottom + 120,
+                justifyContent: "space-between",
                 paddingHorizontal: 20,
-                flexGrow: 1,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderColor: palette.border,
               }}
-              style={{ flex: 1 }}
             >
-              <View style={{ alignItems: "center", gap: 12, marginTop: 12 }}>
-                <Pressable
-                  onPress={showImageOptions}
-                  style={{
-                    width: 128,
-                    height: 128,
-                    borderRadius: 64,
-                    backgroundColor: palette.primarySoft,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                    borderWidth: 3,
-                    borderColor: avatarPreview ? palette.primary : palette.border,
-                    shadowColor: palette.primary,
-                    shadowOpacity: 0.18,
-                    shadowRadius: 18,
-                    shadowOffset: { width: 0, height: 10 },
-                    elevation: 6,
-                  }}
-                >
-                  {avatarPreview ? (
-                    <Image
-                      source={{ uri: avatarPreview }}
-                      style={{ width: 128, height: 128 }}
-                    />
-                  ) : (
-                    <MaterialIcons
-                      name="photo-camera"
-                      size={40}
-                      color={palette.primary}
-                    />
-                  )}
-                </Pressable>
-                <CuteText tone="muted" style={{ fontSize: 13 }}>
-                  Tap to {avatarPreview ? "change or remove" : "add"} your photo.
-                </CuteText>
-              </View>
-
-              <View
+              <Pressable
+                onPress={closeModal}
                 style={{
-                  flexDirection: "row",
-                  backgroundColor: palette.backgroundMuted,
-                  borderRadius: 999,
-                  padding: 4,
-                  gap: 4,
-                  borderWidth: 1,
-                  borderColor: palette.border,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: palette.card,
+                  shadowColor: "#00000020",
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
                 }}
               >
-                {editorTabOrder.map((tab) => {
-                  const isActive = activeEditorSection === tab;
-                  return (
-                    <Pressable
-                      key={tab}
-                      onPress={() => setActiveEditorSection(tab)}
-                      style={{
-                        flex: 1,
-                        borderRadius: 999,
-                        paddingVertical: 10,
-                        paddingHorizontal: 12,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minHeight: 40,
-                        backgroundColor: isActive ? palette.card : "transparent",
-                        shadowColor: "#00000015",
-                        shadowOpacity: isActive ? 0.12 : 0,
-                        shadowRadius: isActive ? 8 : 0,
-                        shadowOffset: { width: 0, height: isActive ? 4 : 0 },
-                        elevation: isActive ? 2 : 0,
-                      }}
+                <MaterialIcons
+                  name="arrow-back"
+                  size={20}
+                  color={palette.textSecondary}
+                />
+              </Pressable>
+              <CuteText weight="bold" style={{ fontSize: 18 }}>
+                {activeEditorMeta.title}
+              </CuteText>
+              <Pressable
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+                style={{ paddingHorizontal: 8, paddingVertical: 6 }}
+              >
+                <CuteText
+                  tone="accent"
+                  weight="semibold"
+                  style={{ opacity: savingProfile ? 0.5 : 1 }}
+                >
+                  {savingProfile ? "Saving..." : "Done"}
+                </CuteText>
+              </Pressable>
+            </View>
+
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              keyboardVerticalOffset={safeInsets.bottom + 24}
+              style={{ flex: 1 }}
+            >
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  gap: 18,
+                  paddingBottom: safeInsets.bottom + 120,
+                  paddingHorizontal: 20,
+                  flexGrow: 1,
+                }}
+                style={{ flex: 1 }}
+              >
+                <View style={{ alignItems: "center", gap: 12, marginTop: 12 }}>
+                  <Pressable
+                    onPress={showImageOptions}
+                    style={{
+                      width: 128,
+                      height: 128,
+                      borderRadius: 64,
+                      backgroundColor: palette.primarySoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      borderWidth: 3,
+                      borderColor: avatarPreview
+                        ? palette.primary
+                        : palette.border,
+                      shadowColor: palette.primary,
+                      shadowOpacity: 0.18,
+                      shadowRadius: 18,
+                      shadowOffset: { width: 0, height: 10 },
+                      elevation: 6,
+                    }}
+                  >
+                    {avatarPreview ? (
+                      <Image
+                        source={{ uri: avatarPreview }}
+                        style={{ width: 128, height: 128 }}
+                      />
+                    ) : (
+                      <MaterialIcons
+                        name="photo-camera"
+                        size={40}
+                        color={palette.primary}
+                      />
+                    )}
+                  </Pressable>
+                  <CuteText tone="muted" style={{ fontSize: 13 }}>
+                    Tap to {avatarPreview ? "change or remove" : "add"} your
+                    photo.
+                  </CuteText>
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    backgroundColor: palette.backgroundMuted,
+                    borderRadius: 999,
+                    padding: 4,
+                    gap: 4,
+                    borderWidth: 1,
+                    borderColor: palette.border,
+                  }}
+                >
+                  {editorTabOrder.map((tab) => {
+                    const isActive = activeEditorSection === tab;
+                    return (
+                      <Pressable
+                        key={tab}
+                        onPress={() => setActiveEditorSection(tab)}
+                        style={{
+                          flex: 1,
+                          borderRadius: 999,
+                          paddingVertical: 10,
+                          paddingHorizontal: 12,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 40,
+                          backgroundColor: isActive
+                            ? palette.card
+                            : "transparent",
+                          shadowColor: "#00000015",
+                          shadowOpacity: isActive ? 0.12 : 0,
+                          shadowRadius: isActive ? 8 : 0,
+                          shadowOffset: { width: 0, height: isActive ? 4 : 0 },
+                          elevation: isActive ? 2 : 0,
+                        }}
                       >
                         <CuteText
                           weight={isActive ? "bold" : "medium"}
@@ -1466,32 +1285,32 @@ export default function ProfileScreen() {
                         </CuteText>
                       </Pressable>
                     );
-                })}
-              </View>
-
-              {renderEditorSectionContent()}
-
-              {saveError ? (
-                <CuteText
-                  weight="semibold"
-                  style={{ fontSize: 13, color: "#D93025" }}
-                >
-                  {saveError}
-                </CuteText>
-              ) : null}
-              <CuteButton
-                label={savingProfile ? "Saving..." : "Save changes"}
-                onPress={handleSaveProfile}
-                disabled={savingProfile}
-                style={{ marginTop: 4 }}
-              />
-              {savingProfile ? (
-                <View style={{ alignItems: "center", marginTop: -4 }}>
-                  <ActivityIndicator color={palette.primary} />
+                  })}
                 </View>
-              ) : null}
-            </ScrollView>
-          </KeyboardAvoidingView>
+
+                {renderEditorSectionContent()}
+
+                {saveError ? (
+                  <CuteText
+                    weight="semibold"
+                    style={{ fontSize: 13, color: "#D93025" }}
+                  >
+                    {saveError}
+                  </CuteText>
+                ) : null}
+                <CuteButton
+                  label={savingProfile ? "Saving..." : "Save changes"}
+                  onPress={handleSaveProfile}
+                  disabled={savingProfile}
+                  style={{ marginTop: 4 }}
+                />
+                {savingProfile ? (
+                  <View style={{ alignItems: "center", marginTop: -4 }}>
+                    <ActivityIndicator color={palette.primary} />
+                  </View>
+                ) : null}
+              </ScrollView>
+            </KeyboardAvoidingView>
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>

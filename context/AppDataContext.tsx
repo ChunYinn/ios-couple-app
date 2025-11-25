@@ -42,7 +42,6 @@ import {
     LoveLanguageValue,
     Milestone,
     PartnerProfile,
-    ProfileFavorite,
     TodoCategory,
     TodoItem,
 } from "../types/app";
@@ -54,8 +53,29 @@ const AppDataContext = createContext<{
 } | null>(null);
 
 const DEFAULT_PROFILE_STATUS = "";
-const DEFAULT_PROFILE_ABOUT =
+const LEGACY_PROFILE_ABOUT =
   "Curious heart who loves to make memories that feel like magic.";
+const buildDefaultProfileAbout = (name?: string | null) => {
+  const trimmedName = name?.trim();
+  if (trimmedName) {
+    return `Hi, I'm ${trimmedName}!`;
+  }
+  return "Hi, I'm excited to meet you!";
+};
+const resolveProfileAbout = (about?: string | null, name?: string | null) => {
+  const trimmedName = name?.trim();
+  const previousNamedDefault = trimmedName ? `Hi I'm ${trimmedName}.` : null;
+  const previousFallbackDefault = "Hi I'm excited to meet you.";
+  if (
+    !about ||
+    about === LEGACY_PROFILE_ABOUT ||
+    about === previousFallbackDefault ||
+    (previousNamedDefault && about === previousNamedDefault)
+  ) {
+    return buildDefaultProfileAbout(name);
+  }
+  return about;
+};
 const DEFAULT_PROFILE_LANGUAGES: LoveLanguageValue[] = normalizeLoveLanguages(
   DEFAULT_LOVE_LANGUAGES
 );
@@ -63,15 +83,6 @@ const DEFAULT_PROFILE_ACCENT = initialState.settings.accent;
 
 const generateId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const mergeFavorites = (
-  base: ProfileFavorite[] | undefined,
-  incoming: ProfileFavorite[]
-) => {
-  if (!base || !base.length) return incoming;
-  if (!incoming.length) return base;
-  return incoming;
-};
 
 const mapCategoryFromDb = (category: DBTodoCategory): TodoCategory => ({
   id: category.id ?? "",
@@ -104,17 +115,11 @@ const mapProfileFromDb = (uid: string, profile: DBProfile): PartnerProfile => ({
   displayName: profile.displayName,
   status: profile.status ?? DEFAULT_PROFILE_STATUS,
   avatarUrl: profile.avatarUrl ?? undefined,
-  about: profile.about ?? DEFAULT_PROFILE_ABOUT,
+  about: resolveProfileAbout(profile.about, profile.displayName),
   accentColor: profile.accentColor ?? DEFAULT_PROFILE_ACCENT,
   birthday: profile.birthday ?? undefined,
   anniversary: profile.anniversary ?? undefined,
   loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
-  favorites:
-    profile.favorites?.map((favorite) => ({
-      label: favorite.label,
-      value: favorite.value,
-      category: favorite.category ?? "custom",
-    })) ?? [],
 });
 
 const mapMessageFromDb = (
@@ -308,19 +313,20 @@ const reducer = (state: AppState, action: AppAction): AppState => {
     }
     case "SAVE_PROFILE": {
       if (!state.auth.user.uid) return state;
+      const resolvedAbout = resolveProfileAbout(
+        action.payload.about,
+        action.payload.displayName
+      );
       const updatedProfile: PartnerProfile = {
         uid: state.auth.user.uid,
         displayName: action.payload.displayName,
         status: action.payload.status ?? DEFAULT_PROFILE_STATUS,
         avatarUrl: action.payload.avatarUrl,
-        about:
-          action.payload.about ||
-          DEFAULT_PROFILE_ABOUT,
+        about: resolvedAbout,
         accentColor: action.payload.accentColor ?? state.settings.accent,
         birthday: action.payload.birthday ?? state.profiles.me?.birthday,
         anniversary: action.payload.anniversary ?? state.profiles.me?.anniversary,
         loveLanguages: normalizeLoveLanguages(action.payload.loveLanguages),
-        favorites: state.profiles.me?.favorites ?? [],
       };
       return {
         ...state,
@@ -408,13 +414,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         },
         profiles: {
           ...state.profiles,
-          partner: {
-            ...action.payload.partnerProfile,
-            favorites: mergeFavorites(
-              state.profiles.partner?.favorites,
-              action.payload.partnerProfile.favorites
-            ),
-          },
+          partner: action.payload.partnerProfile,
         },
         chat: {
           ...state.chat,
@@ -904,10 +904,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
               displayName: user.displayName ?? "You",
               status: user.status ?? DEFAULT_PROFILE_STATUS,
               avatarUrl: user.avatarUrl ?? undefined,
-              about: user.about ?? DEFAULT_PROFILE_ABOUT,
+              about: resolveProfileAbout(user.about, user.displayName),
               accentColor: derivedAccent,
               loveLanguages: normalizedLoveLanguages,
-              favorites: user.favorites ?? currentState.profiles.me?.favorites ?? [],
             },
           },
         });

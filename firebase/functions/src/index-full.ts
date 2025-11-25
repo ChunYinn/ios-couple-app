@@ -130,7 +130,6 @@ export const redeemInvite = functions.https.onCall(async (data, context) => {
         accentColor: '#A2D2FF',
         emoji: '💙',
         loveLanguages: ['Quality Time'],
-        favorites: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });

@@ -191,8 +191,7 @@ export const coupleService = {
       emoji: '💕',
       loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
       birthday: null,
-      anniversary: null,
-      favorites: []
+      anniversary: null
     });
 
     return coupleId;

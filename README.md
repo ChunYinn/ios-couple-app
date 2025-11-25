@@ -15,7 +15,7 @@ An Expo + React Native experience for couples who want a single place to plan da
 - **Private chat** – `app/(tabs)/chat.tsx` sends text, image, and reaction messages with read receipts, pending queues, and avatar bubbles stored via `messageService`.
 - **Milestones & gallery** – `app/milestone/new.tsx` and `app/gallery/index.tsx` turn shared milestones into a visual archive, complete with uploads to Firebase Storage and flashback prompts.
 - **Live location check-ins** – `app/location.tsx` uses `expo-location` to request permission, update the couple document, and show opt-in live sharing cards for each partner.
-- **Profiles, favorites & love languages** – `app/profile.tsx` exposes editable basics, accent colors, love languages, and favorite entries, with persistence handled by `profileService` and `userService`.
+- **Profiles & love languages** – `app/profile.tsx` exposes editable basics, accent colors, and love languages, with persistence handled by `profileService` and `userService`.
 - **Settings & rituals** – `app/settings.tsx` toggles push reminders, flashbacks, and color accents, while `context/AppDataContext.tsx` keeps everything reactive with a single source of truth.
 
 ## Tech Stack

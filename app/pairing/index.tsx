@@ -67,11 +67,6 @@ export default function PairingScreen() {
     about: profile.about,
     accentColor: profile.accentColor,
     loveLanguages: normalizeLoveLanguages(profile.loveLanguages),
-    favorites:
-      profile.favorites?.map((favorite) => ({
-        label: favorite.label,
-        value: favorite.value,
-      })) ?? [],
   });
 
   const handleCreateInvite = async (refresh = false) => {
@@ -115,7 +110,6 @@ export default function PairingScreen() {
           loveLanguages: profiles.me.loveLanguages,
           birthday: auth.user.birthday ?? null,
           anniversary: hostAnniversary,
-          favorites: [],
         });
       }
 
@@ -210,7 +204,6 @@ export default function PairingScreen() {
           loveLanguages: myProfile.loveLanguages,
           birthday: auth.user.birthday ?? null,
           anniversary: auth.user.anniversaryDate ?? null,
-          favorites: [],
         });
       }
 
@@ -259,7 +252,6 @@ export default function PairingScreen() {
             avatarUrl: undefined,
             loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
             birthday: undefined,
-            favorites: [],
           };
 
       dispatch({

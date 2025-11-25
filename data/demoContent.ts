@@ -1,11 +1,4 @@
-import { ChatMessage, GalleryItem, Flashback, Milestone, PartnerProfile, ProfileFavorite, TodoCategory, TodoItem } from "../types/app";
-
-const demoFavorites: ProfileFavorite[] = [
-  { label: "Favorite Food", value: "Sushi" },
-  { label: "Coffee Order", value: "Iced Latte" },
-  { label: "Dream Vacation", value: "Kyoto, Japan" },
-  { label: "Favorite Movie", value: "Inception" },
-];
+import { ChatMessage, GalleryItem, Flashback, Milestone, PartnerProfile, TodoCategory, TodoItem } from "../types/app";
 
 export const demoPartnerProfile: PartnerProfile = {
   uid: "demo-partner",
@@ -18,7 +11,6 @@ export const demoPartnerProfile: PartnerProfile = {
   accentColor: "#A2D2FF",
   birthday: "1995-04-12",
   loveLanguages: ["touch", "time", "gifts"],
-  favorites: demoFavorites,
 };
 
 export const demoMilestones: Milestone[] = [

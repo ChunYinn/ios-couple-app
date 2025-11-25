@@ -29,12 +29,6 @@ export type AuthState = {
   user: UserProfile;
 };
 
-export type ProfileFavorite = {
-  label: string;
-  value: string;
-  category?: string;
-};
-
 export type PartnerProfile = {
   uid: string;
   displayName: string;
@@ -45,7 +39,6 @@ export type PartnerProfile = {
   birthday?: string;
   anniversary?: string;
   loveLanguages: LoveLanguageValue[];
-  favorites: ProfileFavorite[];
 };
 
 export type Milestone = {

@@ -33,8 +33,13 @@ import { authService } from "../../services/authService";
 import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
 
 const DEFAULT_STATUS = "";
-const DEFAULT_ABOUT =
-  "Curious heart who loves to make memories that feel like magic.";
+const buildDefaultAbout = (name: string) => {
+  const trimmedName = name.trim();
+  if (trimmedName.length) {
+    return `Hi, I'm ${trimmedName}!`;
+  }
+  return "Hi, I'm excited to meet you!";
+};
 
 const design = {
   primary: "#F8B4D9",
@@ -148,6 +153,7 @@ export default function SignupProfileScreen() {
       return;
     }
 
+    const defaultAbout = buildDefaultAbout(trimmedName);
     setLoading(true);
     setError(null);
 
@@ -181,7 +187,7 @@ export default function SignupProfileScreen() {
         email: currentUser.email ?? draft.email,
         coupleId: null,
         status: DEFAULT_STATUS,
-        about: DEFAULT_ABOUT,
+        about: defaultAbout,
         loveLanguages: DEFAULT_LOVE_LANGUAGES,
         accentColor: state.settings.accent,
       });
@@ -202,7 +208,7 @@ export default function SignupProfileScreen() {
           avatarUrl: nextAvatarUrl,
           birthday: birthdayValue ?? undefined,
           status: DEFAULT_STATUS,
-          about: DEFAULT_ABOUT,
+          about: defaultAbout,
           loveLanguages: DEFAULT_LOVE_LANGUAGES,
           accentColor: state.settings.accent,
         },
