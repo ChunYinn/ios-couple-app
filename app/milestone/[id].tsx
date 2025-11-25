@@ -11,13 +11,9 @@ import { useAppData } from "../../context/AppDataContext";
 import { Screen } from "../../components/Screen";
 
 const formatMilestoneDate = (value?: string | null) => {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString(undefined, {
     month: "long",
     day: "numeric",
@@ -101,31 +97,15 @@ export default function MilestoneViewerScreen() {
           </Pressable>
         </View>
 
-        <View style={{ flex: 1, justifyContent: "flex-end", gap: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            {milestone.dayCount ? (
-              <View
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 6,
-                  borderRadius: 999,
-                  backgroundColor: "#ffffff30",
-                }}
-              >
-                <CuteText style={{ color: "#fff", fontSize: 13 }} weight="bold">
-                  {milestone.dayCount} days
-                </CuteText>
-              </View>
-            ) : null}
-            {formattedDate ? (
-              <CuteText tone="muted" style={{ color: "#ffffffcc", fontSize: 13 }}>
-                {formattedDate}
-              </CuteText>
-            ) : null}
-          </View>
+        <View style={{ flex: 1, justifyContent: "flex-end", gap: 14 }}>
           <CuteText style={{ color: "#fff", fontSize: 32 }} weight="bold">
             {milestone.title}
           </CuteText>
+          {formattedDate ? (
+            <CuteText tone="muted" style={{ color: "#ffffffcc", fontSize: 13 }}>
+              {formattedDate}
+            </CuteText>
+          ) : null}
           <CuteText
             style={{ color: "#ffffffde", fontSize: 16, lineHeight: 24 }}
           >

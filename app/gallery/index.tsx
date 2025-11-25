@@ -46,7 +46,7 @@ export default function MilestoneArchiveScreen() {
             padding: 16,
           }}
         >
-          <View style={{ gap: 6 }}>
+          <View style={{ gap: 4 }}>
             <CuteText
               weight="bold"
               style={{
@@ -57,7 +57,7 @@ export default function MilestoneArchiveScreen() {
             >
               {item.title}
             </CuteText>
-            {item.dayCount ? (
+            {item.achievedAt ? (
               <CuteText
                 tone="muted"
                 style={{
@@ -65,7 +65,7 @@ export default function MilestoneArchiveScreen() {
                   color: hasImage ? "#ffffff" : palette.textSecondary,
                 }}
               >
-                {item.dayCount} days
+                {new Date(item.achievedAt).toLocaleDateString()}
               </CuteText>
             ) : null}
           </View>
