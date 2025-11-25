@@ -891,6 +891,10 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
+        if (!nextAuthUser.coupleId && stateRef.current.pairing.isPaired) {
+          dispatch({ type: "RESET_PAIRING" });
+        }
+
         const derivedAccent = user.accentColor ?? currentState.settings.accent;
         const normalizedAnniversary = user.anniversaryDate
           ? formatDateToYMD(user.anniversaryDate)
@@ -1048,6 +1052,12 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           type: "SYNC_TODO_CATEGORIES",
           payload: categories.map(mapCategoryFromDb),
         });
+      },
+      (error) => {
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
       }
     );
 
@@ -1058,6 +1068,12 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           type: "SYNC_TODO_ITEMS",
           payload: items.map(mapTodoFromDb),
         });
+      },
+      (error) => {
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
       }
     );
 
@@ -1075,18 +1091,27 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const partnerUid = state.profiles.partner?.uid ?? null;
-    const unsubscribe = messageService.subscribeToMessages(coupleId, (entries) => {
-      const mapped = entries
-        .map((entry) => mapMessageFromDb(entry, uid, partnerUid))
-        .sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-      dispatch({
-        type: "SYNC_CHAT_MESSAGES",
-        payload: mapped,
-      });
-    });
+    const unsubscribe = messageService.subscribeToMessages(
+      coupleId,
+      (entries) => {
+        const mapped = entries
+          .map((entry) => mapMessageFromDb(entry, uid, partnerUid))
+          .sort(
+            (a, b) =>
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+        dispatch({
+          type: "SYNC_CHAT_MESSAGES",
+          payload: mapped,
+        });
+      },
+      (error) => {
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
+      }
+    );
 
     return unsubscribe;
   }, [
@@ -1113,6 +1138,12 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           type: "SYNC_GALLERY_FLASHBACKS",
           payload: createFlashbacksFromMemories(memories),
         });
+      },
+      (error) => {
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
       }
     );
 
@@ -1123,6 +1154,12 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           type: "SYNC_MILESTONES",
           payload: milestones.map(mapMilestoneFromDb),
         });
+      },
+      (error) => {
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
       }
     );
 

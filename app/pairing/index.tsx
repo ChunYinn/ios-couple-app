@@ -550,7 +550,10 @@ export default function PairingScreen() {
               setErrorMessage(null);
               setInfoMessage(null);
             }}
-            keyboardType="number-pad"
+            keyboardType="default"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            inputMode="text"
             maxLength={6}
           />
           {errorMessage ? (

@@ -300,7 +300,8 @@ export const profileService = {
 
   subscribeToProfiles(
     coupleId: string,
-    callback: (profiles: Array<{ uid: string; profile: DBProfile }>) => void
+    callback: (profiles: Array<{ uid: string; profile: DBProfile }>) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     return onSnapshot(
       collection(db, 'couples', coupleId, 'profiles'),
@@ -310,7 +311,8 @@ export const profileService = {
           profiles.push({ uid: doc.id, profile: doc.data() as DBProfile });
         });
         callback(profiles);
-      }
+      },
+      (error) => onError?.(error)
     );
   }
 };
@@ -397,20 +399,25 @@ export const messageService = {
   // Subscribe to messages
   subscribeToMessages(
     coupleId: string,
-    callback: (messages: Array<{ message: DBMessage; pending: boolean }>) => void
+    callback: (messages: Array<{ message: DBMessage; pending: boolean }>) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'messages'),
       orderBy('timestamp', 'asc')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map((doc) => ({
-        message: { id: doc.id, ...(doc.data() as DBMessage) },
-        pending: doc.metadata.hasPendingWrites,
-      }));
-      callback(messages);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const messages = snapshot.docs.map((doc) => ({
+          message: { id: doc.id, ...(doc.data() as DBMessage) },
+          pending: doc.metadata.hasPendingWrites,
+        }));
+        callback(messages);
+      },
+      (error) => onError?.(error)
+    );
   }
 };
 
@@ -656,20 +663,25 @@ export const todoService = {
   // Subscribe to categories
   subscribeToCategories(
     coupleId: string,
-    callback: (categories: DBTodoCategory[]) => void
+    callback: (categories: DBTodoCategory[]) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'todoCategories'),
       orderBy('order', 'asc')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const categories: DBTodoCategory[] = [];
-      snapshot.forEach((doc) => {
-        categories.push({ id: doc.id, ...doc.data() } as DBTodoCategory);
-      });
-      callback(categories);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const categories: DBTodoCategory[] = [];
+        snapshot.forEach((doc) => {
+          categories.push({ id: doc.id, ...doc.data() } as DBTodoCategory);
+        });
+        callback(categories);
+      },
+      (error) => onError?.(error)
+    );
   },
 
   async uploadTodoProof(
@@ -693,20 +705,25 @@ export const todoService = {
   // Subscribe to todos
   subscribeToTodos(
     coupleId: string,
-    callback: (items: DBTodoItem[]) => void
+    callback: (items: DBTodoItem[]) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'todoItems'),
       orderBy('createdAt', 'desc')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const items: DBTodoItem[] = [];
-      snapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() } as DBTodoItem);
-      });
-      callback(items);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items: DBTodoItem[] = [];
+        snapshot.forEach((doc) => {
+          items.push({ id: doc.id, ...doc.data() } as DBTodoItem);
+        });
+        callback(items);
+      },
+      (error) => onError?.(error)
+    );
   }
 };
 
@@ -801,20 +818,25 @@ export const memoryService = {
 
   subscribeToMemories(
     coupleId: string,
-    callback: (memories: DBMemory[]) => void
+    callback: (memories: DBMemory[]) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'memories'),
       orderBy('capturedDate', 'desc')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const items: DBMemory[] = [];
-      snapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() } as DBMemory);
-      });
-      callback(items);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items: DBMemory[] = [];
+        snapshot.forEach((doc) => {
+          items.push({ id: doc.id, ...doc.data() } as DBMemory);
+        });
+        callback(items);
+      },
+      (error) => onError?.(error)
+    );
   }
 };
 
@@ -1006,20 +1028,25 @@ export const milestoneService = {
 
   subscribeToMilestones(
     coupleId: string,
-    callback: (milestones: DBMilestone[]) => void
+    callback: (milestones: DBMilestone[]) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
       collection(db, 'couples', coupleId, 'milestones'),
       orderBy('achievedAt', 'desc')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const milestones: DBMilestone[] = [];
-      snapshot.forEach((doc) => {
-        milestones.push({ id: doc.id, ...doc.data() } as DBMilestone);
-      });
-      callback(milestones);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const milestones: DBMilestone[] = [];
+        snapshot.forEach((doc) => {
+          milestones.push({ id: doc.id, ...doc.data() } as DBMilestone);
+        });
+        callback(milestones);
+      },
+      (error) => onError?.(error)
+    );
   }
 };
 
