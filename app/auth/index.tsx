@@ -1,26 +1,26 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { FirebaseError } from "firebase/app";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-  StatusBar,
-  TextInput,
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
-import { authService } from "../../services/authService";
 import { useAppData } from "../../context/AppDataContext";
+import { authService } from "../../services/authService";
 
 const design = {
   primary: "#F8B4D9",
@@ -115,7 +115,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <StatusBar barStyle="dark-content" />
       <LinearGradient
         colors={[design.primary + "33", design.background, design.secondary + "22"]}
@@ -225,7 +225,7 @@ export default function LoginScreen() {
                   <View style={{ gap: 12 }}>
                     <View style={{ gap: 6 }}>
                       <CuteText weight="semibold" style={{ color: design.textMain, fontSize: 14 }}>
-                        Login Email
+                        Email
                       </CuteText>
                       <View style={{ position: "relative" }}>
                       <MaterialIcons
@@ -257,7 +257,7 @@ export default function LoginScreen() {
                           color: design.textMain,
                           borderWidth: 1,
                           borderColor: design.primary + "33",
-                            fontSize: 15,
+                          fontSize: 15,
                           }}
                         />
                       </View>
@@ -265,7 +265,7 @@ export default function LoginScreen() {
 
                     <View style={{ gap: 6 }}>
                       <CuteText weight="semibold" style={{ color: design.textMain, fontSize: 14 }}>
-                        Login Password
+                        Password
                       </CuteText>
                       <View style={{ position: "relative" }}>
                       <MaterialIcons

@@ -4,15 +4,15 @@ import { useRouter } from "expo-router";
 import { fetchSignInMethodsForEmail } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -172,7 +172,7 @@ export default function SignupScreen() {
   const confirmMessage = renderConfirmMessage();
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <StatusBar barStyle="dark-content" />
       <LinearGradient
         colors={[
