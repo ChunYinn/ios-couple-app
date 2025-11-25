@@ -1,52 +1,51 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-} from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useMemo,
+    useReducer,
+    useRef,
+} from "react";
 
 import { initialState } from "../data/initialState";
 import {
-  AppAction,
-  AppState,
-  ChatMessage,
-  Flashback,
-  GalleryItem,
-  Milestone,
-  PartnerProfile,
-  ProfileFavorite,
-  TodoCategory,
-  TodoItem,
-} from "../types/app";
-import {
-  coupleService,
-  memoryService,
-  milestoneService,
-  messageService,
-  profileService,
-  todoService,
-  userService,
-} from "../firebase/services";
-import {
-  DBMemory,
-  DBMilestone,
-  DBMessage,
-  DBProfile,
-  DBTodoCategory,
-  DBTodoItem,
-  timestampToDate,
-} from "../firebase/types";
+    DEFAULT_LOVE_LANGUAGES,
+    normalizeLoveLanguages
+} from "../data/loveLanguages";
 import { firebaseAuth } from "../firebase/config";
 import {
-  DEFAULT_LOVE_LANGUAGES,
-  LOVE_LANGUAGES,
-  normalizeLoveLanguages,
-} from "../data/loveLanguages";
-import { LoveLanguageValue } from "../types/app";
+    coupleService,
+    memoryService,
+    messageService,
+    milestoneService,
+    profileService,
+    todoService,
+    userService,
+} from "../firebase/services";
+import {
+    DBMemory,
+    DBMessage,
+    DBMilestone,
+    DBProfile,
+    DBTodoCategory,
+    DBTodoItem,
+    timestampToDate,
+} from "../firebase/types";
+import {
+    AppAction,
+    AppState,
+    ChatMessage,
+    Flashback,
+    GalleryItem,
+    LoveLanguageValue,
+    Milestone,
+    PartnerProfile,
+    ProfileFavorite,
+    TodoCategory,
+    TodoItem,
+} from "../types/app";
 import { calculateDaysTogether, formatDateToYMD } from "../utils/dateUtils";
 
 const AppDataContext = createContext<{
@@ -861,20 +860,36 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
         const normalizedLoveLanguages = normalizeLoveLanguages(user.loveLanguages);
 
-        dispatch({
-          type: "UPDATE_AUTH_USER",
-          payload: {
-            uid,
-            displayName: user.displayName ?? undefined,
-            avatarUrl: user.avatarUrl ?? undefined,
-            birthday: user.birthday ?? undefined,
-            coupleId: user.coupleId,
-            status: nextStatus,
-            email: user.email ?? undefined,
-            isAnonymous: false,
-            anniversaryDate: user.anniversaryDate ?? undefined,
-          },
-        });
+        const authUser = currentState.auth.user;
+        const nextAuthUser = {
+          ...authUser,
+          uid,
+          displayName: user.displayName ?? undefined,
+          avatarUrl: user.avatarUrl ?? undefined,
+          birthday: user.birthday ?? undefined,
+          coupleId: user.coupleId,
+          email: user.email ?? undefined,
+          isAnonymous: false,
+          anniversaryDate: user.anniversaryDate ?? undefined,
+        };
+
+        const authChanged =
+          currentState.auth.status !== nextStatus ||
+          authUser.uid !== nextAuthUser.uid ||
+          authUser.displayName !== nextAuthUser.displayName ||
+          authUser.avatarUrl !== nextAuthUser.avatarUrl ||
+          authUser.birthday !== nextAuthUser.birthday ||
+          authUser.coupleId !== nextAuthUser.coupleId ||
+          authUser.email !== nextAuthUser.email ||
+          authUser.isAnonymous !== nextAuthUser.isAnonymous ||
+          authUser.anniversaryDate !== nextAuthUser.anniversaryDate;
+
+        if (authChanged) {
+          dispatch({
+            type: "UPDATE_AUTH_USER",
+            payload: { ...nextAuthUser, status: nextStatus },
+          });
+        }
 
         const derivedAccent = user.accentColor ?? currentState.settings.accent;
         const normalizedAnniversary = user.anniversaryDate

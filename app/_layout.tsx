@@ -1,10 +1,16 @@
-import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { useLayoutEffect } from "react";
+import {
+    Stack,
+    usePathname,
+    useRootNavigationState,
+    useRouter,
+    useSegments,
+} from "expo-router";
+import { useEffect, useRef } from "react";
 
-import { lightPalette } from "../theme/palette";
 import { AppDataProvider, useAppData } from "../context/AppDataContext";
 import { SignupProvider } from "../context/SignupContext";
+import { lightPalette } from "../theme/palette";
 
 const lightNavigationTheme = {
   ...DefaultTheme,
@@ -22,32 +28,57 @@ const lightNavigationTheme = {
 const Navigator = () => {
   const { state } = useAppData();
   const router = useRouter();
+  const pathname = usePathname() || "/";
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const navigationKey = navigationState?.key;
+  const lastRedirect = useRef<{ target: string; from: string } | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!navigationKey || state.auth.status === "initializing") {
+      lastRedirect.current = null;
       return;
     }
 
     const inAuthGroup = segments[0] === "auth";
-    const inProfileFlow = inAuthGroup && segments[1] === "profile";
     const inTabsGroup = segments[0] === "(tabs)";
     const onLoadingScreen = !segments[0];
+    const normalize = (value: string) =>
+      (value.replace(/\/+$/, "") || "/").replace(/^\/?/, "/");
+    const currentPath = normalize(pathname);
 
+    let target: string | null = null;
     if (state.auth.status === "signedOut" && !inAuthGroup) {
-      router.replace("/auth");
-    } else if (state.auth.status === "profile" && !inProfileFlow) {
-      router.replace("/auth/profile");
+      target = "/auth";
+    } else if (state.auth.status === "profile" && !inAuthGroup) {
+      target = "/auth/profile";
     } else if (
       state.auth.status === "ready" &&
       (inAuthGroup || onLoadingScreen) &&
       !inTabsGroup
     ) {
-      router.replace("/(tabs)");
+      target = "/(tabs)";
     }
-  }, [navigationKey, router, segments, state.auth.status]);
+
+    if (!target) {
+      lastRedirect.current = null;
+      return;
+    }
+
+    const normalizedTarget = normalize(target);
+
+    if (normalizedTarget === currentPath) {
+      lastRedirect.current = null;
+      return;
+    }
+
+    if (lastRedirect.current?.target === normalizedTarget) {
+      return;
+    }
+
+    lastRedirect.current = { target: normalizedTarget, from: currentPath };
+    router.replace(target as any);
+  }, [navigationKey, pathname, router, segments, state.auth.status]);
 
   // Return null if the navigation state is not ready.
   if (!navigationKey) {

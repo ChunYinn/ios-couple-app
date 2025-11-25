@@ -22,7 +22,6 @@ import { Screen } from "../../components/Screen";
 import { useSignupDraft } from "../../context/SignupContext";
 import { firebaseAuth } from "../../firebase/config";
 
-const highlightIcons = ["lock", "notifications", "favorite"] as const;
 const design = {
   primary: "#F8B4D9",
   primaryContent: "#4A223B",
@@ -121,7 +120,10 @@ export default function SignupScreen() {
     setLoading(true);
     setError(null);
     try {
-      const methods = await fetchSignInMethodsForEmail(firebaseAuth, trimmedEmail);
+      const methods = await fetchSignInMethodsForEmail(
+        firebaseAuth,
+        trimmedEmail
+      );
       const isTaken = methods.length > 0;
       if (isTaken) {
         setEmailStatus("taken");
@@ -192,7 +194,6 @@ export default function SignupScreen() {
               contentContainerStyle={{
                 flexGrow: 1,
                 paddingHorizontal: 20,
-                paddingVertical: 24,
                 justifyContent: "space-between",
                 gap: 24,
               }}
@@ -244,48 +245,14 @@ export default function SignupScreen() {
                 </Animated.View>
                 <CuteText
                   weight="bold"
-                  style={{ fontSize: 30, color: design.textMain }}
+                  style={{
+                    fontSize: 30,
+                    color: design.textMain,
+                    textAlign: "center",
+                  }}
                 >
-                  Welcome to YouMeUs
+                  YouMeUs
                 </CuteText>
-                <CuteText
-                  tone="muted"
-                  style={{ fontSize: 14, textAlign: "center" }}
-                >
-                  Let{"'"}s create your shared space, together.
-                </CuteText>
-                <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
-                  {highlightIcons.map((icon, idx) => {
-                    const color =
-                      idx === 0
-                        ? design.primary
-                        : idx === 1
-                        ? design.accent
-                        : design.secondary;
-                    return (
-                      <View
-                        key={icon}
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 14,
-                          backgroundColor: "#ffffffbb",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          shadowColor: "#000",
-                          shadowOpacity: 0.08,
-                          shadowRadius: 6,
-                        }}
-                      >
-                        <MaterialIcons
-                          name={icon as keyof typeof MaterialIcons.glyphMap}
-                          size={22}
-                          color={color}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
               </View>
 
               <View
@@ -359,7 +326,10 @@ export default function SignupScreen() {
                       />
                     </View>
                     {emailMessage ? (
-                      <CuteText tone={emailMessage.tone} style={{ fontSize: 12 }}>
+                      <CuteText
+                        tone={emailMessage.tone}
+                        style={{ fontSize: 12 }}
+                      >
                         {emailMessage.text}
                       </CuteText>
                     ) : null}
@@ -446,7 +416,10 @@ export default function SignupScreen() {
                       />
                     </View>
                     {confirmMessage ? (
-                      <CuteText tone={confirmMessage.tone} style={{ fontSize: 12 }}>
+                      <CuteText
+                        tone={confirmMessage.tone}
+                        style={{ fontSize: 12 }}
+                      >
                         {confirmMessage.text}
                       </CuteText>
                     ) : null}
