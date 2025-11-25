@@ -4,6 +4,7 @@ import {
   FieldValue,
   getFirestore,
   Timestamp,
+  WriteBatch,
 } from "firebase-admin/firestore";
 
 initializeApp();
@@ -134,4 +135,56 @@ export const redeemInvite = onCall({ region: "australia-southeast1" }, async (re
   });
 
   return { success: true, coupleId: invite.coupleId };
+});
+
+export const unbindCouple = onCall({ region: "australia-southeast1" }, async (request) => {
+  const auth = request.auth;
+  if (!auth) {
+    throw new HttpsError("unauthenticated", "Must be authenticated");
+  }
+
+  const coupleId = (request.data?.coupleId as string | undefined)?.trim();
+  if (!coupleId) {
+    throw new HttpsError("invalid-argument", "coupleId is required");
+  }
+
+  const coupleRef = db.collection("couples").doc(coupleId);
+  const coupleDoc = await coupleRef.get();
+  if (!coupleDoc.exists) {
+    throw new HttpsError("not-found", "Couple not found");
+  }
+
+  const couple = coupleDoc.data();
+  const members = (couple?.members as string[] | undefined) ?? [];
+  if (!members.includes(auth.uid)) {
+    throw new HttpsError("permission-denied", "You are not part of this couple");
+  }
+
+  // Clean up invites tied to this couple
+  const invitesSnap = await db
+    .collection("invites")
+    .where("coupleId", "==", coupleId)
+    .get();
+
+  const batch: WriteBatch = db.batch();
+  invitesSnap.forEach((doc) => batch.delete(doc.ref));
+
+  members.forEach((uid) => {
+    batch.update(db.collection("users").doc(uid), {
+      coupleId: null,
+      updatedAt: Timestamp.now(),
+    });
+  });
+
+  await batch.commit();
+
+  // Recursively delete the couple and all nested data.
+  try {
+    await db.recursiveDelete(coupleRef);
+  } catch (error) {
+    console.error("recursiveDelete failed, deleting root doc only", error);
+    await coupleRef.delete();
+  }
+
+  return { success: true };
 });

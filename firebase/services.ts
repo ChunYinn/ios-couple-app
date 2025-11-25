@@ -245,11 +245,18 @@ export const coupleService = {
 
   subscribeToCouple(
     coupleId: string,
-    callback: (couple: DBCouple | null) => void
+    callback: (couple: DBCouple | null) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
-    return onSnapshot(doc(db, 'couples', coupleId), (snapshot) => {
-      callback(snapshot.exists() ? (snapshot.data() as DBCouple) : null);
-    });
+    return onSnapshot(
+      doc(db, 'couples', coupleId),
+      (snapshot) => {
+        callback(snapshot.exists() ? (snapshot.data() as DBCouple) : null);
+      },
+      (error) => {
+        onError?.(error);
+      }
+    );
   }
 };
 

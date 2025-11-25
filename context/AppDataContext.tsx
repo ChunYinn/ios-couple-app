@@ -992,6 +992,13 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             authStatus,
           },
         });
+      },
+      (error) => {
+        // If access is revoked (e.g., couple deleted), reset pairing state quietly.
+        const code = (error as { code?: string })?.code;
+        if (code === "permission-denied" || code === "not-found") {
+          dispatch({ type: "RESET_PAIRING" });
+        }
       }
     );
 

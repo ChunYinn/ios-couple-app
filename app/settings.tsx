@@ -1,8 +1,9 @@
 import { StatusBar } from "expo-status-bar";
-import { Alert, Pressable, Switch, useColorScheme, View } from "react-native";
+import { Alert, Pressable, useColorScheme, View } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { signOut } from "firebase/auth";
 
 import { Screen } from "../components/Screen";
@@ -11,8 +12,8 @@ import { usePalette } from "../hooks/usePalette";
 import { CuteCard } from "../components/CuteCard";
 import { CuteButton } from "../components/CuteButton";
 import { useAppData } from "../context/AppDataContext";
-import { firebaseAuth } from "../firebase/config";
-import { coupleService, userService } from "../firebase/services";
+import { firebaseApp, firebaseAuth } from "../firebase/config";
+import { userService } from "../firebase/services";
 
 const accentChoices = ["#FF8FAB", "#F6C28B", "#3A5BFF", "#1F9470", "#9B59FF"];
 
@@ -24,64 +25,10 @@ export default function SettingsScreen() {
     dispatch,
   } = useAppData();
   const [pendingAccent, setPendingAccent] = useState(settings.accent);
-  const [updatingSettings, setUpdatingSettings] = useState(false);
+  const [unbinding, setUnbinding] = useState(false);
 
   const coupleId = pairing.coupleId ?? auth.user.coupleId;
-
-  const togglePush = async () => {
-    if (!coupleId) {
-      Alert.alert(
-        "Pair up first",
-        "Invite your partner so you can enable shared reminders together."
-      );
-      return;
-    }
-    const next = !settings.enablePush;
-    dispatch({
-      type: "UPDATE_SETTINGS",
-      payload: { enablePush: next },
-    });
-    try {
-      setUpdatingSettings(true);
-      await coupleService.updateSettings(coupleId, { enablePush: next });
-    } catch (error) {
-      console.error("Failed to update push setting", error);
-      dispatch({
-        type: "UPDATE_SETTINGS",
-        payload: { enablePush: !next },
-      });
-    } finally {
-      setUpdatingSettings(false);
-    }
-  };
-
-  const toggleFlashbacks = async () => {
-    if (!coupleId) {
-      Alert.alert(
-        "Pair up first",
-        "Connect with your partner to relive shared flashbacks."
-      );
-      return;
-    }
-    const next = !settings.enableFlashbacks;
-    dispatch({
-      type: "UPDATE_SETTINGS",
-      payload: { enableFlashbacks: next },
-    });
-    if (!coupleId) return;
-    try {
-      setUpdatingSettings(true);
-      await coupleService.updateSettings(coupleId, { enableFlashbacks: next });
-    } catch (error) {
-      console.error("Failed to update flashbacks setting", error);
-      dispatch({
-        type: "UPDATE_SETTINGS",
-        payload: { enableFlashbacks: !next },
-      });
-    } finally {
-      setUpdatingSettings(false);
-    }
-  };
+  const dangerColor = "#D95C5C";
 
   const applyAccent = async () => {
     dispatch({ type: "SET_PROFILE_ACCENT", payload: { accentColor: pendingAccent } });
@@ -106,6 +53,52 @@ export default function SettingsScreen() {
           text: "Sign out",
           style: "destructive",
           onPress: () => signOut(firebaseAuth),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleUnbind = async () => {
+    if (!coupleId) {
+      Alert.alert("Not paired", "You need to be paired before you can unbind.");
+      return;
+    }
+    try {
+      setUnbinding(true);
+      const functions = getFunctions(firebaseApp, "australia-southeast1");
+      const unbind = httpsCallable(functions, "unbindCouple");
+      await unbind({ coupleId });
+      dispatch({ type: "RESET_PAIRING" });
+      Alert.alert("Unbound", "Couple removed successfully.");
+      router.replace("/pairing");
+    } catch (error) {
+      console.error("Failed to unbind couple", error);
+      Alert.alert(
+        "Couldn't unbind",
+        error instanceof Error
+          ? error.message
+          : "We couldn't remove your couple right now. Try again in a moment."
+      );
+    } finally {
+      setUnbinding(false);
+    }
+  };
+
+  const confirmUnbind = () => {
+    if (!coupleId) {
+      Alert.alert("Not paired", "You need to be paired before you can unbind.");
+      return;
+    }
+    Alert.alert(
+      "Unbind and delete couple?",
+      "This removes all shared messages, milestones, todos, and profiles for both partners. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete couple",
+          style: "destructive",
+          onPress: handleUnbind,
         },
       ],
       { cancelable: true }
@@ -151,54 +144,6 @@ export default function SettingsScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      {coupleId ? (
-        <CuteCard background={palette.card} padding={20} style={{ gap: 16 }}>
-          <CuteText weight="bold" style={{ fontSize: 18 }}>
-            Couple notifications
-          </CuteText>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <CuteText>Push love notes</CuteText>
-              <CuteText tone="muted" style={{ fontSize: 13 }}>
-                Get gentle reminders and cute nudges throughout the day.
-              </CuteText>
-            </View>
-            <Switch
-              value={settings.enablePush}
-              onValueChange={togglePush}
-              thumbColor={settings.enablePush ? palette.primary : "#ffffff"}
-              trackColor={{ false: palette.border, true: palette.primarySoft }}
-              disabled={updatingSettings}
-            />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <CuteText>Daily flashbacks</CuteText>
-              <CuteText tone="muted" style={{ fontSize: 13 }}>
-                Highlight memories on mornings with matching anniversaries.
-              </CuteText>
-            </View>
-            <Switch
-              value={settings.enableFlashbacks}
-              onValueChange={toggleFlashbacks}
-              thumbColor={settings.enableFlashbacks ? palette.primary : "#ffffff"}
-              trackColor={{ false: palette.border, true: palette.primarySoft }}
-              disabled={updatingSettings}
-            />
-          </View>
-        </CuteCard>
-      ) : (
-        <CuteCard background={palette.card} padding={20} style={{ gap: 12 }}>
-          <CuteText weight="bold" style={{ fontSize: 18 }}>
-            Couple notifications
-          </CuteText>
-          <CuteText tone="muted" style={{ fontSize: 13 }}>
-            Pair with your partner to turn on shared reminders and flashback highlights.
-          </CuteText>
-          <CuteButton label="Go to pairing" onPress={() => router.push("/pairing")} />
-        </CuteCard>
-      )}
-
       <CuteCard background={palette.card} padding={20} style={{ gap: 16 }}>
         <CuteText weight="bold" style={{ fontSize: 18 }}>
           Accent palette
@@ -240,9 +185,19 @@ export default function SettingsScreen() {
           Sign out to switch accounts or start fresh. Make sure changes are synced before leaving.
         </CuteText>
         <CuteButton
+          label="Unbind & delete couple"
+          tone="ghost"
+          onPress={confirmUnbind}
+          disabled={!coupleId || unbinding}
+          icon={<MaterialIcons name="link-off" size={18} color={dangerColor} />}
+          labelColor={dangerColor}
+        />
+        <CuteButton
           label="Sign out"
           tone="ghost"
           onPress={handleSignOut}
+          icon={<MaterialIcons name="logout" size={18} color={dangerColor} />}
+          labelColor={dangerColor}
         />
       </CuteCard>
     </Screen>

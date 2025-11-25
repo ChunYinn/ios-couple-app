@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.redeemInvite = void 0;
+exports.unbindCouple = exports.redeemInvite = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
@@ -89,5 +89,49 @@ exports.redeemInvite = (0, https_1.onCall)({ region: "australia-southeast1" }, a
         });
     });
     return { success: true, coupleId: invite.coupleId };
+});
+exports.unbindCouple = (0, https_1.onCall)({ region: "australia-southeast1" }, async (request) => {
+    var _a, _b, _c;
+    const auth = request.auth;
+    if (!auth) {
+        throw new https_1.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const coupleId = (_b = (_a = request.data) === null || _a === void 0 ? void 0 : _a.coupleId) === null || _b === void 0 ? void 0 : _b.trim();
+    if (!coupleId) {
+        throw new https_1.HttpsError("invalid-argument", "coupleId is required");
+    }
+    const coupleRef = db.collection("couples").doc(coupleId);
+    const coupleDoc = await coupleRef.get();
+    if (!coupleDoc.exists) {
+        throw new https_1.HttpsError("not-found", "Couple not found");
+    }
+    const couple = coupleDoc.data();
+    const members = (_c = couple === null || couple === void 0 ? void 0 : couple.members) !== null && _c !== void 0 ? _c : [];
+    if (!members.includes(auth.uid)) {
+        throw new https_1.HttpsError("permission-denied", "You are not part of this couple");
+    }
+    // Clean up invites tied to this couple
+    const invitesSnap = await db
+        .collection("invites")
+        .where("coupleId", "==", coupleId)
+        .get();
+    const batch = db.batch();
+    invitesSnap.forEach((doc) => batch.delete(doc.ref));
+    members.forEach((uid) => {
+        batch.update(db.collection("users").doc(uid), {
+            coupleId: null,
+            updatedAt: firestore_1.Timestamp.now(),
+        });
+    });
+    await batch.commit();
+    // Recursively delete the couple and all nested data.
+    try {
+        await db.recursiveDelete(coupleRef);
+    }
+    catch (error) {
+        console.error("recursiveDelete failed, deleting root doc only", error);
+        await coupleRef.delete();
+    }
+    return { success: true };
 });
 //# sourceMappingURL=index.js.map

@@ -313,7 +313,8 @@ export default function PairingScreen() {
       });
       setJoinCode("");
       setErrorMessage(null);
-      setInfoMessage("You're paired! Hang tight while we sync profiles.");
+      setInfoMessage(null);
+      router.replace("/(tabs)");
     } catch (error) {
       console.error("Failed to join couple", error);
       setErrorMessage(resolveJoinErrorMessage(error));
