@@ -27,7 +27,6 @@ import { DatePickerSheet } from "../../components/DatePickerSheet";
 type ActionRoute =
   | "/(tabs)/chat"
   | "/(tabs)/lists"
-  | "/(tabs)/calendar"
   | "/milestone/new"
   | "/gallery";
 
@@ -59,13 +58,6 @@ const quickActions: QuickAction[] = [
     label: "Plan Date",
     icon: "favorite",
     route: "/(tabs)/lists",
-    requiresPair: true,
-  },
-  {
-    id: "calendar",
-    label: "Calendar",
-    icon: "calendar-month",
-    route: "/(tabs)/calendar",
     requiresPair: true,
   },
 ];

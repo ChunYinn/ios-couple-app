@@ -68,12 +68,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="milestone"
         listeners={guardTabPress(true)}
         options={{
-          title: "Calendar",
+          title: "Milestones",
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="event-note" size={size} color={color} />
+            <MaterialIcons name="auto-awesome" size={size} color={color} />
           ),
         }}
       />
