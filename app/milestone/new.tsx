@@ -1,6 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
@@ -8,19 +8,30 @@ import { Image, Pressable, ScrollView, View } from "react-native";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
+import { MILESTONE_STEPS } from "../../data/milestoneSteps";
 import { milestoneService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
-import { formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
-import { MILESTONE_STEPS } from "../../data/milestoneSteps";
+import { parseLocalDate } from "../../utils/dateUtils";
 
 export default function NewMilestoneScreen() {
   const palette = usePalette();
   const {
     state: { pairing, auth, dashboard, milestones },
   } = useAppData();
+  const params = useLocalSearchParams<{
+    day?: string | string[];
+    locked?: string | string[];
+  }>();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [showStepPicker, setShowStepPicker] = useState(false);
+  const lockedParam = Array.isArray(params.locked)
+    ? params.locked[0]
+    : params.locked;
+  const isLockedSelection =
+    lockedParam !== undefined && lockedParam !== "0" && lockedParam !== "false";
 
   useEffect(() => {
     if (!pairing.isPaired) {
@@ -30,10 +41,7 @@ export default function NewMilestoneScreen() {
 
   const coupleId = auth.user.coupleId;
   const today = useMemo(() => new Date(), []);
-  const formattedToday = useMemo(
-    () => formatDateToYMD(today.toISOString()),
-    [today]
-  );
+
   const computedDayCount = useMemo(() => {
     if (!dashboard.anniversaryDate) {
       return undefined;
@@ -61,17 +69,56 @@ export default function NewMilestoneScreen() {
     [milestones]
   );
 
+  const unlockedSteps = useMemo(
+    () =>
+      MILESTONE_STEPS.filter(
+        (step) =>
+          daysTogether >= step.dayCount && !achievedDayCounts.has(step.dayCount)
+      ),
+    [daysTogether, achievedDayCounts]
+  );
+
   const eligibleStep = useMemo(() => {
-    return MILESTONE_STEPS.find(
-      (step) =>
-        daysTogether >= step.dayCount && !achievedDayCounts.has(step.dayCount)
-    );
-  }, [achievedDayCounts, daysTogether]);
+    const target = selectedDay ?? unlockedSteps[0]?.dayCount;
+    if (!target) return undefined;
+    return unlockedSteps.find((step) => step.dayCount === target);
+  }, [selectedDay, unlockedSteps]);
+
+  const selectedDateLabel = useMemo(() => {
+    if (!eligibleStep) return null;
+    if (!dashboard.anniversaryDate) return "Saved with today’s date";
+    const anniversary = parseLocalDate(dashboard.anniversaryDate);
+    if (Number.isNaN(anniversary.getTime())) return "Saved with today’s date";
+    const achievedAt = new Date(anniversary);
+    achievedAt.setDate(achievedAt.getDate() + eligibleStep.dayCount);
+    return achievedAt.toLocaleDateString();
+  }, [dashboard.anniversaryDate, eligibleStep]);
 
   const nextStep = useMemo(
     () => MILESTONE_STEPS.find((step) => step.dayCount > daysTogether),
     [daysTogether]
   );
+
+  useEffect(() => {
+    const paramDayRaw = Array.isArray(params.day) ? params.day[0] : params.day;
+    const paramDay = paramDayRaw ? Number(paramDayRaw) : NaN;
+    if (!Number.isNaN(paramDay)) {
+      setSelectedDay(paramDay);
+      if (isLockedSelection) {
+        setShowStepPicker(false);
+      }
+      return;
+    }
+    if (unlockedSteps.length && selectedDay === null) {
+      setSelectedDay(unlockedSteps[0].dayCount);
+    }
+  }, [params.day, unlockedSteps, selectedDay, isLockedSelection]);
+
+  useEffect(() => {
+    if (isLockedSelection && showStepPicker) {
+      setShowStepPicker(false);
+    }
+  }, [isLockedSelection, showStepPicker]);
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -118,7 +165,9 @@ export default function NewMilestoneScreen() {
         const anniversary = parseLocalDate(dashboard.anniversaryDate);
         if (!Number.isNaN(anniversary.getTime())) {
           achievedAt = new Date(anniversary);
-          achievedAt.setDate(achievedAt.getDate() + eligibleStep.dayCount);
+          achievedAt.setDate(
+            achievedAt.getDate() + Math.max(0, eligibleStep.dayCount - 1)
+          );
         }
       }
       await milestoneService.createMilestoneWithImage(coupleId, {
@@ -251,75 +300,97 @@ export default function NewMilestoneScreen() {
                 style={{
                   backgroundColor: palette.card,
                   borderRadius: 20,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
                   borderWidth: 1,
                   borderColor: palette.primarySoft,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
+                  overflow: "hidden",
                 }}
               >
-                <MaterialIcons
-                  name="auto-awesome"
-                  size={22}
-                  color={palette.primary}
-                />
-                <View style={{ flex: 1 }}>
-                  <CuteText weight="bold" style={{ fontSize: 16 }}>
-                    {eligibleStep ? eligibleStep.label : "Milestone locked"}
-                  </CuteText>
-                  <CuteText tone="muted" style={{ fontSize: 13 }}>
-                    {eligibleStep
-                      ? "Unlocked—add your memory for this milestone."
-                      : nextStep
-                      ? `Unlocks at ${nextStep.label}`
-                      : "You're all caught up on milestones!"}
-                  </CuteText>
-                </View>
-              </View>
-            </View>
-
-            <View
-              style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: palette.primarySoft,
-                backgroundColor: palette.card,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                gap: 12,
-                flexDirection: "row",
-                alignItems: "center",
-              }}
-            >
-              <View
-                style={{
-                  height: 48,
-                  width: 48,
-                  borderRadius: 24,
-                  backgroundColor: `${palette.secondary}50`,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialIcons
-                  name="calendar-month"
-                  size={22}
-                  color={palette.secondary}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <CuteText weight="bold">{formattedToday}</CuteText>
-                {computedDayCount !== undefined ? (
-                  <CuteText tone="muted" style={{ fontSize: 13 }}>
-                    {computedDayCount} days since your anniversary
-                  </CuteText>
-                ) : (
-                  <CuteText tone="muted" style={{ fontSize: 13 }}>
-                    We{"'"}ll align this milestone with today{"'"}s date.
-                  </CuteText>
-                )}
+                <Pressable
+                  onPress={() => {
+                    if (isLockedSelection) return;
+                    setShowStepPicker((prev) => !prev);
+                  }}
+                  disabled={isLockedSelection}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    opacity: isLockedSelection ? 0.65 : 1,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <CuteText weight="bold" style={{ fontSize: 16 }}>
+                      {eligibleStep
+                        ? eligibleStep.label
+                        : unlockedSteps.length
+                        ? "Select milestone"
+                        : "Milestone locked"}
+                    </CuteText>
+                    <CuteText tone="muted" style={{ fontSize: 13 }}>
+                      {eligibleStep
+                        ? selectedDateLabel ?? "We’ll timestamp this milestone."
+                        : nextStep
+                        ? `Unlocks at ${nextStep.label}`
+                        : "You're all caught up on milestones!"}
+                    </CuteText>
+                  </View>
+                  {!isLockedSelection ? (
+                    <MaterialIcons
+                      name={showStepPicker ? "expand-less" : "expand-more"}
+                      size={22}
+                      color={palette.textSecondary}
+                    />
+                  ) : null}
+                </Pressable>
+                {!isLockedSelection &&
+                showStepPicker &&
+                unlockedSteps.length ? (
+                  <View style={{ maxHeight: 220 }}>
+                    <ScrollView
+                      showsVerticalScrollIndicator
+                      contentContainerStyle={{ paddingVertical: 8 }}
+                    >
+                      {unlockedSteps.map((step) => {
+                        const isSelected = selectedDay === step.dayCount;
+                        return (
+                          <Pressable
+                            key={step.dayCount}
+                            onPress={() => {
+                              setSelectedDay(step.dayCount);
+                              setShowStepPicker(false);
+                            }}
+                            style={{
+                              paddingHorizontal: 16,
+                              paddingVertical: 10,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 12,
+                              backgroundColor: isSelected
+                                ? `${palette.primary}12`
+                                : "transparent",
+                            }}
+                          >
+                            <MaterialIcons
+                              name={
+                                isSelected
+                                  ? "radio-button-checked"
+                                  : "radio-button-unchecked"
+                              }
+                              size={20}
+                              color={palette.primary}
+                            />
+                            <CuteText weight="bold" style={{ fontSize: 14 }}>
+                              {step.label}
+                            </CuteText>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                ) : null}
               </View>
             </View>
             {error && imageUri ? (

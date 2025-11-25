@@ -6,23 +6,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
-  Pressable,
-  View,
   Platform,
-  useWindowDimensions,
+  Pressable,
   StyleSheet,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { DateTimePickerEvent } from "../../components/AppDatePicker";
 
-import { CuteText } from "../../components/CuteText";
 import { CuteCard } from "../../components/CuteCard";
+import { CuteText } from "../../components/CuteText";
+import { DatePickerSheet } from "../../components/DatePickerSheet";
 import { Screen } from "../../components/Screen";
 import { SectionHeader } from "../../components/SectionHeader";
 import { useAppData } from "../../context/AppDataContext";
-import { usePalette } from "../../hooks/usePalette";
+import { MILESTONE_STEPS } from "../../data/milestoneSteps";
 import { coupleService, userService } from "../../firebase/services";
-import { calculateDaysTogether, formatDateToYMD, parseLocalDate } from "../../utils/dateUtils";
-import { DatePickerSheet } from "../../components/DatePickerSheet";
+import { usePalette } from "../../hooks/usePalette";
+import {
+  calculateDaysTogether,
+  formatDateToYMD,
+  parseLocalDate,
+} from "../../utils/dateUtils";
 
 type ActionRoute =
   | "/(tabs)/chat"
@@ -75,10 +80,9 @@ export default function AnniversaryDashboardScreen() {
   const contentWidth = width - 40;
   const quickActionCardWidth = Math.max(120, (contentWidth - 12) / 2);
   const milestoneAvatarSize = isUltraNarrow ? 56 : 68;
-  const milestoneFrameSize = milestoneAvatarSize + 4;
   const milestoneCardWidth = milestoneAvatarSize + (isUltraNarrow ? 14 : 20);
   const milestoneItemGap = isUltraNarrow ? 10 : 8;
-  const statValueFontSize = isUltraNarrow ? 20 : 24;
+  const statValueFontSize = isUltraNarrow ? 18 : width < 400 ? 20 : 22;
   const statLabelFontSize = isUltraNarrow ? 13 : 15;
   const profileCardGap = width < 360 ? 6 : 10;
   const profileCardWidth = Math.min(
@@ -93,9 +97,7 @@ export default function AnniversaryDashboardScreen() {
 
   const [anniversaryModalVisible, setAnniversaryModalVisible] = useState(false);
   const [anniversaryDraft, setAnniversaryDraft] = useState(() =>
-    dashboard.anniversaryDate
-      ? formatDateToYMD(dashboard.anniversaryDate)
-      : ""
+    dashboard.anniversaryDate ? formatDateToYMD(dashboard.anniversaryDate) : ""
   );
   const [anniversaryDateValue, setAnniversaryDateValue] = useState(() =>
     dashboard.anniversaryDate
@@ -136,8 +138,8 @@ export default function AnniversaryDashboardScreen() {
     const normalized = dashboard.anniversaryDate
       ? formatDateToYMD(dashboard.anniversaryDate)
       : anniversaryDraft
-        ? formatDateToYMD(anniversaryDraft)
-        : "";
+      ? formatDateToYMD(anniversaryDraft)
+      : "";
     setAnniversaryDraft(normalized);
     setAnniversaryDateValue(
       normalized ? parseLocalDate(normalized) : new Date()
@@ -310,15 +312,29 @@ export default function AnniversaryDashboardScreen() {
       : `${month} ${day}, ${fullYear}`;
   };
 
-  const milestoneReels = useMemo(
-    () => [...milestones].slice(0, 24),
-    [milestones]
-  );
+  const milestoneReels = useMemo(() => {
+    const daysTogether = dashboard.daysTogether || 0;
+    const achievedByDay = new Map(
+      milestones
+        .filter((m) => typeof m.dayCount === "number")
+        .map((m) => [m.dayCount as number, m])
+    );
 
-  const handleActionPress = (
-    route: ActionRoute,
-    requiresPair?: boolean
-  ) => {
+    return MILESTONE_STEPS.filter((step) => daysTogether >= step.dayCount)
+      .slice(0, 48)
+      .map((step) => {
+        const achieved = achievedByDay.get(step.dayCount);
+        return {
+          id: achieved ? achieved.id : `step-${step.dayCount}`,
+          label: step.label,
+          image: achieved?.image,
+          dayCount: step.dayCount,
+          achieved: Boolean(achieved),
+        };
+      });
+  }, [dashboard.daysTogether, milestones]);
+
+  const handleActionPress = (route: ActionRoute, requiresPair?: boolean) => {
     if (requiresPair && !isPaired) {
       router.push("/pairing");
       return;
@@ -431,10 +447,7 @@ export default function AnniversaryDashboardScreen() {
                 {card.value}
               </CuteText>
               {card.hint ? (
-                <CuteText
-                  tone="muted"
-                  style={{ fontSize: 12, marginTop: 8 }}
-                >
+                <CuteText tone="muted" style={{ fontSize: 12, marginTop: 8 }}>
                   {card.hint}
                 </CuteText>
               ) : null}
@@ -443,9 +456,7 @@ export default function AnniversaryDashboardScreen() {
 
           const containerStyle = [
             statCardStyles.flexOne,
-            isUltraNarrow
-              ? { minWidth: (contentWidth - 12) / 2 }
-              : undefined,
+            isUltraNarrow ? { minWidth: (contentWidth - 12) / 2 } : undefined,
           ];
 
           if (card.actionable) {
@@ -492,48 +503,28 @@ export default function AnniversaryDashboardScreen() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[...milestoneReels, { id: "add-button" }]}
+          data={milestoneReels}
           keyExtractor={(item, index) =>
             item.id ? `${item.id}-${index}` : `add-${index}`
           }
-          ItemSeparatorComponent={() => <View style={{ width: milestoneItemGap }} />}
+          ItemSeparatorComponent={() => (
+            <View style={{ width: milestoneItemGap }} />
+          )}
           contentContainerStyle={{
             paddingVertical: 4,
             paddingRight: 8,
           }}
           renderItem={({ item }) => {
-            if (item.id === "add-button") {
-              return (
-                <Pressable
-                  onPress={() => router.push("/milestone/new")}
-                  style={{
-                    width: milestoneCardWidth,
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: milestoneFrameSize,
-                      height: milestoneFrameSize,
-                      borderRadius: milestoneFrameSize / 2,
-                      borderWidth: 2,
-                      borderStyle: "dashed",
-                      borderColor: palette.primary,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: palette.card,
-                    }}
-                  >
-                    <MaterialIcons name="add" size={28} color={palette.primary} />
-                  </View>
-                </Pressable>
-              );
-            }
-
+            const isAchieved = item.achieved;
             return (
               <Pressable
-                onPress={() => router.push(`/milestone/${item.id}`)}
+                onPress={() =>
+                  isAchieved
+                    ? router.push(`/milestone/${item.id}`)
+                    : router.push(
+                        `/milestone/new?day=${item.dayCount}&locked=1`
+                      )
+                }
                 style={{
                   width: milestoneCardWidth,
                   alignItems: "center",
@@ -544,7 +535,7 @@ export default function AnniversaryDashboardScreen() {
                   style={{
                     padding: 4,
                     borderRadius: 999,
-                    borderWidth: 2,
+                    borderWidth: 1,
                     borderColor: palette.primary,
                     backgroundColor: palette.card,
                   }}
@@ -564,14 +555,17 @@ export default function AnniversaryDashboardScreen() {
                         width: milestoneAvatarSize,
                         height: milestoneAvatarSize,
                         borderRadius: 999,
+                        borderWidth: 2,
+                        borderStyle: "dashed",
+                        borderColor: palette.primary,
                         alignItems: "center",
                         justifyContent: "center",
-                        backgroundColor: palette.primarySoft,
+                        backgroundColor: palette.card,
                       }}
                     >
                       <MaterialIcons
-                        name="auto-awesome"
-                        size={24}
+                        name="add"
+                        size={28}
                         color={palette.primary}
                       />
                     </View>
@@ -587,7 +581,7 @@ export default function AnniversaryDashboardScreen() {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {item.title}
+                    {"label" in item ? item.label : item.title}
                   </CuteText>
                 </View>
               </Pressable>
@@ -714,7 +708,8 @@ export default function AnniversaryDashboardScreen() {
                     partner.key === "placeholder"
                       ? palette.primary + "80"
                       : partner.accent + "55",
-                  borderStyle: partner.key === "placeholder" ? "dashed" : "solid",
+                  borderStyle:
+                    partner.key === "placeholder" ? "dashed" : "solid",
                 }}
                 onPress={() =>
                   partner.key === "placeholder"
@@ -737,8 +732,12 @@ export default function AnniversaryDashboardScreen() {
                           ? palette.background
                           : partner.accent + "33",
                       borderWidth: partner.key === "placeholder" ? 2 : 0,
-                      borderColor: partner.key === "placeholder" ? palette.primary + "66" : "transparent",
-                      borderStyle: partner.key === "placeholder" ? "dashed" : "solid",
+                      borderColor:
+                        partner.key === "placeholder"
+                          ? palette.primary + "66"
+                          : "transparent",
+                      borderStyle:
+                        partner.key === "placeholder" ? "dashed" : "solid",
                     }}
                   >
                     {partner.avatar ? (
@@ -799,7 +798,11 @@ export default function AnniversaryDashboardScreen() {
                 </View>
                 <CuteText
                   weight="bold"
-                  style={{ fontSize: 17, marginTop: hasStatus ? 6 : 12, textAlign: "center" }}
+                  style={{
+                    fontSize: 17,
+                    marginTop: hasStatus ? 6 : 12,
+                    textAlign: "center",
+                  }}
                 >
                   {partner.name}
                 </CuteText>
@@ -832,7 +835,10 @@ export default function AnniversaryDashboardScreen() {
                   </View>
                 ) : null}
                 {partner.key === "placeholder" ? (
-                  <CuteText tone="muted" style={{ fontSize: 12, marginTop: 10, textAlign: "center" }}>
+                  <CuteText
+                    tone="muted"
+                    style={{ fontSize: 12, marginTop: 10, textAlign: "center" }}
+                  >
                     Tap to pair your partner.
                   </CuteText>
                 ) : null}
@@ -860,7 +866,6 @@ export default function AnniversaryDashboardScreen() {
           ) : null
         }
       />
-
     </Screen>
   );
 }
