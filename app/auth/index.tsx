@@ -4,17 +4,16 @@ import { useRouter } from "expo-router";
 import { FirebaseError } from "firebase/app";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  TextInput,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteText } from "../../components/CuteText";
@@ -118,12 +117,16 @@ export default function LoginScreen() {
     <Screen scrollable={false}>
       <StatusBar barStyle="dark-content" />
       <LinearGradient
-        colors={[design.primary + "33", design.background, design.secondary + "22"]}
+        colors={[
+          design.primary + "33",
+          design.background,
+          design.secondary + "22",
+        ]}
         style={{ flex: 1, backgroundColor: design.background }}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.9, y: 1 }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: design.background }}>
+        <View style={{ flex: 1, backgroundColor: design.background }}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -138,8 +141,22 @@ export default function LoginScreen() {
                 gap: 28,
               }}
             >
-              <View style={{ flex: 1, width: "100%", alignItems: "center", gap: 28 }}>
-                <View style={{ width: "100%", maxWidth: 360, alignItems: "center", gap: 14 }}>
+              <View
+                style={{
+                  flex: 1,
+                  width: "100%",
+                  alignItems: "center",
+                  gap: 28,
+                }}
+              >
+                <View
+                  style={{
+                    width: "100%",
+                    maxWidth: 360,
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
                   <View
                     style={{
                       position: "absolute",
@@ -185,7 +202,9 @@ export default function LoginScreen() {
                         shadowOffset: { width: 0, height: 8 },
                       }}
                     >
-                      <CuteText style={{ fontSize: 44, color: design.primaryContent }}>
+                      <CuteText
+                        style={{ fontSize: 44, color: design.primaryContent }}
+                      >
                         💌
                       </CuteText>
                     </View>
@@ -193,7 +212,11 @@ export default function LoginScreen() {
 
                   <CuteText
                     weight="bold"
-                    style={{ fontSize: 32, color: design.primaryContent, marginTop: 6 }}
+                    style={{
+                      fontSize: 32,
+                      color: design.primaryContent,
+                      marginTop: 6,
+                    }}
                   >
                     YouMeUs
                   </CuteText>
@@ -217,85 +240,95 @@ export default function LoginScreen() {
                 >
                   <CuteText
                     weight="bold"
-                    style={{ fontSize: 22, textAlign: "center", color: design.textMain }}
+                    style={{
+                      fontSize: 22,
+                      textAlign: "center",
+                      color: design.textMain,
+                    }}
                   >
                     Welcome back!
                   </CuteText>
 
                   <View style={{ gap: 12 }}>
                     <View style={{ gap: 6 }}>
-                      <CuteText weight="semibold" style={{ color: design.textMain, fontSize: 14 }}>
+                      <CuteText
+                        weight="semibold"
+                        style={{ color: design.textMain, fontSize: 14 }}
+                      >
                         Email
                       </CuteText>
                       <View style={{ position: "relative" }}>
-                      <MaterialIcons
-                        name="mail"
-                        size={18}
-                        color={design.textSubtle}
-                        style={{
-                          position: "absolute",
-                          left: 14,
-                          top: 14,
-                          zIndex: 1,
-                        }}
-                      />
-                      <TextInput
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="you@example.com"
-                        placeholderTextColor={design.textSubtle}
+                        <MaterialIcons
+                          name="mail"
+                          size={18}
+                          color={design.textSubtle}
+                          style={{
+                            position: "absolute",
+                            left: 14,
+                            top: 14,
+                            zIndex: 1,
+                          }}
+                        />
+                        <TextInput
+                          value={email}
+                          onChangeText={setEmail}
+                          placeholder="you@example.com"
+                          placeholderTextColor={design.textSubtle}
                           keyboardType="email-address"
                           autoCapitalize="none"
                           autoCorrect={false}
                           textContentType="emailAddress"
                           style={{
                             width: "100%",
-                          borderRadius: 16,
-                          backgroundColor: design.background,
-                          paddingVertical: 14,
-                          paddingHorizontal: 42,
-                          color: design.textMain,
-                          borderWidth: 1,
-                          borderColor: design.primary + "33",
-                          fontSize: 15,
+                            borderRadius: 16,
+                            backgroundColor: design.background,
+                            paddingVertical: 14,
+                            paddingHorizontal: 42,
+                            color: design.textMain,
+                            borderWidth: 1,
+                            borderColor: design.primary + "33",
+                            fontSize: 15,
                           }}
                         />
                       </View>
                     </View>
 
                     <View style={{ gap: 6 }}>
-                      <CuteText weight="semibold" style={{ color: design.textMain, fontSize: 14 }}>
+                      <CuteText
+                        weight="semibold"
+                        style={{ color: design.textMain, fontSize: 14 }}
+                      >
                         Password
                       </CuteText>
                       <View style={{ position: "relative" }}>
-                      <MaterialIcons
-                        name="key"
-                        size={18}
-                        color={design.textSubtle}
-                        style={{
-                          position: "absolute",
-                          left: 14,
-                          top: 14,
-                          zIndex: 1,
-                        }}
-                      />
+                        <MaterialIcons
+                          name="key"
+                          size={18}
+                          color={design.textSubtle}
+                          style={{
+                            position: "absolute",
+                            left: 14,
+                            top: 14,
+                            zIndex: 1,
+                          }}
+                        />
                         <TextInput
                           value={password}
                           onChangeText={setPassword}
-                        placeholder="••••••••"
-                        placeholderTextColor={design.textSubtle}
-                        secureTextEntry
-                        textContentType="password"
-                        style={{
-                          width: "100%",
-                          borderRadius: 16,
-                          backgroundColor: design.background,
-                          paddingVertical: 14,
-                          paddingHorizontal: 42,
-                          color: design.textMain,
-                          borderWidth: 1,
-                          borderColor: design.primary + "33",
-                          fontSize: 15,
+                          placeholder="••••••••"
+                          placeholderTextColor={design.textSubtle}
+                          secureTextEntry
+                          textContentType="password"
+                          style={{
+                            width: "100%",
+                            borderRadius: 16,
+                            backgroundColor: design.background,
+                            paddingVertical: 14,
+                            paddingHorizontal: 42,
+                            color: design.textMain,
+                            borderWidth: 1,
+                            borderColor: design.primary + "33",
+                            fontSize: 15,
                           }}
                         />
                       </View>
@@ -307,7 +340,9 @@ export default function LoginScreen() {
                     onPress={handleLogin}
                     disabled={loginDisabled}
                     icon={
-                      loading ? <ActivityIndicator size="small" color="#fff" /> : undefined
+                      loading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : undefined
                     }
                     style={{ borderRadius: 999, paddingVertical: 14 }}
                   />
@@ -325,7 +360,11 @@ export default function LoginScreen() {
                         borderColor: design.primary + "60",
                       }}
                     >
-                      <MaterialIcons name="error-outline" size={18} color={design.primaryContent} />
+                      <MaterialIcons
+                        name="error-outline"
+                        size={18}
+                        color={design.primaryContent}
+                      />
                       <CuteText tone="accent" style={{ fontSize: 13, flex: 1 }}>
                         {error}
                       </CuteText>
@@ -343,7 +382,13 @@ export default function LoginScreen() {
                       New to YouMeUs?
                     </CuteText>
                     <Pressable onPress={() => router.push("/auth/signup")}>
-                      <CuteText style={{ fontSize: 13, color: design.primary, fontWeight: "700" }}>
+                      <CuteText
+                        style={{
+                          fontSize: 13,
+                          color: design.primary,
+                          fontWeight: "700",
+                        }}
+                      >
                         Create account
                       </CuteText>
                     </Pressable>
@@ -359,17 +404,18 @@ export default function LoginScreen() {
                         borderColor: design.primary + "60",
                       }}
                     >
-                      <CuteText style={{ fontSize: 13, color: design.primaryContent }}>
+                      <CuteText
+                        style={{ fontSize: 13, color: design.primaryContent }}
+                      >
                         {info}
                       </CuteText>
                     </View>
                   ) : null}
                 </View>
               </View>
-
             </ScrollView>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </LinearGradient>
     </Screen>
   );

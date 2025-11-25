@@ -4,17 +4,16 @@ import { useRouter } from "expo-router";
 import { fetchSignInMethodsForEmail } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  TextInput,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteText } from "../../components/CuteText";
@@ -184,7 +183,13 @@ export default function SignupScreen() {
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.9, y: 1 }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: design.background }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: design.background,
+            paddingTop: 20,
+          }}
+        >
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -498,7 +503,7 @@ export default function SignupScreen() {
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </LinearGradient>
     </Screen>
   );
