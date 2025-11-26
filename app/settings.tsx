@@ -4,12 +4,13 @@ import { StatusBar } from "expo-status-bar";
 import { signOut } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useState } from "react";
-import { Alert, Pressable, useColorScheme, View } from "react-native";
+import { Pressable, useColorScheme, View } from "react-native";
 
 import { CuteButton } from "../components/CuteButton";
 import { CuteCard } from "../components/CuteCard";
 import { CuteText } from "../components/CuteText";
 import { Screen } from "../components/Screen";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAppData } from "../context/AppDataContext";
 import { useToast } from "../context/ToastContext";
 import { firebaseApp, firebaseAuth } from "../firebase/config";
@@ -28,6 +29,20 @@ export default function SettingsScreen() {
   const { showToast } = useToast();
   const [pendingAccent, setPendingAccent] = useState(settings.accent);
   const [unbinding, setUnbinding] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message?: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const closeConfirm = () => setConfirmDialog(null);
+  const confirmAndRun = () => {
+    const action = confirmDialog?.onConfirm;
+    setConfirmDialog(null);
+    action?.();
+  };
 
   const coupleId = pairing.coupleId ?? auth.user.coupleId;
   const isPaired = pairing.isPaired && Boolean(coupleId);
@@ -50,19 +65,14 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign out?",
-      "You'll return to the sign-in screen. Unsynced changes on this device may be lost, but your account stays safe with your email and password.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign out",
-          style: "destructive",
-          onPress: () => signOut(firebaseAuth),
-        },
-      ],
-      { cancelable: true }
-    );
+    setConfirmDialog({
+      title: "Sign out?",
+      message:
+        "You'll return to the sign-in screen. Unsynced changes on this device may be lost, but your account stays safe with your email and password.",
+      confirmLabel: "Sign out",
+      destructive: true,
+      onConfirm: () => signOut(firebaseAuth),
+    });
   };
 
   const handleUnbind = async () => {
@@ -95,32 +105,31 @@ export default function SettingsScreen() {
 
   const confirmUnbind = () => {
     if (!isPaired) {
-      Alert.alert("Not paired", "You need to be paired before you can unbind.");
+      showToast({
+        tone: "info",
+        message: "You need to be paired before you can unbind.",
+      });
       return;
     }
-    Alert.alert(
-      "Unbind and delete couple?",
-      "This removes all shared messages, milestones, todos, and profiles for both partners. This can't be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete couple",
-          style: "destructive",
-          onPress: handleUnbind,
-        },
-      ],
-      { cancelable: true }
-    );
+    setConfirmDialog({
+      title: "Unbind and delete couple?",
+      message:
+        "This removes all shared messages, milestones, todos, and profiles for both partners. This can't be undone.",
+      confirmLabel: "Delete couple",
+      destructive: true,
+      onConfirm: handleUnbind,
+    });
   };
 
   return (
-    <Screen
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        gap: 18,
-      }}
-    >
+    <>
+      <Screen
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 24,
+          gap: 18,
+        }}
+      >
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <View
         style={{
@@ -217,6 +226,16 @@ export default function SettingsScreen() {
           labelColor={dangerColor}
         />
       </CuteCard>
-    </Screen>
+      </Screen>
+      <ConfirmDialog
+        visible={Boolean(confirmDialog)}
+        title={confirmDialog?.title ?? ""}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        destructive={confirmDialog?.destructive}
+        onCancel={closeConfirm}
+        onConfirm={confirmAndRun}
+      />
+    </>
   );
 }

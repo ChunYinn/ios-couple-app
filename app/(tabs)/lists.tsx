@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CuteDropdown } from "../../components/CuteDropdown";
 import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
@@ -76,6 +76,11 @@ const formatCategoryLabelFromKey = (key: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+const truncateText = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+};
+
 export default function SharedListsScreen() {
   const palette = usePalette();
   const { showToast } = useToast();
@@ -125,6 +130,13 @@ export default function SharedListsScreen() {
   const [manageCategoryError, setManageCategoryError] = useState<string | null>(
     null
   );
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message?: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const hiddenCategoryIds = useMemo(
     () =>
@@ -135,6 +147,14 @@ export default function SharedListsScreen() {
       ),
     [todos.categories]
   );
+
+  const closeConfirmDialog = useCallback(() => setConfirmDialog(null), []);
+
+  const confirmAndClose = useCallback(() => {
+    const action = confirmDialog?.onConfirm;
+    setConfirmDialog(null);
+    action?.();
+  }, [confirmDialog]);
 
   const uniqueTodoItems = useMemo(() => {
     const seen = new Set<string>();
@@ -343,7 +363,11 @@ export default function SharedListsScreen() {
       if (code === "CATEGORY_EXISTS") {
         setCategoryEditorError("That name is already taken.");
       } else {
-        Alert.alert("Couldn't update category", "Please try again.");
+        showToast({
+          tone: "error",
+          title: "Couldn't update category",
+          message: "Please try again.",
+        });
       }
     } finally {
       setCategoryEditorSaving(false);
@@ -371,6 +395,11 @@ export default function SharedListsScreen() {
         setManageCategoryError("That name is already taken.");
       } else {
         setManageCategoryError("Couldn't add category. Try again.");
+        showToast({
+          tone: "error",
+          title: "Couldn't add category",
+          message: "Please try again.",
+        });
       }
     } finally {
       setManageCategorySaving(false);
@@ -473,19 +502,14 @@ export default function SharedListsScreen() {
   };
 
   const confirmToggleTodo = (todo: TodoItem, value: boolean) => {
-    Alert.alert(
-      value ? "Mark this as done?" : "Reopen this to-do?",
-      value
+    setConfirmDialog({
+      title: value ? "Mark this as done?" : "Reopen this to-do?",
+      message: value
         ? "We'll move it into your completed tab."
         : "It will show up under your active to-dos again.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: value ? "Mark done" : "Reopen",
-          onPress: () => handleToggleTodo(todo, value),
-        },
-      ]
-    );
+      confirmLabel: value ? "Mark done" : "Reopen",
+      onConfirm: () => handleToggleTodo(todo, value),
+    });
   };
 
   const renderAssigneeAvatars = (assigneeIds: string[]) => {
@@ -548,6 +572,10 @@ export default function SharedListsScreen() {
     const emoji = categoryMeta?.emoji ?? "📝";
     const categoryLabel = categoryMeta?.label ?? "General";
     const categoryAccent = categoryMeta?.color ?? palette.primarySoft;
+    const previewNotes =
+      item.notes && item.notes.length
+        ? truncateText(item.notes, 140)
+        : undefined;
 
     const assigneeAvatars = renderAssigneeAvatars(item.assigneeIds);
 
@@ -624,7 +652,7 @@ export default function SharedListsScreen() {
                   textDecorationLine: isCompleted ? "line-through" : "none",
                 }}
               >
-                {item.notes}
+                {previewNotes}
               </CuteText>
             ) : null}
           </View>
@@ -645,9 +673,8 @@ export default function SharedListsScreen() {
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
-              backgroundColor: isCompleted
-                ? palette.primarySoft
-                : categoryAccent,
+              backgroundColor: categoryAccent,
+              opacity: isCompleted ? 0.95 : 1,
               paddingHorizontal: 10,
               paddingVertical: 6,
               borderRadius: 12,
@@ -835,7 +862,11 @@ export default function SharedListsScreen() {
       });
     } catch (error) {
       console.error("Failed to update category visibility", error);
-      Alert.alert("Couldn't update category", "Please try again.");
+      showToast({
+        tone: "error",
+        title: "Couldn't update category",
+        message: "Please try again.",
+      });
     }
   };
 
@@ -892,24 +923,22 @@ export default function SharedListsScreen() {
       }
     } catch (error) {
       console.error("Failed to delete todo", error);
-      Alert.alert("Couldn't delete to-do", "Please try again.");
+      showToast({
+        tone: "error",
+        title: "Couldn't delete to-do",
+        message: "Please try again.",
+      });
     }
   };
 
   const confirmDeleteTodo = (todo: TodoItem) => {
-    Alert.alert(
-      "Delete this to-do?",
-      "This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDeleteTodo(todo),
-        },
-      ],
-      { cancelable: true }
-    );
+    setConfirmDialog({
+      title: "Delete this to-do?",
+      message: "This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+      onConfirm: () => handleDeleteTodo(todo),
+    });
   };
 
   if (!pairing.isPaired) {
@@ -1526,6 +1555,16 @@ export default function SharedListsScreen() {
         </Pressable>
       </Modal>
 
+      <ConfirmDialog
+        visible={Boolean(confirmDialog)}
+        title={confirmDialog?.title ?? ""}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        destructive={confirmDialog?.destructive}
+        onCancel={closeConfirmDialog}
+        onConfirm={confirmAndClose}
+      />
+
       <TodoFormModal
         mode="create"
         visible={todoModalVisible}
@@ -1533,6 +1572,8 @@ export default function SharedListsScreen() {
         categories={categoryOptionsForForm}
         defaultCategoryKey={defaultNewTodoCategory}
         partnerName={partnerName}
+        partnerAvatar={partnerAvatar}
+        meAvatar={myAvatar}
         onSubmit={handleCreateTodo}
         onCreateCategory={handleCreateCategory}
       />
@@ -1545,6 +1586,8 @@ export default function SharedListsScreen() {
         categories={categoryOptionsForForm}
         defaultCategoryKey={defaultNewTodoCategory}
         partnerName={partnerName}
+        partnerAvatar={partnerAvatar}
+        meAvatar={myAvatar}
         onSubmit={async (values) => {
           if (!editingTodo) return;
           await handleUpdateTodo(editingTodo.id, values);
@@ -1909,10 +1952,12 @@ export default function SharedListsScreen() {
                       }}
                       labelColor={palette.primary}
                       onPress={() =>
-                        Alert.alert(
-                          "Calendar integration",
-                          "Scheduling is on the way. Soon you'll be able to drop this to-do onto your shared calendar."
-                        )
+                        showToast({
+                          tone: "info",
+                          title: "Calendar integration",
+                          message:
+                            "Scheduling is on the way. Soon you'll be able to drop this to-do onto your shared calendar.",
+                        })
                       }
                     />
                   </View>
@@ -1948,6 +1993,8 @@ type TodoFormModalProps = {
   categories: CategoryFilterOption[];
   defaultCategoryKey: string;
   partnerName: string;
+  partnerAvatar?: string | null;
+  meAvatar?: string | null;
   onSubmit: (values: NewTodoFormValues) => Promise<void>;
   onCreateCategory: (values: NewCategoryInput) => Promise<string>;
   initialTodo?: TodoItem;
@@ -1960,6 +2007,8 @@ const TodoFormModal = ({
   categories,
   defaultCategoryKey,
   partnerName,
+  partnerAvatar,
+  meAvatar,
   onSubmit,
   onCreateCategory,
   initialTodo,
@@ -2064,6 +2113,33 @@ const TodoFormModal = ({
     return "me";
   }, [assignees]);
 
+  const assigneeOptions = useMemo(
+    () => [
+      {
+        key: "me" as const,
+        label: "Me",
+        emoji: "🐼",
+        color: palette.accent,
+        avatar: meAvatar ?? undefined,
+      },
+      {
+        key: "partner" as const,
+        label: partnerName,
+        emoji: "🐰",
+        color: palette.secondary,
+        avatar: partnerAvatar ?? undefined,
+      },
+      {
+        key: "both" as const,
+        label: "Both",
+        emoji: "🤝",
+        color: palette.primarySoft,
+        avatar: undefined,
+      },
+    ],
+    [meAvatar, palette.accent, palette.primarySoft, palette.secondary, partnerAvatar, partnerName]
+  );
+
   const selectAssigneeMode = (mode: "me" | "partner" | "both") => {
     if (mode === "both") {
       setAssignees(["me", "partner"]);
@@ -2109,7 +2185,11 @@ const TodoFormModal = ({
         );
       } else {
         console.error("Failed to create category", error);
-        Alert.alert("Couldn't save category", "Please try again.");
+        showToast({
+          tone: "error",
+          title: "Couldn't save category",
+          message: "Please try again.",
+        });
       }
     } finally {
       setCategorySaving(false);
@@ -2137,7 +2217,11 @@ const TodoFormModal = ({
       onClose();
     } catch (error) {
       console.error("Failed to save to-do", error);
-      Alert.alert("Couldn't save to-do", "Please try again.");
+      showToast({
+        tone: "error",
+        title: "Couldn't save to-do",
+        message: "Please try again.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -2420,27 +2504,96 @@ const TodoFormModal = ({
                   Assign to
                 </CuteText>
                 <View style={{ flexDirection: "row", gap: 10 }}>
-                  {[
-                    {
-                      key: "me" as const,
-                      label: "Me",
-                      emoji: "🐼",
-                      color: palette.accent,
-                    },
-                    {
-                      key: "partner" as const,
-                      label: partnerName,
-                      emoji: "🐰",
-                      color: palette.secondary,
-                    },
-                    {
-                      key: "both" as const,
-                      label: "Both",
-                      emoji: "🤝",
-                      color: palette.primarySoft,
-                    },
-                  ].map((option) => {
+                  {assigneeOptions.map((option) => {
                     const isActive = assigneeMode === option.key;
+                    const renderAvatar = (uri?: string, emoji?: string, bg?: string) => (
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: bg ?? palette.card,
+                          overflow: "hidden",
+                          shadowColor: "#00000010",
+                          shadowOpacity: 0.08,
+                          shadowRadius: 8,
+                        }}
+                      >
+                        {uri ? (
+                          <Image
+                            source={{ uri }}
+                            style={{ width: "100%", height: "100%" }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <CuteText style={{ fontSize: 22 }}>{emoji}</CuteText>
+                        )}
+                      </View>
+                    );
+
+                    const renderBothAvatars = () => (
+                      <View style={{ width: 52, height: 48 }}>
+                        <View
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            backgroundColor: palette.accent,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            shadowColor: "#00000015",
+                            shadowOpacity: 0.08,
+                            shadowRadius: 6,
+                          }}
+                        >
+                          {meAvatar ? (
+                            <Image
+                              source={{ uri: meAvatar }}
+                              style={{ width: "100%", height: "100%" }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <CuteText style={{ fontSize: 18 }}>🐼</CuteText>
+                          )}
+                        </View>
+                        <View
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            bottom: 0,
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            backgroundColor: palette.secondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            borderWidth: 2,
+                            borderColor: palette.card,
+                            shadowColor: "#00000015",
+                            shadowOpacity: 0.08,
+                            shadowRadius: 6,
+                          }}
+                        >
+                          {partnerAvatar ? (
+                            <Image
+                              source={{ uri: partnerAvatar }}
+                              style={{ width: "100%", height: "100%" }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <CuteText style={{ fontSize: 18 }}>🐰</CuteText>
+                          )}
+                        </View>
+                      </View>
+                    );
+
                     return (
                       <Pressable
                         key={option.key}
@@ -2464,66 +2617,9 @@ const TodoFormModal = ({
                           elevation: isActive ? 2 : 0,
                         }}
                       >
-                        {option.key === "both" ? (
-                          <View style={{ width: 48, height: 48 }}>
-                            <View
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 0,
-                                width: 38,
-                                height: 38,
-                                borderRadius: 19,
-                                backgroundColor: palette.accent,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                shadowColor: "#00000015",
-                                shadowOpacity: 0.08,
-                                shadowRadius: 6,
-                              }}
-                            >
-                              <CuteText style={{ fontSize: 18 }}>🐼</CuteText>
-                            </View>
-                            <View
-                              style={{
-                                position: "absolute",
-                                right: 0,
-                                bottom: 0,
-                                width: 38,
-                                height: 38,
-                                borderRadius: 19,
-                                backgroundColor: palette.secondary,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderWidth: 2,
-                                borderColor: palette.card,
-                                shadowColor: "#00000015",
-                                shadowOpacity: 0.08,
-                                shadowRadius: 6,
-                              }}
-                            >
-                              <CuteText style={{ fontSize: 18 }}>🐰</CuteText>
-                            </View>
-                          </View>
-                        ) : (
-                          <View
-                            style={{
-                              width: 48,
-                              height: 48,
-                              borderRadius: 24,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              backgroundColor: option.color,
-                              shadowColor: "#00000010",
-                              shadowOpacity: 0.08,
-                              shadowRadius: 8,
-                            }}
-                          >
-                            <CuteText style={{ fontSize: 22 }}>
-                              {option.emoji}
-                            </CuteText>
-                          </View>
-                        )}
+                        {option.key === "both"
+                          ? renderBothAvatars()
+                          : renderAvatar(option.avatar, option.emoji, option.color)}
                         <CuteText
                           weight={isActive ? "bold" : "semibold"}
                           style={{
