@@ -1027,19 +1027,21 @@ export default function SharedListsScreen() {
           <Pressable
             onPress={() => setTodoModalVisible(true)}
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
+              width: 48,
+              height: 48,
+              borderRadius: 24,
               backgroundColor: palette.primary,
               alignItems: "center",
               justifyContent: "center",
+              borderWidth: 1.5,
+              borderColor: "#ffffffaa",
               shadowColor: palette.primary,
-              shadowOpacity: 0.35,
-              shadowRadius: 10,
-              elevation: 4,
+              shadowOpacity: 0.4,
+              shadowRadius: 12,
+              elevation: 5,
             }}
           >
-            <MaterialIcons name="add-circle" size={26} color="#fff" />
+            <MaterialIcons name="add" size={24} color="#fff" />
           </Pressable>
         </View>
 
@@ -1060,6 +1062,7 @@ export default function SharedListsScreen() {
             const chipBackground = isActive ? palette.primary : palette.card;
             const chipBorder = isActive ? palette.primary : palette.border;
             const chipTextColor = isActive ? "#fff" : palette.text;
+            const showEmoji = filter.key !== "all";
             return (
               <Pressable
                 key={filter.key}
@@ -1067,10 +1070,10 @@ export default function SharedListsScreen() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  gap: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 999,
+                  gap: showEmoji ? 8 : 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 14,
                   backgroundColor: chipBackground,
                   borderWidth: 1,
                   borderColor: chipBorder,
@@ -1080,26 +1083,28 @@ export default function SharedListsScreen() {
                   elevation: isActive ? 3 : 0,
                 }}
               >
-                <View
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: isActive
-                      ? "#ffffff26"
-                      : palette.primarySoft,
-                  }}
-                >
-                  <CuteText style={{ fontSize: 16, color: chipTextColor }}>
-                    {filter.emoji}
-                  </CuteText>
-                </View>
+                {showEmoji ? (
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isActive
+                        ? "#ffffff26"
+                        : palette.primarySoft,
+                    }}
+                  >
+                    <CuteText style={{ fontSize: 14, color: chipTextColor }}>
+                      {filter.emoji}
+                    </CuteText>
+                  </View>
+                ) : null}
                 <CuteText
                   weight={isActive ? "bold" : "semibold"}
                   style={{
-                    fontSize: 13,
+                    fontSize: 12,
                     color: chipTextColor,
                   }}
                 >
@@ -1647,39 +1652,47 @@ export default function SharedListsScreen() {
                 const assigneeDisplay = getAssigneeDisplay(
                   selectedTodo.assigneeIds
                 );
+                const assigneeEntries = selectedTodo.assigneeIds.map((id) => {
+                  const isMe = id === "me";
+                  return {
+                    id,
+                    label: isMe ? myName : partnerName,
+                    avatar: isMe ? myAvatar : partnerAvatar,
+                  };
+                });
                 const infoRowStyle = {
                   flexDirection: "row" as const,
                   alignItems: "center" as const,
-                  gap: 16,
-                  padding: 16,
-                  borderRadius: 22,
+                  gap: 14,
+                  padding: 12,
+                  borderRadius: 16,
                   backgroundColor: palette.card,
                   shadowColor: "#000",
-                  shadowOpacity: 0.05,
-                  shadowRadius: 12,
-                  elevation: 3,
+                  shadowOpacity: 0.04,
+                  shadowRadius: 10,
+                  elevation: 2,
                 };
 
                 return (
-                  <View style={{ gap: 18 }}>
+                  <View style={{ gap: 14 }}>
                     <View
                       style={{
                         flexDirection: "row",
-                        gap: 18,
+                        gap: 12,
                         backgroundColor: palette.card,
-                        borderRadius: 32,
-                        padding: 20,
+                        borderRadius: 24,
+                        padding: 16,
                         shadowColor: "#000",
-                        shadowOpacity: 0.08,
-                        shadowRadius: 18,
-                        elevation: 4,
+                        shadowOpacity: 0.06,
+                        shadowRadius: 12,
+                        elevation: 3,
                       }}
                     >
                       <View
                         style={{
-                          width: 60,
-                          height: 60,
-                          borderRadius: 26,
+                          width: 52,
+                          height: 52,
+                          borderRadius: 20,
                           backgroundColor: detailAccent,
                           alignItems: "center",
                           justifyContent: "center",
@@ -1687,9 +1700,9 @@ export default function SharedListsScreen() {
                       >
                         <View
                           style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 20,
+                            width: 40,
+                            height: 40,
+                            borderRadius: 14,
                             backgroundColor: "#fff",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1701,14 +1714,14 @@ export default function SharedListsScreen() {
                         </View>
                       </View>
                       <View style={{ flex: 1, gap: 8 }}>
-                        <CuteText weight="bold" style={{ fontSize: 22 }}>
+                        <CuteText weight="bold" style={{ fontSize: 20 }}>
                           {selectedTodo.title}
                         </CuteText>
                         <View
                           style={{
                             flexDirection: "row",
                             alignItems: "center",
-                            gap: 8,
+                            gap: 6,
                             flexWrap: "wrap",
                           }}
                         >
@@ -1716,10 +1729,10 @@ export default function SharedListsScreen() {
                             style={{
                               flexDirection: "row",
                               alignItems: "center",
-                              gap: 6,
-                              borderRadius: 999,
-                              paddingHorizontal: 14,
-                              paddingVertical: 6,
+                              gap: 5,
+                              borderRadius: 12,
+                              paddingHorizontal: 12,
+                              paddingVertical: 5,
                               backgroundColor: palette.card,
                             }}
                           >
@@ -1737,10 +1750,10 @@ export default function SharedListsScreen() {
                               style={{
                                 flexDirection: "row",
                                 alignItems: "center",
-                                gap: 6,
-                                borderRadius: 999,
-                                paddingHorizontal: 12,
-                                paddingVertical: 6,
+                                gap: 5,
+                                borderRadius: 12,
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
                                 backgroundColor: "#E6F6EE",
                               }}
                             >
@@ -1761,9 +1774,9 @@ export default function SharedListsScreen() {
                     <View style={infoRowStyle}>
                       <View
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 18,
+                          width: 40,
+                          height: 40,
+                          borderRadius: 16,
                           backgroundColor: detailAccent,
                           alignItems: "center",
                           justifyContent: "center",
@@ -1784,9 +1797,9 @@ export default function SharedListsScreen() {
                     <View style={infoRowStyle}>
                       <View
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 18,
+                          width: 40,
+                          height: 40,
+                          borderRadius: 16,
                           backgroundColor: detailAccent,
                           alignItems: "center",
                           justifyContent: "center",
@@ -1801,45 +1814,51 @@ export default function SharedListsScreen() {
                       <CuteText weight="bold" style={{ flex: 1 }}>
                         {assigneeDisplay.label}
                       </CuteText>
-                      {renderAssigneeAvatars(selectedTodo.assigneeIds) ?? (
+                      {assigneeEntries.length ? (
                         <View
                           style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
-                            borderWidth: 2,
-                            borderColor: palette.border,
+                            flexDirection: "row",
                             alignItems: "center",
-                            justifyContent: "center",
+                            gap: 6,
                           }}
                         >
-                          <MaterialIcons
-                            name="person-outline"
-                            size={18}
-                            color={palette.textSecondary}
-                          />
+                          {assigneeEntries.map((entry, index) => (
+                            <View
+                              key={`${entry.id}-${index}`}
+                              style={{
+                                marginLeft: index ? -6 : 0,
+                                borderRadius: 14,
+                                borderWidth: 1.5,
+                                borderColor: palette.card,
+                                overflow: "hidden",
+                                width: 28,
+                                height: 28,
+                                backgroundColor: palette.primarySoft,
+                              }}
+                            >
+                              {entry.avatar ? (
+                                <Image
+                                  source={{ uri: entry.avatar }}
+                                  style={{ width: "100%", height: "100%" }}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View
+                                  style={{
+                                    flex: 1,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <CuteText weight="bold" style={{ fontSize: 11 }}>
+                                    {entry.label.charAt(0).toUpperCase()}
+                                  </CuteText>
+                                </View>
+                              )}
+                            </View>
+                          ))}
                         </View>
-                      )}
-                    </View>
-
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        marginTop: -12,
-                      }}
-                    >
-                      <MaterialIcons
-                        name="filter-alt"
-                        size={16}
-                        color={palette.textSecondary}
-                      />
-                      <CuteText tone="muted" style={{ fontSize: 12 }}>
-                        {`${activeCategory?.label ?? "All"} • ${
-                          upcomingTodos.length
-                        } open / ${completedTodos.length} done`}
-                      </CuteText>
+                      ) : null}
                     </View>
 
                     <View style={{ flexDirection: "row", gap: 10 }}>
@@ -1856,12 +1875,12 @@ export default function SharedListsScreen() {
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 6,
-                          paddingVertical: 12,
-                          borderRadius: 18,
+                          paddingVertical: 11,
+                          borderRadius: 14,
                           backgroundColor: palette.primary,
                           shadowColor: palette.primary,
-                          shadowOpacity: 0.2,
-                          shadowRadius: 8,
+                          shadowOpacity: 0.18,
+                          shadowRadius: 6,
                         }}
                       >
                         <MaterialIcons
@@ -1886,21 +1905,21 @@ export default function SharedListsScreen() {
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 6,
-                          paddingVertical: 12,
-                          borderRadius: 18,
-                          backgroundColor: palette.primarySoft,
+                          paddingVertical: 11,
+                          borderRadius: 14,
+                          backgroundColor: palette.card,
                           borderWidth: 1,
-                          borderColor: palette.primary,
+                          borderColor: palette.border,
                         }}
                       >
                         <MaterialIcons
                           name="edit"
                           size={18}
-                          color={palette.primary}
+                          color={palette.text}
                         />
                         <CuteText
                           weight="bold"
-                          style={{ color: palette.primary }}
+                          style={{ color: palette.text }}
                         >
                           Edit
                         </CuteText>
@@ -1916,8 +1935,8 @@ export default function SharedListsScreen() {
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 6,
-                          paddingVertical: 12,
-                          borderRadius: 18,
+                          paddingVertical: 11,
+                          borderRadius: 14,
                           backgroundColor: "#FFE7E7",
                           borderWidth: 1,
                           borderColor: "#F8B4B4",
@@ -1934,32 +1953,7 @@ export default function SharedListsScreen() {
                       </Pressable>
                     </View>
 
-                    <CuteButton
-                      label="Add to calendar"
-                      tone="ghost"
-                      icon={
-                        <MaterialIcons
-                          name="event"
-                          size={18}
-                          color={palette.primary}
-                        />
-                      }
-                      style={{
-                        backgroundColor: palette.card,
-                        borderWidth: 1,
-                        borderColor: palette.primarySoft,
-                        marginTop: 8,
-                      }}
-                      labelColor={palette.primary}
-                      onPress={() =>
-                        showToast({
-                          tone: "info",
-                          title: "Calendar integration",
-                          message:
-                            "Scheduling is on the way. Soon you'll be able to drop this to-do onto your shared calendar.",
-                        })
-                      }
-                    />
+                    <View />
                   </View>
                 );
               })()
