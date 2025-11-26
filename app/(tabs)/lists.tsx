@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Dimensions,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -11,13 +12,12 @@ import {
   ScrollView,
   TextInput,
   View,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CuteDropdown } from "../../components/CuteDropdown";
 import { CuteModal } from "../../components/CuteModal";
 import { CuteText } from "../../components/CuteText";
@@ -1850,7 +1850,10 @@ export default function SharedListsScreen() {
                                     justifyContent: "center",
                                   }}
                                 >
-                                  <CuteText weight="bold" style={{ fontSize: 11 }}>
+                                  <CuteText
+                                    weight="bold"
+                                    style={{ fontSize: 11 }}
+                                  >
                                     {entry.label.charAt(0).toUpperCase()}
                                   </CuteText>
                                 </View>
@@ -1917,10 +1920,7 @@ export default function SharedListsScreen() {
                           size={18}
                           color={palette.text}
                         />
-                        <CuteText
-                          weight="bold"
-                          style={{ color: palette.text }}
-                        >
+                        <CuteText weight="bold" style={{ color: palette.text }}>
                           Edit
                         </CuteText>
                       </Pressable>
@@ -2131,7 +2131,14 @@ const TodoFormModal = ({
         avatar: undefined,
       },
     ],
-    [meAvatar, palette.accent, palette.primarySoft, palette.secondary, partnerAvatar, partnerName]
+    [
+      meAvatar,
+      palette.accent,
+      palette.primarySoft,
+      palette.secondary,
+      partnerAvatar,
+      partnerName,
+    ]
   );
 
   const selectAssigneeMode = (mode: "me" | "partner" | "both") => {
@@ -2500,7 +2507,11 @@ const TodoFormModal = ({
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   {assigneeOptions.map((option) => {
                     const isActive = assigneeMode === option.key;
-                    const renderAvatar = (uri?: string, emoji?: string, bg?: string) => (
+                    const renderAvatar = (
+                      uri?: string,
+                      emoji?: string,
+                      bg?: string
+                    ) => (
                       <View
                         style={{
                           width: 48,
@@ -2613,7 +2624,11 @@ const TodoFormModal = ({
                       >
                         {option.key === "both"
                           ? renderBothAvatars()
-                          : renderAvatar(option.avatar, option.emoji, option.color)}
+                          : renderAvatar(
+                              option.avatar,
+                              option.emoji,
+                              option.color
+                            )}
                         <CuteText
                           weight={isActive ? "bold" : "semibold"}
                           style={{
