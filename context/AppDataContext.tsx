@@ -103,7 +103,7 @@ const mapTodoFromDb = (item: DBTodoItem): TodoItem => ({
   mood: (item.mood as TodoItem["mood"]) ?? undefined,
   location: item.location ?? undefined,
   costEstimate: item.costEstimate ?? undefined,
-  notes: item.notes ?? undefined,
+  notes: item.notes ?? item.description ?? undefined,
   completedAt: item.completedAt
     ? timestampToDate(item.completedAt).toISOString()
     : undefined,

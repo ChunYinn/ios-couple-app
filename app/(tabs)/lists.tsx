@@ -10,12 +10,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CuteButton } from "../../components/CuteButton";
 import { CuteCard } from "../../components/CuteCard";
@@ -85,11 +83,11 @@ export default function SharedListsScreen() {
   const myAvatar = profiles.me?.avatarUrl ?? null;
 
   const [activeCategoryKey, setActiveCategoryKey] = useState("all");
-  const [activeView, setActiveView] = useState<"todo" | "done">("todo");
   const [todoModalVisible, setTodoModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [categoryManagerVisible, setCategoryManagerVisible] = useState(false);
   const [categoryEditor, setCategoryEditor] = useState<{
     id: string;
@@ -342,13 +340,6 @@ export default function SharedListsScreen() {
     [categoryFilters, activeCategoryKey]
   );
 
-  const completedCount = useMemo(
-    () => uniqueTodoItems.filter((item) => item.completed).length,
-    [uniqueTodoItems]
-  );
-  const totalCount = uniqueTodoItems.length || 1;
-  const completedProgress = Math.min(completedCount / totalCount, 1);
-
   const filteredTodos = useMemo(() => {
     if (activeCategoryKey === "all") {
       return uniqueTodoItems;
@@ -373,6 +364,10 @@ export default function SharedListsScreen() {
         ),
     [filteredTodos]
   );
+
+  useEffect(() => {
+    setShowCompleted(false);
+  }, [activeCategoryKey]);
 
   const getAssigneeDisplay = (assignees: string[]) => {
     const hasMe = assignees.includes("me");
@@ -475,10 +470,7 @@ export default function SharedListsScreen() {
     );
   };
 
-  const renderMissionCard = (
-    item: TodoItem,
-    completionMode: "complete" | "undo" = "complete"
-  ) => {
+  const renderMissionCard = (item: TodoItem) => {
     const isCompleted = item.completed;
     const categoryKey = item.categoryKey ?? item.categoryId;
     const categoryMeta = categoryLookup.get(categoryKey);
@@ -496,28 +488,35 @@ export default function SharedListsScreen() {
           setDetailModalVisible(true);
         }}
         style={{
-          borderRadius: 20,
+          borderRadius: 18,
           backgroundColor: palette.card,
           padding: 14,
           borderWidth: 1,
           borderColor: isCompleted ? palette.primarySoft : palette.border,
-          shadowColor: "#000",
-          shadowOpacity: 0.03,
-          shadowRadius: 6,
-          elevation: 1,
-          gap: 12,
+          shadowColor: "#00000015",
+          shadowOpacity: 0.06,
+          shadowRadius: 10,
+          elevation: 2,
+          gap: 10,
+          opacity: isCompleted ? 0.9 : 1,
         }}
       >
-        <View style={{ flexDirection: "row", gap: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
+        >
           <Pressable
             onPress={(event) => {
               event.stopPropagation();
               confirmToggleTodo(item, !isCompleted);
             }}
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
+              width: 30,
+              height: 30,
+              borderRadius: 16,
               borderWidth: 1.5,
               borderColor: isCompleted ? palette.primary : palette.border,
               backgroundColor: isCompleted ? palette.primary : palette.card,
@@ -525,54 +524,82 @@ export default function SharedListsScreen() {
               justifyContent: "center",
             }}
           >
-            {isCompleted ? (
-              <MaterialIcons name="check" size={18} color="#fff" />
-            ) : null}
+            <MaterialIcons
+              name={isCompleted ? "task-alt" : "radio-button-unchecked"}
+              size={22}
+              color={isCompleted ? "#fff" : palette.primary}
+            />
           </Pressable>
-          <View style={{ flex: 1, gap: 10 }}>
-            <View>
+          <View style={{ flex: 1, gap: 6 }}>
+            <CuteText
+              weight="bold"
+              numberOfLines={2}
+              style={{
+                flex: 1,
+                fontSize: 16,
+                color: isCompleted ? palette.textSecondary : palette.text,
+                textDecorationLine: isCompleted ? "line-through" : "none",
+              }}
+            >
+              {item.title}
+            </CuteText>
+            {item.notes ? (
               <CuteText
-                weight="semibold"
-                numberOfLines={2}
+                tone="muted"
+                numberOfLines={3}
                 style={{
-                  flex: 1,
-                  fontSize: 16,
+                  fontSize: 13,
                   color: isCompleted ? palette.textSecondary : palette.text,
                   textDecorationLine: isCompleted ? "line-through" : "none",
                 }}
               >
-                {item.title}
+                {item.notes}
               </CuteText>
-            </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginLeft: 42,
+            marginTop: 4,
+            gap: 8,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: isCompleted ? palette.primarySoft : categoryAccent,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 12,
+            }}
+          >
             <View
               style={{
-                flexDirection: "row",
+                width: 26,
+                height: 26,
+                borderRadius: 13,
                 alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
+                justifyContent: "center",
+                backgroundColor: palette.card,
               }}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  borderRadius: 999,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  backgroundColor: isCompleted
-                    ? palette.primarySoft
-                    : categoryAccent,
-                }}
-              >
-                <CuteText style={{ fontSize: 14 }}>{emoji}</CuteText>
-                <CuteText style={{ fontSize: 12, color: palette.text }}>
-                  {categoryLabel}
-                </CuteText>
-              </View>
-              {assigneeAvatars}
+              <CuteText style={{ fontSize: 14 }}>{emoji}</CuteText>
             </View>
+            <CuteText
+              weight="semibold"
+              style={{ fontSize: 12, color: palette.text }}
+            >
+              {categoryLabel}
+            </CuteText>
           </View>
+          {assigneeAvatars}
         </View>
       </Pressable>
     );
@@ -847,13 +874,15 @@ export default function SharedListsScreen() {
           <Pressable
             onPress={() => router.back()}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
               backgroundColor: palette.card,
               alignItems: "center",
               justifyContent: "center",
-              shadowColor: "#000",
+              borderWidth: 1,
+              borderColor: palette.border,
+              shadowColor: "#00000015",
               shadowOpacity: 0.08,
               shadowRadius: 6,
               elevation: 2,
@@ -862,84 +891,75 @@ export default function SharedListsScreen() {
             <MaterialIcons
               name="arrow-back"
               size={20}
-              color={palette.textSecondary}
+              color={palette.text}
             />
           </Pressable>
-          <CuteText
-            weight="bold"
-            style={{ fontSize: 20, flex: 1, textAlign: "center" }}
-          >
-            To-dos
-          </CuteText>
+          <View style={{ flex: 1, alignItems: "center" }}>
+            <CuteText weight="bold" style={{ fontSize: 22 }}>
+              To-dos
+            </CuteText>
+          </View>
           <Pressable
             onPress={() => setTodoModalVisible(true)}
             style={{
-              flexDirection: "row",
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: palette.primary,
               alignItems: "center",
               justifyContent: "center",
-              gap: 6,
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 999,
-              backgroundColor: palette.primary,
               shadowColor: palette.primary,
               shadowOpacity: 0.35,
-              shadowRadius: 8,
-              elevation: 3,
+              shadowRadius: 10,
+              elevation: 4,
             }}
           >
-            <MaterialIcons name="add-circle" size={18} color="#fff" />
-            <CuteText weight="bold" style={{ color: "#fff" }}>
-              Add
-            </CuteText>
+            <MaterialIcons name="add-circle" size={26} color="#fff" />
           </Pressable>
         </View>
 
-      <ScrollView
-        style={{ flexGrow: 0 }}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          gap: 8,
-          paddingBottom: 4,
-          paddingHorizontal: 2,
-        }}
+        <ScrollView
+          style={{ flexGrow: 0 }}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            gap: 10,
+            paddingBottom: 4,
+            paddingHorizontal: 2,
+          }}
         >
           {categoryFilters.map((filter) => {
             const isActive = filter.key === activeCategoryKey;
             const counts = categoryCounts.get(filter.key);
             const totalCount = (counts?.todo ?? 0) + (counts?.done ?? 0);
-            const labelWithCount = `${filter.label}${
-              totalCount ? ` (${totalCount})` : ""
-            }`;
             const chipBackground = isActive ? palette.primary : palette.card;
             const chipBorder = isActive ? palette.primary : palette.border;
             const chipTextColor = isActive ? "#fff" : palette.text;
             return (
-            <Pressable
-              key={filter.key}
-              onPress={() => setActiveCategoryKey(filter.key)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 999,
-                backgroundColor: chipBackground,
-                borderWidth: 1,
+              <Pressable
+                key={filter.key}
+                onPress={() => setActiveCategoryKey(filter.key)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: chipBackground,
+                  borderWidth: 1,
                   borderColor: chipBorder,
                   shadowColor: "#000",
-                  shadowOpacity: isActive ? 0.15 : 0.05,
+                  shadowOpacity: isActive ? 0.12 : 0.04,
                   shadowRadius: 8,
                   elevation: isActive ? 3 : 0,
                 }}
               >
                 <View
                   style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
                     alignItems: "center",
                     justifyContent: "center",
                     backgroundColor: isActive
@@ -958,85 +978,33 @@ export default function SharedListsScreen() {
                     color: chipTextColor,
                   }}
                 >
-                  {labelWithCount}
+                  {filter.label}
+                  {totalCount ? ` (${totalCount})` : ""}
                 </CuteText>
               </Pressable>
             );
           })}
-        <Pressable
-          onPress={openCategoryManager}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderStyle: "dashed",
-            borderColor: palette.primary,
-            backgroundColor: palette.card,
-         }}
-       >
-         <MaterialIcons name="apps" size={18} color={palette.primary} />
+          <Pressable
+            onPress={openCategoryManager}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderStyle: "dashed",
+              borderColor: palette.primary,
+              backgroundColor: palette.card,
+            }}
+          >
+            <MaterialIcons name="apps" size={18} color={palette.primary} />
             <CuteText weight="bold" style={{ color: palette.primary }}>
               Manage
             </CuteText>
           </Pressable>
         </ScrollView>
-        <View
-          style={{
-            position: "relative",
-            flexDirection: "row",
-            borderRadius: 999,
-            padding: 4,
-            backgroundColor: palette.primarySoft,
-          }}
-        >
-          <View
-            style={[
-              {
-                position: "absolute",
-                top: 4,
-                bottom: 4,
-                width: "48%",
-                borderRadius: 999,
-                backgroundColor: palette.card,
-                shadowColor: "#000",
-                shadowOpacity: 0.08,
-                shadowRadius: 6,
-                elevation: 1,
-              },
-              activeView === "todo" ? { left: 4 } : { right: 4 },
-            ]}
-          />
-          {["todo", "done"].map((view) => {
-            const isActive = activeView === view;
-            return (
-              <Pressable
-                key={view}
-                onPress={() => setActiveView(view as "todo" | "done")}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                  alignItems: "center",
-                  zIndex: 2,
-                }}
-              >
-                <CuteText
-                  weight="bold"
-                  style={{
-                    color: isActive ? palette.text : palette.textSecondary,
-                  }}
-                >
-                  {view === "todo" ? "To-dos" : "Done"}
-                </CuteText>
-              </Pressable>
-            );
-          })}
-        </View>
-
         <View
           style={{
             flexDirection: "row",
@@ -1062,71 +1030,65 @@ export default function SharedListsScreen() {
           contentContainerStyle={{ gap: 12, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
-          {activeView === "todo" ? (
-            upcomingTodos.length ? (
-              <View style={{ gap: 10 }}>
-                {upcomingTodos.map((item) => renderMissionCard(item))}
-              </View>
-            ) : (
-              <CuteCard
-                background={palette.card}
-                padding={24}
-                style={{ gap: 10 }}
-              >
-                <MaterialIcons
-                  name="playlist-add"
-                  size={42}
-                  color={palette.primary}
-                />
-                <CuteText weight="bold" style={{ fontSize: 18 }}>
-                  Nothing planned here yet
-                </CuteText>
-                <CuteText tone="muted" style={{ fontSize: 13 }}>
-                  Add a shared to-do and keep it tracked together.
-                </CuteText>
-                <CuteButton
-                  label="Add a to-do"
-                  onPress={() => setTodoModalVisible(true)}
-                />
-              </CuteCard>
-            )
-          ) : completedTodos.length ? (
-            <View style={{ gap: 10 }}>
-              {completedTodos.map((item) => renderMissionCard(item, "undo"))}
+          {upcomingTodos.length ? (
+            <View style={{ gap: 12 }}>
+              {upcomingTodos.map((item) => renderMissionCard(item))}
             </View>
           ) : (
             <CuteCard
               background={palette.card}
-              padding={20}
-              style={{ gap: 14 }}
+              padding={22}
+              style={{ gap: 10 }}
             >
+              <MaterialIcons
+                name="playlist-add"
+                size={42}
+                color={palette.primary}
+              />
               <CuteText weight="bold" style={{ fontSize: 18 }}>
-                Overall progress
+                Nothing planned here yet
               </CuteText>
-              <View
-                style={{
-                  height: 10,
-                  borderRadius: 999,
-                  backgroundColor: palette.primarySoft,
-                  overflow: "hidden",
-                }}
-              >
-                <View
-                  style={{
-                    height: "100%",
-                    width: `${completedProgress * 100}%`,
-                    backgroundColor: palette.primary,
-                    borderRadius: 999,
-                  }}
-                />
-              </View>
-              <CuteText tone="muted" style={{ fontSize: 12 }}>
-                {completedCount}/
-                {totalCount === 1 ? completedCount : totalCount} missions
-                completed overall • {(completedProgress * 100).toFixed(0)}%
+              <CuteText tone="muted" style={{ fontSize: 13 }}>
+                Add a shared to-do and keep it tracked together.
               </CuteText>
+              <CuteButton
+                label="Add a to-do"
+                onPress={() => setTodoModalVisible(true)}
+              />
             </CuteCard>
           )}
+
+          {completedTodos.length ? (
+            <View style={{ gap: 10, marginTop: 4 }}>
+              <Pressable
+                onPress={() => setShowCompleted((prev) => !prev)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 14,
+                  borderRadius: 14,
+                  backgroundColor: palette.primarySoft,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                }}
+              >
+                <CuteText weight="bold" style={{ color: palette.text }}>
+                  {`Completed (${completedTodos.length})`}
+                </CuteText>
+                <MaterialIcons
+                  name={showCompleted ? "expand-less" : "expand-more"}
+                  size={20}
+                  color={palette.text}
+                />
+              </Pressable>
+              {showCompleted ? (
+                <View style={{ gap: 10 }}>
+                  {completedTodos.map((item) => renderMissionCard(item))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
       </View>
 
@@ -1891,15 +1853,15 @@ const TodoFormModal = ({
   );
   const [submitting, setSubmitting] = useState(false);
   const [showAssigneeError, setShowAssigneeError] = useState(false);
-  const modalTitle = mode === "edit" ? "Edit to-do" : "Add to-do";
+  const modalTitle = mode === "edit" ? "Edit Todo" : "Add New Todo";
   const submitLabel =
     mode === "edit"
       ? submitting
         ? "Updating..."
-        : "Update to-do"
+        : "Save Todo"
       : submitting
       ? "Saving..."
-      : "Save to-do";
+      : "Save Todo";
   const categoryOptions = useMemo(
     () =>
       categories.map((filter) => ({
@@ -1967,12 +1929,22 @@ const TodoFormModal = ({
     onClose();
   };
 
-  const handleToggleAssignee = (key: string) => {
-    setAssignees((prev) =>
-      prev.includes(key)
-        ? prev.filter((entry) => entry !== key)
-        : [...prev, key]
-    );
+  const assigneeMode = useMemo<"me" | "partner" | "both">(() => {
+    const hasMe = assignees.includes("me");
+    const hasPartner = assignees.includes("partner");
+    if (hasMe && hasPartner) return "both";
+    if (hasPartner) return "partner";
+    return "me";
+  }, [assignees]);
+
+  const selectAssigneeMode = (mode: "me" | "partner" | "both") => {
+    if (mode === "both") {
+      setAssignees(["me", "partner"]);
+    } else if (mode === "partner") {
+      setAssignees(["partner"]);
+    } else {
+      setAssignees(["me"]);
+    }
     setShowAssigneeError(false);
   };
 
@@ -1997,7 +1969,7 @@ const TodoFormModal = ({
       const id = await onCreateCategory({
         name: trimmedName,
         emoji: categoryEmoji,
-        color: DEFAULT_CATEGORY_COLOR,
+        color: categoryColor,
       });
       setCategoryKey(id);
       setCategoryFormVisible(false);
@@ -2045,24 +2017,37 @@ const TodoFormModal = ({
   };
 
   return (
-    <>
-      <Modal
-        visible={visible}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={dismissModal}
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={dismissModal}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={insets.bottom + 24}
+        style={{ flex: 1 }}
       >
-        <SafeAreaView
+        <Pressable
           style={{
             flex: 1,
-            backgroundColor: palette.card,
+            backgroundColor: "#00000055",
+            justifyContent: "flex-end",
           }}
+          onPress={dismissModal}
         >
-          <View
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
             style={{
-              flex: 1,
-              paddingHorizontal: 20,
-              gap: 12,
+              backgroundColor: palette.card,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              maxHeight: "94%",
+              paddingBottom: insets.bottom + 16,
+              shadowColor: "#000",
+              shadowOpacity: 0.2,
+              shadowRadius: 18,
+              elevation: 8,
             }}
           >
             <View
@@ -2070,9 +2055,16 @@ const TodoFormModal = ({
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginTop: 60,
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: palette.border,
               }}
             >
+              <View style={{ width: 40 }} />
+              <CuteText weight="bold" style={{ fontSize: 18 }}>
+                {modalTitle}
+              </CuteText>
               <Pressable
                 onPress={dismissModal}
                 style={{
@@ -2082,255 +2074,406 @@ const TodoFormModal = ({
                   backgroundColor: palette.card,
                   alignItems: "center",
                   justifyContent: "center",
-                  shadowColor: "#000",
+                  shadowColor: "#00000012",
                   shadowOpacity: 0.08,
                   shadowRadius: 6,
                   elevation: 2,
                 }}
               >
-                <MaterialIcons
-                  name="arrow-back"
-                  size={20}
-                  color={palette.textSecondary}
-                />
+                <MaterialIcons name="close" size={20} color={palette.text} />
               </Pressable>
-              <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
-                <CuteText
-                  weight="bold"
-                  style={{ fontSize: 20, marginLeft: 20 }}
-                >
-                  {modalTitle}
-                </CuteText>
-              </View>
-              <View style={{ width: 44 }} />
             </View>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-              keyboardVerticalOffset={insets.bottom + 24}
-              style={{ flex: 1 }}
+
+            <ScrollView
+              style={{ flexGrow: 0 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                gap: 16,
+              }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              showsVerticalScrollIndicator={false}
             >
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{
-                  gap: 16,
-                  paddingBottom: insets.bottom + 32,
-                }}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                showsVerticalScrollIndicator={false}
-              >
-                <CuteTextInput
-                  label="What’s the plan?"
-                  placeholder="Ex. Picnic at the botanical garden"
+              <View style={{ gap: 8 }}>
+                <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                  What needs to be done?
+                </CuteText>
+                <TextInput
                   value={title}
                   onChangeText={setTitle}
+                  placeholder="e.g., Book flights to Bali"
+                  placeholderTextColor={palette.textSecondary}
+                  style={{
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: palette.border,
+                    backgroundColor: palette.card,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    color: palette.text,
+                    fontSize: 16,
+                  }}
                 />
-                <View style={{ gap: 12 }}>
-                  <CuteText weight="semibold">Category</CuteText>
-                  <View
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                  Category
+                </CuteText>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <CuteDropdown
+                      value={categoryKey}
+                      onChange={(value) => {
+                        if (value) {
+                          setCategoryKey(value);
+                        }
+                      }}
+                      options={categoryOptions}
+                      placeholder="Choose a category"
+                      modalTitle="Pick a category"
+                      dropdownStyle={{
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: palette.border,
+                        paddingVertical: 14,
+                        paddingHorizontal: 12,
+                      }}
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      resetCategoryForm();
+                      setCategoryFormVisible(true);
+                    }}
                     style={{
-                      flexDirection: "row",
-                      alignItems: "flex-end",
-                      gap: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: palette.primary,
+                      backgroundColor: palette.card,
                     }}
                   >
-                    <View style={{ flex: 1 }}>
-                      <CuteDropdown
-                        value={categoryKey}
-                        onChange={(value) => {
-                          if (value) {
-                            setCategoryKey(value);
-                          }
-                        }}
-                        options={categoryOptions}
-                        placeholder="Select a category"
-                        modalTitle="Choose a category"
-                      />
-                    </View>
-                    <Pressable
-                      onPress={() => {
-                        resetCategoryForm();
-                        setCategoryFormVisible(true);
-                      }}
-                      style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderStyle: "dashed",
-                        borderColor: palette.primary,
-                        backgroundColor: palette.card,
-                      }}
+                    <CuteText
+                      weight="bold"
+                      style={{ color: palette.primary, fontSize: 12 }}
                     >
-                      <CuteText
-                        weight="semibold"
-                        style={{ color: palette.primary }}
-                      >
-                        + New
-                      </CuteText>
-                    </Pressable>
-                  </View>
-                  {categoryFormVisible ? (
-                    <View
-                      style={{
-                        marginTop: 12,
-                        padding: 16,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: palette.primarySoft,
-                        backgroundColor: palette.background,
-                        gap: 12,
-                      }}
-                    >
-                      <CuteText weight="semibold">New category</CuteText>
-                      <CuteTextInput
-                        label="Name"
-                        placeholder="Ex. Weekend escapes"
-                        value={categoryName}
-                        onChangeText={(text) => {
-                          setCategoryName(text);
-                          if (categoryNameError) {
-                            setCategoryNameError(null);
-                          }
-                        }}
-                      />
-                      {categoryNameError ? (
-                        <CuteText
-                          style={{ color: palette.warning, fontSize: 12 }}
-                        >
-                          {categoryNameError}
-                        </CuteText>
-                      ) : null}
-                      <CuteTextInput
-                        label="Emoji or short icon"
-                        placeholder="Ex. 🌿"
-                        value={categoryEmoji}
-                        onChangeText={(text) =>
-                          setCategoryEmoji(text.slice(0, 4))
-                        }
-                        maxLength={4}
-                      />
-                      <View style={{ gap: 8 }}>
-                        <CuteText weight="semibold">Color</CuteText>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            gap: 10,
-                          }}
-                        >
-                          {CATEGORY_COLOR_PRESETS.map((color) => {
-                            const isActive = categoryColor === color;
-                            return (
-                              <Pressable
-                                key={color}
-                                onPress={() => setCategoryColor(color)}
-                                style={{
-                                  width: 34,
-                                  height: 34,
-                                  borderRadius: 17,
-                                  backgroundColor: color,
-                                  borderWidth: isActive ? 2 : 1,
-                                  borderColor: isActive
-                                    ? palette.primary
-                                    : palette.border,
-                                }}
-                              />
-                            );
-                          })}
-                        </View>
-                      </View>
-                      <View style={{ flexDirection: "row", gap: 12 }}>
-                        <CuteButton
-                          label="Cancel"
-                          tone="ghost"
-                          onPress={() => {
-                            resetCategoryForm();
-                            setCategoryFormVisible(false);
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <CuteButton
-                          label={categorySaving ? "Saving..." : "Save"}
-                          onPress={handleAddCategory}
-                          disabled={!categoryName.trim() || categorySaving}
-                          style={{ flex: 1 }}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
+                      New
+                    </CuteText>
+                  </Pressable>
                 </View>
-                <CuteTextInput
-                  label="Notes"
-                  placeholder="Any sweet reminders?"
+                {categoryFormVisible ? (
+                  <View
+                    style={{
+                      marginTop: 10,
+                      padding: 14,
+                      borderRadius: 16,
+                      borderWidth: 1.5,
+                      borderColor: palette.primary,
+                      borderStyle: "dashed",
+                      backgroundColor: palette.card,
+                      gap: 10,
+                    }}
+                  >
+                    <CuteText weight="bold" style={{ fontSize: 14 }}>
+                      New category
+                    </CuteText>
+                    <CuteTextInput
+                      label="Name"
+                      placeholder="Ex. Weekend escapes"
+                      value={categoryName}
+                      onChangeText={(text) => {
+                        setCategoryName(text);
+                        if (categoryNameError) {
+                          setCategoryNameError(null);
+                        }
+                      }}
+                    />
+                    {categoryNameError ? (
+                      <CuteText
+                        style={{ color: palette.warning, fontSize: 12 }}
+                      >
+                        {categoryNameError}
+                      </CuteText>
+                    ) : null}
+                    <CuteTextInput
+                      label="Emoji or short icon"
+                      placeholder="Ex. 🌿"
+                      value={categoryEmoji}
+                      onChangeText={(text) =>
+                        setCategoryEmoji(text.slice(0, 4))
+                      }
+                      maxLength={4}
+                    />
+                    <View style={{ gap: 8 }}>
+                      <CuteText weight="semibold">Color</CuteText>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          gap: 10,
+                        }}
+                      >
+                        {CATEGORY_COLOR_PRESETS.map((color) => {
+                          const isActive = categoryColor === color;
+                          return (
+                            <Pressable
+                              key={color}
+                              onPress={() => setCategoryColor(color)}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                backgroundColor: color,
+                                borderWidth: isActive ? 2 : 1,
+                                borderColor: isActive
+                                  ? palette.primary
+                                  : palette.border,
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 12 }}>
+                      <CuteButton
+                        label="Cancel"
+                        tone="ghost"
+                        onPress={() => {
+                          resetCategoryForm();
+                          setCategoryFormVisible(false);
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <CuteButton
+                        label={categorySaving ? "Saving..." : "Save"}
+                        onPress={handleAddCategory}
+                        disabled={!categoryName.trim() || categorySaving}
+                        style={{ flex: 1 }}
+                      />
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                  Notes (Optional)
+                </CuteText>
+                <TextInput
                   value={notes}
                   onChangeText={setNotes}
                   multiline
-                  style={{ minHeight: 100, textAlignVertical: "top" }}
+                  placeholder="Add more details here..."
+                  placeholderTextColor={palette.textSecondary}
+                  style={{
+                    minHeight: 110,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: palette.border,
+                    backgroundColor: palette.card,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    color: palette.text,
+                    fontSize: 14,
+                    textAlignVertical: "top",
+                  }}
                 />
-                <View style={{ gap: 12 }}>
-                  <CuteText weight="semibold">Who’s doing this?</CuteText>
-                  <View
-                    style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}
-                  >
-                    {[
-                      { key: "me", label: "You" },
-                      { key: "partner", label: partnerName },
-                    ].map((option) => {
-                      const isActive = assignees.includes(option.key);
-                      return (
-                        <Pressable
-                          key={option.key}
-                          onPress={() => handleToggleAssignee(option.key)}
+              </View>
+
+              <View style={{ gap: 10 }}>
+                <CuteText weight="semibold" style={{ fontSize: 14 }}>
+                  Assign to
+                </CuteText>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {[
+                    { key: "me" as const, label: "Me", emoji: "🐼", color: palette.accent },
+                    {
+                      key: "partner" as const,
+                      label: partnerName,
+                      emoji: "🐰",
+                      color: palette.secondary,
+                    },
+                    { key: "both" as const, label: "Both", emoji: "🤝", color: palette.primarySoft },
+                  ].map((option) => {
+                    const isActive = assigneeMode === option.key;
+                    return (
+                      <Pressable
+                        key={option.key}
+                        onPress={() => selectAssigneeMode(option.key)}
+                        style={{
+                          flex: 1,
+                          alignItems: "center",
+                          gap: 8,
+                          paddingVertical: 12,
+                          borderRadius: 14,
+                          borderWidth: 2,
+                          borderColor: isActive ? palette.primary : palette.border,
+                          backgroundColor: isActive
+                            ? palette.primarySoft
+                            : palette.card,
+                          shadowColor: "#00000010",
+                          shadowOpacity: isActive ? 0.12 : 0,
+                          shadowRadius: 8,
+                          elevation: isActive ? 2 : 0,
+                        }}
+                      >
+                        {option.key === "both" ? (
+                          <View style={{ width: 48, height: 48 }}>
+                            <View
+                              style={{
+                                position: "absolute",
+                                left: 0,
+                                top: 0,
+                                width: 38,
+                                height: 38,
+                                borderRadius: 19,
+                                backgroundColor: palette.accent,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                shadowColor: "#00000015",
+                                shadowOpacity: 0.08,
+                                shadowRadius: 6,
+                              }}
+                            >
+                              <CuteText style={{ fontSize: 18 }}>🐼</CuteText>
+                            </View>
+                            <View
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                bottom: 0,
+                                width: 38,
+                                height: 38,
+                                borderRadius: 19,
+                                backgroundColor: palette.secondary,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderWidth: 2,
+                                borderColor: palette.card,
+                                shadowColor: "#00000015",
+                                shadowOpacity: 0.08,
+                                shadowRadius: 6,
+                              }}
+                            >
+                              <CuteText style={{ fontSize: 18 }}>🐰</CuteText>
+                            </View>
+                          </View>
+                        ) : (
+                          <View
+                            style={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              backgroundColor: option.color,
+                              shadowColor: "#00000010",
+                              shadowOpacity: 0.08,
+                              shadowRadius: 8,
+                            }}
+                          >
+                            <CuteText style={{ fontSize: 22 }}>
+                              {option.emoji}
+                            </CuteText>
+                          </View>
+                        )}
+                        <CuteText
+                          weight={isActive ? "bold" : "semibold"}
                           style={{
-                            paddingHorizontal: 16,
-                            paddingVertical: 10,
-                            borderRadius: 999,
-                            backgroundColor: isActive
-                              ? palette.primary
-                              : palette.card,
-                            borderWidth: 2,
-                            borderColor: isActive
-                              ? palette.primary
-                              : palette.primarySoft,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
+                            fontSize: 13,
+                            color: isActive ? palette.text : palette.textSecondary,
                           }}
                         >
-                          <CuteText
-                            weight="semibold"
-                            style={{ color: isActive ? "#fff" : palette.text }}
-                          >
-                            {option.label}
-                          </CuteText>
-                          {isActive ? (
-                            <MaterialIcons
-                              name="check-circle"
-                              size={16}
-                              color="#fff"
-                            />
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {showAssigneeError ? (
-                    <CuteText style={{ color: palette.warning, fontSize: 12 }}>
-                      Pick who will take this mission.
-                    </CuteText>
-                  ) : null}
+                          {option.label}
+                        </CuteText>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-                <CuteButton
-                  label={submitLabel}
-                  onPress={handleSubmit}
-                  disabled={!title.trim().length || submitting}
-                />
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </>
+                {showAssigneeError ? (
+                  <CuteText style={{ color: palette.warning, fontSize: 12 }}>
+                    Pick who will take this mission.
+                  </CuteText>
+                ) : null}
+              </View>
+            </ScrollView>
+
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 12,
+                paddingHorizontal: 20,
+                paddingBottom: 16,
+                paddingTop: 8,
+                borderTopWidth: 1,
+                borderTopColor: palette.border,
+                backgroundColor: palette.card,
+              }}
+            >
+              <Pressable
+                onPress={dismissModal}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 999,
+                  backgroundColor: palette.card,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#00000010",
+                  shadowOpacity: 0.06,
+                  shadowRadius: 6,
+                  elevation: 1,
+                }}
+              >
+                <CuteText weight="bold" style={{ color: palette.text }}>
+                  Cancel
+                </CuteText>
+              </Pressable>
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!title.trim().length || submitting}
+              style={{
+                flex: 1,
+                paddingVertical: 14,
+                borderRadius: 999,
+                backgroundColor:
+                    !title.trim().length || submitting
+                      ? palette.primarySoft
+                      : palette.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: palette.primary,
+                  shadowOpacity: 0.25,
+                  shadowRadius: 10,
+                  elevation: 3,
+                  opacity: submitting ? 0.8 : 1,
+                }}
+              >
+                <CuteText
+                  weight="bold"
+                  style={{
+                    color: "#fff",
+                  }}
+                >
+                  {submitLabel}
+                </CuteText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 };
