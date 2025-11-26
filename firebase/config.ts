@@ -1,5 +1,10 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth, initializeAuth } from "firebase/auth";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+} from "firebase/firestore";
 import type { Persistence } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
@@ -77,3 +82,15 @@ if (Platform.OS === "web") {
 }
 
 export const firebaseAuth = authInstance;
+
+// Enable Firestore local persistence/cache to reduce redundant fetching
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(firebaseApp, {
+    localCache: persistentLocalCache(),
+  });
+} catch (error) {
+  firestoreInstance = getFirestore(firebaseApp);
+}
+
+export const firestoreDb = firestoreInstance;

@@ -28,8 +28,7 @@ import {
   getDownloadURL,
   deleteObject
 } from 'firebase/storage';
-import { getFirestore } from 'firebase/firestore';
-import { firebaseApp } from './config';
+import { firebaseApp, firestoreDb } from './config';
 import {
   DBUser,
   DBDevice,
@@ -50,7 +49,7 @@ import {
 } from './types';
 import { DEFAULT_LOVE_LANGUAGES } from '../data/loveLanguages';
 
-const db = getFirestore(firebaseApp);
+const db = firestoreDb;
 const auth = getAuth(firebaseApp);
 const storage = getStorage(firebaseApp);
 
