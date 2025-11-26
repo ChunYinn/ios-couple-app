@@ -57,6 +57,7 @@ export type TodoCategory = {
   name: string;
   icon: string;
   color: string;
+  hidden?: boolean;
   description?: string;
 };
 
@@ -219,6 +220,7 @@ export type AppAction =
         name: string;
         icon: string;
         color: string;
+        hidden?: boolean;
         description?: string;
       };
     }
@@ -229,6 +231,7 @@ export type AppAction =
         name?: string;
         icon?: string;
         color?: string;
+        hidden?: boolean;
         description?: string;
       };
     }

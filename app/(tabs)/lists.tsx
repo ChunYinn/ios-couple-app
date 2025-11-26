@@ -12,6 +12,7 @@ import {
   ScrollView,
   TextInput,
   View,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,6 +24,7 @@ import { CuteText } from "../../components/CuteText";
 import { CuteTextInput } from "../../components/CuteTextInput";
 import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
+import { useToast } from "../../context/ToastContext";
 import { todoService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
 import { TodoItem } from "../../types/app";
@@ -33,6 +35,7 @@ type CategoryFilterOption = {
   emoji: string;
   color: string;
   isCustom?: boolean;
+  hidden?: boolean;
 };
 
 type NewTodoFormValues = {
@@ -49,7 +52,7 @@ type NewCategoryInput = {
 };
 
 const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = [
-  { key: "all", label: "All missions", emoji: "✨", color: "#FDE2E8" },
+  { key: "all", label: "All", emoji: "✨", color: "#FDE2E8" },
   { key: "home", label: "General", emoji: "📋", color: "#FFE8D6" },
 ];
 
@@ -60,6 +63,10 @@ const CATEGORY_COLOR_PRESETS = [
   "#D6F0FF",
   "#E1F5EA",
   "#FFF4D6",
+  "#FFE5F4",
+  "#EAF7FF",
+  "#F3E8FF",
+  "#E8FFE5",
 ];
 const DEFAULT_CATEGORY_COLOR = CATEGORY_COLOR_PRESETS[0];
 
@@ -71,10 +78,20 @@ const formatCategoryLabelFromKey = (key: string) =>
 
 export default function SharedListsScreen() {
   const palette = usePalette();
+  const { showToast } = useToast();
   const {
     state: { pairing, todos, profiles, auth },
     dispatch,
   } = useAppData();
+  const insets = useSafeAreaInsets();
+  const categoryModalMaxHeight = useMemo(
+    () => Math.min(Dimensions.get("window").height * 0.9, 720),
+    []
+  );
+  const categoryModalPaddingBottom = useMemo(
+    () => insets.bottom + 32,
+    [insets.bottom]
+  );
 
   const coupleId = auth.user.coupleId;
   const partnerName = profiles.partner?.displayName ?? "Partner";
@@ -109,6 +126,16 @@ export default function SharedListsScreen() {
     null
   );
 
+  const hiddenCategoryIds = useMemo(
+    () =>
+      new Set(
+        todos.categories
+          .filter((category) => category.hidden)
+          .map((category) => category.id)
+      ),
+    [todos.categories]
+  );
+
   const uniqueTodoItems = useMemo(() => {
     const seen = new Set<string>();
     return todos.items.filter((item) => {
@@ -123,20 +150,37 @@ export default function SharedListsScreen() {
     });
   }, [todos.items]);
 
+  const visibleTodoItems = useMemo(() => {
+    if (!hiddenCategoryIds.size) {
+      return uniqueTodoItems;
+    }
+    return uniqueTodoItems.filter((item) => {
+      const key = item.categoryKey ?? item.categoryId;
+      return key ? !hiddenCategoryIds.has(key) : true;
+    });
+  }, [hiddenCategoryIds, uniqueTodoItems]);
+
   const selectedTodo = useMemo(
-    () => uniqueTodoItems.find((item) => item.id === selectedTodoId) ?? null,
-    [uniqueTodoItems, selectedTodoId]
+    () => visibleTodoItems.find((item) => item.id === selectedTodoId) ?? null,
+    [visibleTodoItems, selectedTodoId]
   );
 
   const editingTodo = useMemo(
-    () => uniqueTodoItems.find((item) => item.id === editingTodoId) ?? null,
-    [uniqueTodoItems, editingTodoId]
+    () => visibleTodoItems.find((item) => item.id === editingTodoId) ?? null,
+    [visibleTodoItems, editingTodoId]
   );
 
   const closeDetailModal = () => {
     setDetailModalVisible(false);
     setSelectedTodoId(null);
   };
+
+  useEffect(() => {
+    if (detailModalVisible && selectedTodoId && !selectedTodo) {
+      setDetailModalVisible(false);
+      setSelectedTodoId(null);
+    }
+  }, [detailModalVisible, selectedTodo, selectedTodoId]);
 
   const categoryFilters = useMemo(() => {
     const builtInKeys = new Set(
@@ -156,6 +200,7 @@ export default function SharedListsScreen() {
         emoji: category.icon?.trim() || "📝",
         color: category.color || palette.primarySoft,
         isCustom: true,
+        hidden: Boolean(category.hidden),
       });
     });
 
@@ -166,7 +211,7 @@ export default function SharedListsScreen() {
 
     const seenKeys = new Set(combined.map((filter) => filter.key));
     const fallbackFilters: CategoryFilterOption[] = [];
-    uniqueTodoItems.forEach((item) => {
+    visibleTodoItems.forEach((item) => {
       const key = item.categoryKey ?? item.categoryId;
       if (key && !seenKeys.has(key)) {
         seenKeys.add(key);
@@ -176,6 +221,7 @@ export default function SharedListsScreen() {
           emoji: "📝",
           color: palette.primarySoft,
           isCustom: true,
+          hidden: false,
         });
       }
     });
@@ -189,13 +235,26 @@ export default function SharedListsScreen() {
     });
 
     return uniqueFilters;
-  }, [todos.categories, uniqueTodoItems, palette.primarySoft]);
+  }, [todos.categories, visibleTodoItems, palette.primarySoft]);
+
+  const visibleCategoryFilters = useMemo(
+    () =>
+      categoryFilters.filter(
+        (filter) => filter.key === "all" || !hiddenCategoryIds.has(filter.key)
+      ),
+    [categoryFilters, hiddenCategoryIds]
+  );
+
+  const categoryManagerOptions = useMemo(
+    () => categoryFilters.filter((filter) => filter.key !== "all"),
+    [categoryFilters]
+  );
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, { todo: number; done: number }>();
     let openTotal = 0;
     let doneTotal = 0;
-    uniqueTodoItems.forEach((item) => {
+    visibleTodoItems.forEach((item) => {
       const resolvedKey = item.categoryKey ?? item.categoryId;
       if (item.completed) {
         doneTotal += 1;
@@ -215,7 +274,7 @@ export default function SharedListsScreen() {
     });
     counts.set("all", { todo: openTotal, done: doneTotal });
     return counts;
-  }, [uniqueTodoItems]);
+  }, [visibleTodoItems]);
 
   const canEditCategory = (filter: CategoryFilterOption) => {
     if (filter.key === "all") return false;
@@ -320,35 +379,47 @@ export default function SharedListsScreen() {
 
   const categoryLookup = useMemo(() => {
     const lookup = new Map<string, CategoryFilterOption>();
-    categoryFilters.forEach((filter) => {
+    visibleCategoryFilters.forEach((filter) => {
       if (filter.key !== "all") {
         lookup.set(filter.key, filter);
       }
     });
     return lookup;
-  }, [categoryFilters]);
+  }, [visibleCategoryFilters]);
 
   const categoryOptionsForForm = useMemo(
-    () => categoryFilters.filter((filter) => filter.key !== "all"),
-    [categoryFilters]
+    () => visibleCategoryFilters.filter((filter) => filter.key !== "all"),
+    [visibleCategoryFilters]
   );
 
-  const defaultNewTodoCategory = categoryOptionsForForm[0]?.key ?? "home";
+  const defaultNewTodoCategory =
+    categoryOptionsForForm.find((option) => option.key === "home")?.key ??
+    categoryOptionsForForm[0]?.key ??
+    "home";
 
   const activeCategory = useMemo(
-    () => categoryFilters.find((filter) => filter.key === activeCategoryKey),
-    [categoryFilters, activeCategoryKey]
+    () =>
+      visibleCategoryFilters.find((filter) => filter.key === activeCategoryKey),
+    [visibleCategoryFilters, activeCategoryKey]
   );
+
+  useEffect(() => {
+    if (
+      !visibleCategoryFilters.some((filter) => filter.key === activeCategoryKey)
+    ) {
+      setActiveCategoryKey("all");
+    }
+  }, [activeCategoryKey, visibleCategoryFilters]);
 
   const filteredTodos = useMemo(() => {
     if (activeCategoryKey === "all") {
-      return uniqueTodoItems;
+      return visibleTodoItems;
     }
-    return uniqueTodoItems.filter((item) => {
+    return visibleTodoItems.filter((item) => {
       const key = item.categoryKey ?? item.categoryId;
       return key === activeCategoryKey;
     });
-  }, [uniqueTodoItems, activeCategoryKey]);
+  }, [visibleTodoItems, activeCategoryKey]);
 
   const upcomingTodos = useMemo(
     () => filteredTodos.filter((item) => !item.completed),
@@ -574,7 +645,9 @@ export default function SharedListsScreen() {
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
-              backgroundColor: isCompleted ? palette.primarySoft : categoryAccent,
+              backgroundColor: isCompleted
+                ? palette.primarySoft
+                : categoryAccent,
               paddingHorizontal: 10,
               paddingVertical: 6,
               borderRadius: 12,
@@ -680,6 +753,7 @@ export default function SharedListsScreen() {
           name: trimmedName,
           icon: normalizedEmoji,
           color,
+          hidden: false,
         },
       });
       return id;
@@ -736,6 +810,32 @@ export default function SharedListsScreen() {
         console.error("Failed to update category", error);
       }
       throw error;
+    }
+  };
+
+  const handleToggleCategoryVisibility = async (
+    categoryId: string,
+    categoryName: string,
+    hidden: boolean
+  ) => {
+    if (!coupleId) {
+      throw new Error("Missing couple");
+    }
+    try {
+      await todoService.updateTodoCategory(coupleId, categoryId, { hidden });
+      dispatch({
+        type: "UPDATE_TODO_CATEGORY",
+        payload: { id: categoryId, hidden },
+      });
+      showToast({
+        tone: "info",
+        message: hidden
+          ? "This category is now hidden. Existing to-dos stay saved."
+          : `${categoryName} is visible again.`,
+      });
+    } catch (error) {
+      console.error("Failed to update category visibility", error);
+      Alert.alert("Couldn't update category", "Please try again.");
     }
   };
 
@@ -888,11 +988,7 @@ export default function SharedListsScreen() {
               elevation: 2,
             }}
           >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={palette.text}
-            />
+            <MaterialIcons name="arrow-back" size={20} color={palette.text} />
           </Pressable>
           <View style={{ flex: 1, alignItems: "center" }}>
             <CuteText weight="bold" style={{ fontSize: 22 }}>
@@ -928,7 +1024,7 @@ export default function SharedListsScreen() {
             paddingHorizontal: 2,
           }}
         >
-          {categoryFilters.map((filter) => {
+          {visibleCategoryFilters.map((filter) => {
             const isActive = filter.key === activeCategoryKey;
             const counts = categoryCounts.get(filter.key);
             const totalCount = (counts?.todo ?? 0) + (counts?.done ?? 0);
@@ -1019,7 +1115,7 @@ export default function SharedListsScreen() {
             color={palette.textSecondary}
           />
           <CuteText tone="muted" style={{ fontSize: 12 }}>
-            {`${activeCategory?.label ?? "All missions"} • ${
+            {`${activeCategory?.label ?? "All"} • ${
               upcomingTodos.length
             } open / ${completedTodos.length} done`}
           </CuteText>
@@ -1196,69 +1292,79 @@ export default function SharedListsScreen() {
               backgroundColor: palette.card,
               borderTopLeftRadius: 32,
               borderTopRightRadius: 32,
-              maxHeight: "92%",
-              paddingBottom: 24,
+              overflow: "hidden",
+              maxHeight: categoryModalMaxHeight,
             }}
           >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingHorizontal: 20,
-                paddingVertical: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: palette.border,
-              }}
-            >
-              <View style={{ width: 32 }} />
-              <CuteText weight="bold" style={{ fontSize: 18 }}>
-                Manage categories
-              </CuteText>
-              <Pressable
-                onPress={closeCategoryManager}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: palette.card,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  shadowColor: "#000",
-                  shadowOpacity: 0.1,
-                  shadowRadius: 6,
-                  elevation: 2,
-                }}
-              >
-                <MaterialIcons name="close" size={18} color={palette.text} />
-              </Pressable>
-            </View>
             <ScrollView
-              style={{ flexGrow: 1 }}
-              contentContainerStyle={{ padding: 20, gap: 16 }}
+              style={{ maxHeight: categoryModalMaxHeight, width: "100%" }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: categoryModalPaddingBottom,
+                gap: 12,
+              }}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+              scrollEnabled
+              scrollIndicatorInsets={{ bottom: insets.bottom + 12 }}
+              showsVerticalScrollIndicator
             >
-              {categoryOptionsForForm.map((filter) => {
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingVertical: 2,
+                  paddingBottom: 10,
+                  borderBottomWidth: 1,
+                  borderBottomColor: palette.border,
+                }}
+              >
+                <View style={{ width: 32 }} />
+                <CuteText weight="bold" style={{ fontSize: 18 }}>
+                  Manage categories
+                </CuteText>
+                <Pressable
+                  onPress={closeCategoryManager}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: palette.card,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#000",
+                    shadowOpacity: 0.1,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                >
+                  <MaterialIcons name="close" size={18} color={palette.text} />
+                </Pressable>
+              </View>
+              {categoryManagerOptions.map((filter) => {
                 const counts = categoryCounts.get(filter.key);
                 const editable = canEditCategory(filter);
+                const isHidden = Boolean(filter.hidden);
                 return (
                   <View
                     key={filter.key}
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      padding: 12,
+                      padding: 10,
                       borderRadius: 18,
                       backgroundColor: palette.card,
                       borderWidth: 1,
                       borderColor: palette.border,
-                      gap: 12,
+                      gap: 10,
                       shadowColor: "#00000010",
                       shadowOpacity: 0.05,
                       shadowRadius: 6,
                       elevation: 1,
+                      opacity: isHidden ? 0.85 : 1,
                     }}
                   >
                     <View
@@ -1292,32 +1398,53 @@ export default function SharedListsScreen() {
                           ? `${counts.todo} open • ${counts.done} done`
                           : "0 items"}
                       </CuteText>
+                      {isHidden ? (
+                        <CuteText
+                          style={{ fontSize: 11, color: palette.textSecondary }}
+                        >
+                          Hidden from lists
+                        </CuteText>
+                      ) : null}
                     </View>
-                    <Pressable
-                      onPress={() => {
-                        if (!editable) return;
-                        openCategoryEditor(filter);
-                        closeCategoryManager();
-                      }}
-                      disabled={!editable}
-                      style={{
-                        padding: 6,
-                        opacity: editable ? 1 : 0.3,
-                      }}
-                    >
-                      <MaterialIcons
-                        name="edit"
-                        size={18}
-                        color={palette.textSecondary}
-                      />
-                    </Pressable>
-                    <Pressable style={{ padding: 6 }} disabled>
-                      <MaterialIcons
-                        name="drag-indicator"
-                        size={18}
-                        color={palette.textSecondary}
-                      />
-                    </Pressable>
+                    {editable ? (
+                      <>
+                        <Pressable
+                          onPress={() => {
+                            openCategoryEditor(filter);
+                            closeCategoryManager();
+                          }}
+                          style={{
+                            padding: 6,
+                          }}
+                        >
+                          <MaterialIcons
+                            name="edit"
+                            size={18}
+                            color={palette.textSecondary}
+                          />
+                        </Pressable>
+                        <Pressable
+                          onPress={() =>
+                            handleToggleCategoryVisibility(
+                              filter.key,
+                              filter.label,
+                              !isHidden
+                            )
+                          }
+                          style={{
+                            padding: 6,
+                          }}
+                        >
+                          <MaterialIcons
+                            name={isHidden ? "visibility" : "visibility-off"}
+                            size={18}
+                            color={
+                              isHidden ? palette.text : palette.textSecondary
+                            }
+                          />
+                        </Pressable>
+                      </>
+                    ) : null}
                   </View>
                 );
               })}
@@ -1391,10 +1518,10 @@ export default function SharedListsScreen() {
                   disabled={manageCategorySaving}
                 />
               </View>
+              <View style={{ paddingHorizontal: 2 }}>
+                <CuteButton label="Done" onPress={closeCategoryManager} />
+              </View>
             </ScrollView>
-            <View style={{ paddingHorizontal: 20 }}>
-              <CuteButton label="Done" onPress={closeCategoryManager} />
-            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1666,7 +1793,7 @@ export default function SharedListsScreen() {
                         color={palette.textSecondary}
                       />
                       <CuteText tone="muted" style={{ fontSize: 12 }}>
-                        {`${activeCategory?.label ?? "All missions"} • ${
+                        {`${activeCategory?.label ?? "All"} • ${
                           upcomingTodos.length
                         } open / ${completedTodos.length} done`}
                       </CuteText>
@@ -2131,11 +2258,9 @@ const TodoFormModal = ({
                   <View style={{ flex: 1 }}>
                     <CuteDropdown
                       value={categoryKey}
-                      onChange={(value) => {
-                        if (value) {
-                          setCategoryKey(value);
-                        }
-                      }}
+                      onChange={(value) =>
+                        setCategoryKey(value ?? defaultCategoryKey)
+                      }
                       options={categoryOptions}
                       placeholder="Choose a category"
                       modalTitle="Pick a category"
@@ -2296,14 +2421,24 @@ const TodoFormModal = ({
                 </CuteText>
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   {[
-                    { key: "me" as const, label: "Me", emoji: "🐼", color: palette.accent },
+                    {
+                      key: "me" as const,
+                      label: "Me",
+                      emoji: "🐼",
+                      color: palette.accent,
+                    },
                     {
                       key: "partner" as const,
                       label: partnerName,
                       emoji: "🐰",
                       color: palette.secondary,
                     },
-                    { key: "both" as const, label: "Both", emoji: "🤝", color: palette.primarySoft },
+                    {
+                      key: "both" as const,
+                      label: "Both",
+                      emoji: "🤝",
+                      color: palette.primarySoft,
+                    },
                   ].map((option) => {
                     const isActive = assigneeMode === option.key;
                     return (
@@ -2317,7 +2452,9 @@ const TodoFormModal = ({
                           paddingVertical: 12,
                           borderRadius: 14,
                           borderWidth: 2,
-                          borderColor: isActive ? palette.primary : palette.border,
+                          borderColor: isActive
+                            ? palette.primary
+                            : palette.border,
                           backgroundColor: isActive
                             ? palette.primarySoft
                             : palette.card,
@@ -2391,7 +2528,9 @@ const TodoFormModal = ({
                           weight={isActive ? "bold" : "semibold"}
                           style={{
                             fontSize: 13,
-                            color: isActive ? palette.text : palette.textSecondary,
+                            color: isActive
+                              ? palette.text
+                              : palette.textSecondary,
                           }}
                         >
                           {option.label}
@@ -2441,14 +2580,14 @@ const TodoFormModal = ({
                   Cancel
                 </CuteText>
               </Pressable>
-            <Pressable
-              onPress={handleSubmit}
-              disabled={!title.trim().length || submitting}
-              style={{
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 999,
-                backgroundColor:
+              <Pressable
+                onPress={handleSubmit}
+                disabled={!title.trim().length || submitting}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 999,
+                  backgroundColor:
                     !title.trim().length || submitting
                       ? palette.primarySoft
                       : palette.primary,

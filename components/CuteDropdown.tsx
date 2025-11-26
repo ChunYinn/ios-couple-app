@@ -53,11 +53,6 @@ export function CuteDropdown<T = string>({
     setIsOpen(false);
   };
 
-  const handleClear = () => {
-    onChange(null);
-    setIsOpen(false);
-  };
-
   return (
     <View style={style}>
       {label && (
@@ -144,7 +139,8 @@ export function CuteDropdown<T = string>({
                       backgroundColor:
                         item.value === value
                           ? palette.primarySoft
-                          : "transparent",
+                          : palette.card,
+                      borderRadius: 12,
                     },
                   ]}
                   onPress={() => handleSelect(item)}
@@ -153,10 +149,7 @@ export function CuteDropdown<T = string>({
                     <CuteText
                       weight={item.value === value ? "bold" : undefined}
                       style={{
-                        color:
-                          item.value === value
-                            ? palette.primary
-                            : palette.text,
+                        color: palette.text,
                       }}
                     >
                       {item.label}
@@ -174,7 +167,7 @@ export function CuteDropdown<T = string>({
                     <MaterialIcons
                       name="check"
                       size={20}
-                      color={palette.primary}
+                      color={palette.text}
                     />
                   )}
                 </TouchableOpacity>
@@ -187,32 +180,6 @@ export function CuteDropdown<T = string>({
                   }}
                 />
               )}
-              ListFooterComponent={
-                value !== null ? (
-                  <>
-                    <View
-                      style={{
-                        height: StyleSheet.hairlineWidth,
-                        backgroundColor: palette.border,
-                      }}
-                    />
-                    <TouchableOpacity
-                      style={[
-                        styles.optionItem,
-                        { backgroundColor: "transparent" },
-                      ]}
-                      onPress={handleClear}
-                    >
-                      <CuteText tone="muted">Clear selection</CuteText>
-                      <MaterialIcons
-                        name="clear"
-                        size={20}
-                        color={palette.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </>
-                ) : null
-              }
               style={styles.optionsList}
               showsVerticalScrollIndicator={false}
             />

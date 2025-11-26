@@ -89,6 +89,7 @@ const mapCategoryFromDb = (category: DBTodoCategory): TodoCategory => ({
   name: category.name,
   icon: category.icon,
   color: category.color,
+  hidden: Boolean(category.hidden),
   description: category.description ?? undefined,
 });
 
@@ -496,6 +497,7 @@ const reducer = (state: AppState, action: AppAction): AppState => {
         name: action.payload.name,
         icon: action.payload.icon,
         color: action.payload.color,
+        hidden: action.payload.hidden ?? false,
         description: action.payload.description,
       };
       return {
@@ -518,6 +520,10 @@ const reducer = (state: AppState, action: AppAction): AppState => {
                   name: action.payload.name ?? category.name,
                   icon: action.payload.icon ?? category.icon,
                   color: action.payload.color ?? category.color,
+                  hidden:
+                    action.payload.hidden === undefined
+                      ? category.hidden
+                      : action.payload.hidden,
                   description:
                     action.payload.description ?? category.description,
                 }

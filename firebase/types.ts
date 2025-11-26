@@ -93,6 +93,7 @@ export interface DBTodoCategory {
   createdAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
   order: number;
+  hidden?: boolean;
 }
 
 export interface DBTodoItem {

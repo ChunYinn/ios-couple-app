@@ -433,6 +433,7 @@ export const todoService = {
 
     const categoryRef = await addDoc(collection(db, 'couples', coupleId, 'todoCategories'), {
       ...data,
+      hidden: data.hidden ?? false,
       createdBy: userId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -449,6 +450,7 @@ export const todoService = {
       icon?: string;
       color?: string;
       description?: string | null;
+      hidden?: boolean;
     }
   ): Promise<void> {
     const userId = auth.currentUser?.uid;
@@ -469,6 +471,9 @@ export const todoService = {
     }
     if (data.description !== undefined) {
       updates.description = data.description;
+    }
+    if (data.hidden !== undefined) {
+      updates.hidden = data.hidden;
     }
 
     await updateDoc(
