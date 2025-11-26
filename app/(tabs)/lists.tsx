@@ -587,16 +587,16 @@ export default function SharedListsScreen() {
           setDetailModalVisible(true);
         }}
         style={{
-          borderRadius: 18,
+          borderRadius: 14,
           backgroundColor: palette.card,
-          padding: 14,
+          padding: 10,
           borderWidth: 1,
           borderColor: isCompleted ? palette.primarySoft : palette.border,
           shadowColor: "#00000015",
           shadowOpacity: 0.06,
           shadowRadius: 10,
           elevation: 2,
-          gap: 10,
+          gap: 6,
           opacity: isCompleted ? 0.9 : 1,
         }}
       >
@@ -604,7 +604,7 @@ export default function SharedListsScreen() {
           style={{
             flexDirection: "row",
             alignItems: "flex-start",
-            gap: 12,
+            gap: 8,
           }}
         >
           <Pressable
@@ -663,38 +663,38 @@ export default function SharedListsScreen() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            marginLeft: 42,
-            marginTop: 4,
-            gap: 8,
+            marginLeft: 32,
+            marginTop: 0,
+            gap: 6,
           }}
         >
           <View
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 8,
+              gap: 5,
               backgroundColor: categoryAccent,
               opacity: isCompleted ? 0.95 : 1,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 12,
+              paddingHorizontal: 7,
+              paddingVertical: 4,
+              borderRadius: 9,
             }}
           >
             <View
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
+                width: 22,
+                height: 22,
+                borderRadius: 11,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: palette.card,
               }}
             >
-              <CuteText style={{ fontSize: 14 }}>{emoji}</CuteText>
+              <CuteText style={{ fontSize: 13 }}>{emoji}</CuteText>
             </View>
             <CuteText
               weight="semibold"
-              style={{ fontSize: 12, color: palette.text }}
+              style={{ fontSize: 11.5, color: palette.text }}
             >
               {categoryLabel}
             </CuteText>
@@ -1152,11 +1152,11 @@ export default function SharedListsScreen() {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ gap: 12, paddingBottom: 120 }}
+          contentContainerStyle={{ gap: 8, paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
           {upcomingTodos.length ? (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 8 }}>
               {upcomingTodos.map((item) => renderMissionCard(item))}
             </View>
           ) : (
@@ -1184,7 +1184,7 @@ export default function SharedListsScreen() {
           )}
 
           {completedTodos.length ? (
-            <View style={{ gap: 10, marginTop: 4 }}>
+            <View style={{ gap: 6, marginTop: 2 }}>
               <Pressable
                 onPress={() => setShowCompleted((prev) => !prev)}
                 style={{
@@ -1208,7 +1208,7 @@ export default function SharedListsScreen() {
                 />
               </Pressable>
               {showCompleted ? (
-                <View style={{ gap: 10 }}>
+                <View style={{ gap: 8 }}>
                   {completedTodos.map((item) => renderMissionCard(item))}
                 </View>
               ) : null}
