@@ -69,20 +69,30 @@ export default function NewMilestoneScreen() {
     [milestones]
   );
 
-  const unlockedSteps = useMemo(
+  const selectableSteps = useMemo(
     () =>
       MILESTONE_STEPS.filter(
         (step) =>
-          daysTogether >= step.dayCount && !achievedDayCounts.has(step.dayCount)
+          daysTogether >= step.dayCount || achievedDayCounts.has(step.dayCount)
       ),
     [daysTogether, achievedDayCounts]
   );
 
+  const nextStep = useMemo(
+    () => MILESTONE_STEPS.find((step) => step.dayCount > daysTogether),
+    [daysTogether]
+  );
+
+  const pickerSteps = useMemo(
+    () => [...selectableSteps, ...(nextStep ? [nextStep] : [])],
+    [selectableSteps, nextStep]
+  );
+
   const eligibleStep = useMemo(() => {
-    const target = selectedDay ?? unlockedSteps[0]?.dayCount;
+    const target = selectedDay ?? selectableSteps[0]?.dayCount;
     if (!target) return undefined;
-    return unlockedSteps.find((step) => step.dayCount === target);
-  }, [selectedDay, unlockedSteps]);
+    return selectableSteps.find((step) => step.dayCount === target);
+  }, [selectedDay, selectableSteps]);
 
   const selectedDateLabel = useMemo(() => {
     if (!eligibleStep) return null;
@@ -94,25 +104,25 @@ export default function NewMilestoneScreen() {
     return achievedAt.toLocaleDateString();
   }, [dashboard.anniversaryDate, eligibleStep]);
 
-  const nextStep = useMemo(
-    () => MILESTONE_STEPS.find((step) => step.dayCount > daysTogether),
-    [daysTogether]
-  );
-
   useEffect(() => {
     const paramDayRaw = Array.isArray(params.day) ? params.day[0] : params.day;
     const paramDay = paramDayRaw ? Number(paramDayRaw) : NaN;
     if (!Number.isNaN(paramDay)) {
-      setSelectedDay(paramDay);
-      if (isLockedSelection) {
-        setShowStepPicker(false);
+      const canUseParam = selectableSteps.some(
+        (step) => step.dayCount === paramDay
+      );
+      if (canUseParam) {
+        setSelectedDay(paramDay);
+        if (isLockedSelection) {
+          setShowStepPicker(false);
+        }
+        return;
       }
-      return;
     }
-    if (unlockedSteps.length && selectedDay === null) {
-      setSelectedDay(unlockedSteps[0].dayCount);
+    if (selectableSteps.length && selectedDay === null) {
+      setSelectedDay(selectableSteps[0].dayCount);
     }
-  }, [params.day, unlockedSteps, selectedDay, isLockedSelection]);
+  }, [params.day, selectableSteps, selectedDay, isLockedSelection]);
 
   useEffect(() => {
     if (isLockedSelection && showStepPicker) {
@@ -325,7 +335,7 @@ export default function NewMilestoneScreen() {
                     <CuteText weight="bold" style={{ fontSize: 16 }}>
                       {eligibleStep
                         ? eligibleStep.label
-                        : unlockedSteps.length
+                        : selectableSteps.length
                         ? "Select milestone"
                         : "Milestone locked"}
                     </CuteText>
@@ -345,20 +355,22 @@ export default function NewMilestoneScreen() {
                     />
                   ) : null}
                 </Pressable>
-                {!isLockedSelection &&
-                showStepPicker &&
-                unlockedSteps.length ? (
+                {!isLockedSelection && showStepPicker && pickerSteps.length ? (
                   <View style={{ maxHeight: 220 }}>
                     <ScrollView
                       showsVerticalScrollIndicator
                       contentContainerStyle={{ paddingVertical: 8 }}
                     >
-                      {unlockedSteps.map((step) => {
+                      {pickerSteps.map((step) => {
                         const isSelected = selectedDay === step.dayCount;
+                        const isDisabled =
+                          step.dayCount > daysTogether &&
+                          !achievedDayCounts.has(step.dayCount);
                         return (
                           <Pressable
                             key={step.dayCount}
                             onPress={() => {
+                              if (isDisabled) return;
                               setSelectedDay(step.dayCount);
                               setShowStepPicker(false);
                             }}
@@ -371,6 +383,7 @@ export default function NewMilestoneScreen() {
                               backgroundColor: isSelected
                                 ? `${palette.primary}12`
                                 : "transparent",
+                              opacity: isDisabled ? 0.5 : 1,
                             }}
                           >
                             <MaterialIcons
@@ -382,9 +395,19 @@ export default function NewMilestoneScreen() {
                               size={20}
                               color={palette.primary}
                             />
-                            <CuteText weight="bold" style={{ fontSize: 14 }}>
-                              {step.label}
-                            </CuteText>
+                            <View style={{ flex: 1 }}>
+                              <CuteText weight="bold" style={{ fontSize: 14 }}>
+                                {step.label}
+                              </CuteText>
+                              {isDisabled ? (
+                                <CuteText
+                                  tone="muted"
+                                  style={{ fontSize: 12, marginTop: 2 }}
+                                >
+                                  Unlocks at {step.label}
+                                </CuteText>
+                              ) : null}
+                            </View>
                           </Pressable>
                         );
                       })}
