@@ -24,6 +24,88 @@ import { useAppData } from "../../context/AppDataContext";
 import { useToast } from "../../context/ToastContext";
 import { messageService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
+import { DBMessage, timestampToDate } from "../../firebase/types";
+import { ChatMessage } from "../../types/app";
+
+const CHAT_PAGE_SIZE = 40;
+
+const mapDbMessageToChat = (
+  entry: { message: DBMessage; pending: boolean },
+  myUid: string,
+  partnerUid?: string | null
+) => {
+  const { message, pending } = entry;
+  const reactions = message.reactions ?? {};
+  const firstReactionKey = Object.keys(reactions)[0];
+
+  const fallbackDate = (() => {
+    if (message.clientTimestamp) {
+      const candidate = new Date(message.clientTimestamp);
+      if (!Number.isNaN(candidate.getTime())) {
+        return candidate;
+      }
+    }
+    return new Date();
+  })();
+
+  let resolvedDate: Date | null = null;
+  const rawTimestamp = message.timestamp as any;
+  if (rawTimestamp) {
+    try {
+      if (typeof rawTimestamp.toDate === "function") {
+        resolvedDate = timestampToDate(rawTimestamp);
+      } else if (
+        rawTimestamp instanceof Date ||
+        typeof rawTimestamp === "string" ||
+        typeof rawTimestamp === "number"
+      ) {
+        const candidate = new Date(rawTimestamp);
+        if (!Number.isNaN(candidate.getTime())) {
+          resolvedDate = candidate;
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to parse message timestamp", error);
+    }
+  }
+
+  const finalDate = resolvedDate ?? fallbackDate;
+  const readBy = message.readBy ?? {};
+  const rawReadByMe = myUid ? readBy[myUid] : undefined;
+  const rawReadByPartner = partnerUid ? readBy[partnerUid] : undefined;
+
+  const readByMe =
+    rawReadByMe !== undefined && rawReadByMe !== null
+      ? true
+      : message.sender === myUid;
+
+  const sender: ChatMessage["sender"] = message.sender === myUid ? "me" : "partner";
+
+  let readAt: string | undefined;
+  if (rawReadByPartner) {
+    try {
+      readAt = timestampToDate(rawReadByPartner).toISOString();
+    } catch (error) {
+      console.warn("Unable to parse message readAt", error);
+    }
+  }
+
+  return {
+    id: message.id ?? `${Math.random()}`,
+    sender,
+    text: message.text,
+    type: message.type,
+    mediaUrl: message.mediaUrl ?? undefined,
+    thumbnailUrl: message.thumbnailUrl ?? undefined,
+    timestamp: finalDate.toISOString(),
+    clientTimestamp: fallbackDate.toISOString(),
+    pending,
+    readByMe,
+    readByPartner: Boolean(rawReadByPartner),
+    readAt,
+    reaction: firstReactionKey,
+  };
+};
 
 type PendingImage = {
   uri: string;
@@ -49,6 +131,10 @@ export default function PrivateChatScreen() {
   const [inputHeight, setInputHeight] = useState(40);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const oldestTimestampRef = useRef<string | null>(null);
   const hasDraftText = draft.trim().length > 0;
   const markedReadRef = useRef<Set<string>>(new Set());
   const readPermissionWarnedRef = useRef(false);
@@ -244,6 +330,50 @@ export default function PrivateChatScreen() {
     }
   }, [coupleId, draft, isSending, pendingImage, showToast]);
 
+  const loadOlderMessages = useCallback(async () => {
+    if (!coupleId || isLoadingOlder || !hasMoreHistory) return;
+    const cursor =
+      oldestTimestampRef.current ?? chat.messages[0]?.timestamp ?? null;
+    if (!cursor) return;
+    try {
+      setIsLoadingOlder(true);
+      const { messages, hasMore } = await messageService.fetchOlderMessages(
+        coupleId,
+        CHAT_PAGE_SIZE,
+        cursor
+      );
+      const myUid = auth.user.uid ?? "";
+      const partnerUid = profiles.partner?.uid ?? null;
+      const existingIds = new Set([
+        ...olderMessages.map((m) => m.id),
+        ...chat.messages.map((m) => m.id),
+      ]);
+      const mapped = messages
+        .map((entry) => mapDbMessageToChat(entry, myUid, partnerUid))
+        .filter((m) => m.id && !existingIds.has(m.id))
+        .sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      if (mapped.length) {
+        setOlderMessages((prev) => [...mapped, ...prev]);
+        oldestTimestampRef.current = mapped[0].timestamp;
+      }
+      setHasMoreHistory(hasMore && mapped.length > 0);
+    } catch (error) {
+      console.error("Failed to load older messages", error);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [
+    auth.user.uid,
+    chat.messages,
+    coupleId,
+    hasMoreHistory,
+    isLoadingOlder,
+    olderMessages,
+    profiles.partner?.uid,
+  ]);
+
   const formatMessageTime = useCallback((iso?: string) => {
     if (!iso) return "";
     const date = new Date(iso);
@@ -259,6 +389,15 @@ export default function PrivateChatScreen() {
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [chat.messages.length]);
+
+  useEffect(() => {
+    const combinedOldest =
+      olderMessages[0]?.timestamp ?? chat.messages[0]?.timestamp ?? null;
+    oldestTimestampRef.current = combinedOldest;
+    if (chat.messages.length < CHAT_PAGE_SIZE && olderMessages.length === 0) {
+      setHasMoreHistory(false);
+    }
+  }, [chat.messages, olderMessages]);
 
   useEffect(() => {
     markedReadRef.current.clear();
@@ -428,8 +567,23 @@ export default function PrivateChatScreen() {
             onContentSizeChange={() =>
               scrollRef.current?.scrollToEnd({ animated: true })
             }
+            onScroll={({ nativeEvent }) => {
+              if (
+                nativeEvent.contentOffset.y < 80 &&
+                hasMoreHistory &&
+                !isLoadingOlder
+              ) {
+                loadOlderMessages();
+              }
+            }}
+            scrollEventThrottle={16}
           >
-            {chat.messages.map((message) => {
+            {isLoadingOlder ? (
+              <View style={{ alignItems: "center" }}>
+                <ActivityIndicator color={palette.primary} />
+              </View>
+            ) : null}
+            {[...olderMessages, ...chat.messages].map((message) => {
               const isPartner = message.sender === "partner";
               const readByMe =
                 message.readByMe || markedReadRef.current.has(message.id);

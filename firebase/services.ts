@@ -10,10 +10,13 @@ import {
   onSnapshot,
   orderBy,
   query,
+  startAfter,
+  limit,
   serverTimestamp,
   setDoc,
   Timestamp,
   Unsubscribe,
+  QueryConstraint,
   updateDoc,
   where,
   writeBatch,
@@ -628,11 +631,13 @@ export const messageService = {
   subscribeToMessages(
     coupleId: string,
     callback: (messages: { message: DBMessage; pending: boolean }[]) => void,
-    onError?: (error: unknown) => void
+    onError?: (error: unknown) => void,
+    pageSize = 40
   ): Unsubscribe {
     const q = query(
       collection(db, "couples", coupleId, "messages"),
-      orderBy("timestamp", "asc")
+      orderBy("timestamp", "desc"),
+      limit(pageSize)
     );
 
     return onSnapshot(
@@ -646,6 +651,37 @@ export const messageService = {
       },
       (error) => onError?.(error)
     );
+  },
+
+  async fetchOlderMessages(
+    coupleId: string,
+    pageSize: number,
+    startAfterIso?: string | null
+  ): Promise<{ messages: Array<{ message: DBMessage; pending: boolean }>; hasMore: boolean }> {
+    const constraints: QueryConstraint[] = [
+      orderBy("timestamp", "desc"),
+      limit(pageSize),
+    ];
+
+    if (startAfterIso) {
+      const cursorDate = new Date(startAfterIso);
+      if (!Number.isNaN(cursorDate.getTime())) {
+        constraints.push(startAfter(cursorDate));
+      }
+    }
+
+    const snapshot = await getDocs(
+      query(collection(db, "couples", coupleId, "messages"), ...constraints)
+    );
+    const messages = snapshot.docs.map((doc) => ({
+      message: { id: doc.id, ...(doc.data() as DBMessage) },
+      pending: doc.metadata.hasPendingWrites,
+    }));
+
+    return {
+      messages,
+      hasMore: snapshot.size === pageSize,
+    };
   },
 };
 

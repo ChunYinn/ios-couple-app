@@ -1128,6 +1128,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const partnerUid = state.profiles.partner?.uid ?? null;
+    const CHAT_PAGE_SIZE = 40;
     const unsubscribe = messageService.subscribeToMessages(
       coupleId,
       (entries) => {
@@ -1147,7 +1148,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         if (code === "permission-denied" || code === "not-found") {
           dispatch({ type: "RESET_PAIRING" });
         }
-      }
+      },
+      CHAT_PAGE_SIZE
     );
 
     return unsubscribe;
