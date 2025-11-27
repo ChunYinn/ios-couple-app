@@ -29,56 +29,16 @@ import {
   parseLocalDate,
 } from "../../utils/dateUtils";
 
-type ActionRoute =
-  | "/(tabs)/chat"
-  | "/(tabs)/lists"
-  | "/milestone/new"
-  | "/gallery";
-
-type QuickAction = {
-  id: string;
-  label: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-  route: ActionRoute;
-  requiresPair?: boolean;
-};
-
-const quickActions: QuickAction[] = [
-  {
-    id: "chat",
-    label: "Chat",
-    icon: "chat",
-    route: "/(tabs)/chat",
-    requiresPair: true,
-  },
-  {
-    id: "milestone",
-    label: "Add Milestone",
-    icon: "auto-awesome",
-    route: "/milestone/new",
-    requiresPair: true,
-  },
-  {
-    id: "plan",
-    label: "Plan Date",
-    icon: "favorite",
-    route: "/(tabs)/lists",
-    requiresPair: true,
-  },
-];
-
 export default function AnniversaryDashboardScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const {
-    state: { auth, pairing, dashboard, milestones, profiles },
+    state: { auth, dashboard, milestones, profiles },
     dispatch,
   } = useAppData();
-  const isPaired = pairing.isPaired;
   const isUltraNarrow = width < 360;
   const contentWidth = width - 40;
-  const quickActionCardWidth = Math.max(120, (contentWidth - 12) / 2);
   const milestoneAvatarSize = isUltraNarrow ? 56 : 68;
   const milestoneCardWidth = milestoneAvatarSize + (isUltraNarrow ? 14 : 20);
   const milestoneItemGap = isUltraNarrow ? 10 : 8;
@@ -333,14 +293,6 @@ export default function AnniversaryDashboardScreen() {
         };
       });
   }, [dashboard.daysTogether, milestones]);
-
-  const handleActionPress = (route: ActionRoute, requiresPair?: boolean) => {
-    if (requiresPair && !isPaired) {
-      router.push("/pairing");
-      return;
-    }
-    router.push(route);
-  };
 
   return (
     <Screen

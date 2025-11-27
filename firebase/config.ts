@@ -3,6 +3,7 @@ import { getAuth, initializeAuth } from "firebase/auth";
 import {
   getFirestore,
   initializeFirestore,
+  memoryLocalCache,
   persistentLocalCache,
 } from "firebase/firestore";
 import type { Persistence } from "firebase/auth";
@@ -86,9 +87,14 @@ export const firebaseAuth = authInstance;
 // Enable Firestore local persistence/cache to reduce redundant fetching
 let firestoreInstance;
 try {
-  firestoreInstance = initializeFirestore(firebaseApp, {
-    localCache: persistentLocalCache(),
-  });
+  firestoreInstance =
+    Platform.OS === "web"
+      ? initializeFirestore(firebaseApp, {
+          localCache: persistentLocalCache(),
+        })
+      : initializeFirestore(firebaseApp, {
+          localCache: memoryLocalCache(),
+        });
 } catch (error) {
   firestoreInstance = getFirestore(firebaseApp);
 }

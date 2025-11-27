@@ -53,6 +53,155 @@ const db = firestoreDb;
 const auth = getAuth(firebaseApp);
 const storage = getStorage(firebaseApp);
 
+const MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024;
+const CHAT_IMAGE_FETCH_TIMEOUT_MS = 20000;
+
+const stripQueryFromUri = (uri: string) => uri.split('?')[0]?.split('#')[0] ?? uri;
+
+const resolveImageUploadDetails = (
+  uri: string,
+  fileName?: string | null,
+  mimeType?: string | null,
+  headerContentType?: string
+) => {
+  const source = stripQueryFromUri(fileName || uri);
+  const extensionMatch = source.match(/\.([a-zA-Z0-9]+)$/);
+  const extension = extensionMatch?.[1]?.toLowerCase();
+  const normalizedExtension = extension === 'jpg' ? 'jpeg' : extension ?? 'jpeg';
+  const contentType =
+    mimeType && mimeType.startsWith('image/')
+      ? mimeType
+      : headerContentType && headerContentType.startsWith('image/')
+      ? headerContentType
+      : `image/${normalizedExtension}`;
+
+  return {
+    extension: normalizedExtension,
+    contentType,
+  };
+};
+
+const readImageForUpload = async (params: {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  timeoutMs?: number;
+}): Promise<{ blob: Blob; contentType: string; extension: string; size: number }> => {
+  const { uri, fileName, mimeType, timeoutMs = CHAT_IMAGE_FETCH_TIMEOUT_MS } = params;
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  try {
+    const response = await fetch(uri, { signal: controller?.signal });
+    if (!response.ok) {
+      throw new Error("We couldn't read that photo from your library.");
+    }
+
+    const headerContentType = response.headers?.get?.('Content-Type') ?? '';
+    const blob = await response.blob();
+    const size = (blob as any)?.size as number | undefined;
+    if (!size || size <= 0) {
+      throw new Error('This photo looks empty. Please pick another one.');
+    }
+    if (size >= MAX_CHAT_IMAGE_BYTES) {
+      throw new Error('Images must be under 8 MB. Please pick a smaller photo.');
+    }
+
+    const { extension, contentType } = resolveImageUploadDetails(
+      uri,
+      fileName,
+      mimeType,
+      headerContentType
+    );
+
+    return { blob, contentType, extension, size };
+  } catch (error) {
+    if ((error as { name?: string })?.name === 'AbortError') {
+      throw new Error(
+        'The photo took too long to load. Please check your connection and try again.'
+      );
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
+const uploadWithRetry = async (
+  storageRef: ReturnType<typeof ref>,
+  data: Uint8Array,
+  metadata: { contentType: string },
+  maxAttempts = 3
+) => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await uploadBytes(storageRef, data, metadata);
+      return;
+    } catch (err) {
+      lastError = err;
+      const code = (err as { code?: string })?.code;
+      const retryable =
+        code === 'storage/retry-limit-exceeded' ||
+        code === 'storage/unknown' ||
+        code === 'storage/canceled';
+      if (!retryable || attempt === maxAttempts - 1) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+};
+
+const blobToUint8Array = async (blob: Blob): Promise<Uint8Array | null> => {
+  try {
+    const arrayBufferMethod = (blob as any)?.arrayBuffer;
+    if (typeof arrayBufferMethod === 'function') {
+      const buffer = await arrayBufferMethod.call(blob);
+      return new Uint8Array(buffer);
+    }
+  } catch {
+    // ignore and fall through
+  }
+
+  if (typeof FileReader !== 'undefined') {
+    try {
+      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (reader.result instanceof ArrayBuffer) {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Reader did not return ArrayBuffer'));
+          }
+        };
+        reader.onerror = () => reject(reader.error ?? new Error('Failed to read blob'));
+        reader.readAsArrayBuffer(blob);
+      });
+      return new Uint8Array(buffer);
+    } catch {
+      // ignore and fall through
+    }
+  }
+
+  if (typeof Response !== 'undefined') {
+    try {
+      const buffer = await new Response(blob).arrayBuffer();
+      return new Uint8Array(buffer);
+    } catch {
+      // ignore and fall through
+    }
+  }
+
+  return null;
+};
+
 // ============= USER SERVICES =============
 export const userService = {
   // Create or update user profile
@@ -323,6 +472,9 @@ export const messageService = {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
 
+    const startedAt = Date.now();
+    console.info(`[chat] sendMessage start type=${type} length=${text.length}`);
+
     await addDoc(collection(db, 'couples', coupleId, 'messages'), {
       sender: userId,
       text,
@@ -337,41 +489,99 @@ export const messageService = {
       editedAt: null,
       deletedAt: null
     } as DBMessage);
+
+    console.info(`[chat] sendMessage done in ${Date.now() - startedAt}ms`);
   },
 
-  async sendImageMessage(coupleId: string, uri: string): Promise<void> {
+  async sendImageMessage(params: {
+    coupleId: string;
+    uri: string;
+    mimeType?: string | null;
+    fileName?: string | null;
+  }): Promise<void> {
+    const { coupleId, uri, mimeType, fileName } = params;
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
 
+    const startedAt = Date.now();
+    console.info(`[chat] sendImageMessage start uri=${uri}`);
+
     const messageRef = doc(collection(db, 'couples', coupleId, 'messages'));
-    const messageId = messageRef.id;
+    const readStartedAt = Date.now();
+    const { blob, contentType, extension, size } = await readImageForUpload({
+      uri,
+      fileName,
+      mimeType,
+    });
+    console.info(
+      `[chat] image fetched size=${size} bytes in ${Date.now() - readStartedAt}ms`
+    );
 
-    const cleanedUri = uri.split("?")[0]?.split("#")[0] ?? uri;
-    const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
-    const extension = extensionMatch?.[1]?.toLowerCase() ?? "jpg";
-    const storagePath = `couples/${coupleId}/messages/${messageId}/${Date.now()}.${extension}`;
-    const storageRef = ref(storage, storagePath);
+    const bytes = await blobToUint8Array(blob);
 
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    const storageRef = ref(
+      storage,
+      `couples/${coupleId}/messages/${messageRef.id}/${Date.now()}.${extension}`
+    );
 
-    await uploadBytes(storageRef, blob);
+    try {
+      if (bytes) {
+        await uploadWithRetry(storageRef, bytes, { contentType });
+      } else {
+        // Fallback for environments where reading arrayBuffer failed.
+        console.info('[chat] blob upload fallback (no arrayBuffer support)');
+        await uploadBytes(storageRef, blob, { contentType });
+      }
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      const isRetryLimit = code === 'storage/retry-limit-exceeded';
+      const message =
+        (error as Error)?.message ||
+        (isRetryLimit
+          ? 'Upload timed out. Please check your connection and try again.'
+          : "We couldn't upload that photo. Please try again.");
+      throw new Error(message);
+    }
+
+    console.info(
+      `[chat] image uploaded in ${Date.now() - readStartedAt}ms (includes retries)`
+    );
+
+    const writeStartedAt = Date.now();
     const downloadUrl = await getDownloadURL(storageRef);
 
-    await setDoc(messageRef, {
-      sender: userId,
-      text: "",
-      type: "image",
-      mediaUrl: downloadUrl,
-      thumbnailUrl: downloadUrl,
-      duration: null,
-      reactions: {},
-      readBy: { [userId]: serverTimestamp() },
-      clientTimestamp: new Date().toISOString(),
-      timestamp: serverTimestamp(),
-      editedAt: null,
-      deletedAt: null,
-    } as DBMessage);
+    try {
+      await setDoc(messageRef, {
+        sender: userId,
+        text: '',
+        type: 'image',
+        mediaUrl: downloadUrl,
+        thumbnailUrl: downloadUrl,
+        duration: null,
+        reactions: {},
+        readBy: { [userId]: serverTimestamp() },
+        clientTimestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(),
+        editedAt: null,
+        deletedAt: null,
+      } as DBMessage);
+
+      console.info(
+        `[chat] message saved in ${Date.now() - writeStartedAt}ms total=${
+          Date.now() - startedAt
+        }ms`
+      );
+    } catch (error) {
+      try {
+        await deleteObject(storageRef);
+      } catch (cleanupError) {
+        console.warn('Unable to clean up uploaded chat image', cleanupError);
+      }
+      const message =
+        (error as Error)?.message ||
+        'The photo uploaded but saving the chat message failed. Please try again.';
+      throw new Error(message);
+    }
   },
 
   // Add reaction to message

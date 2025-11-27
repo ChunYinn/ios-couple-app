@@ -24,6 +24,12 @@ import { useAppData } from "../../context/AppDataContext";
 import { messageService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
 
+type PendingImage = {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+};
+
 export default function PrivateChatScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
@@ -39,7 +45,7 @@ export default function PrivateChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [inputHeight, setInputHeight] = useState(40);
-  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
   const hasDraftText = draft.trim().length > 0;
   const markedReadRef = useRef<Set<string>>(new Set());
   const readPermissionWarnedRef = useRef(false);
@@ -163,7 +169,11 @@ export default function PrivateChatScreen() {
         return;
       }
 
-      setPendingImageUri(asset.uri);
+      setPendingImage({
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? undefined,
+        fileName: asset.fileName ?? undefined,
+      });
       requestAnimationFrame(() => {
         scrollRef.current?.scrollToEnd({ animated: true });
       });
@@ -178,7 +188,7 @@ export default function PrivateChatScreen() {
 
   const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
-    const hasPayload = trimmed.length > 0 || Boolean(pendingImageUri);
+    const hasPayload = trimmed.length > 0 || Boolean(pendingImage);
     if (!hasPayload || isSending) return;
     if (!coupleId) {
       Alert.alert(
@@ -190,10 +200,15 @@ export default function PrivateChatScreen() {
 
     try {
       setIsSending(true);
-      if (pendingImageUri) {
+      if (pendingImage) {
         setIsUploadingImage(true);
-        await messageService.sendImageMessage(coupleId, pendingImageUri);
-        setPendingImageUri(null);
+        await messageService.sendImageMessage({
+          coupleId,
+          uri: pendingImage.uri,
+          mimeType: pendingImage.mimeType,
+          fileName: pendingImage.fileName,
+        });
+        setPendingImage(null);
         setIsUploadingImage(false);
       }
       if (trimmed.length) {
@@ -206,15 +221,18 @@ export default function PrivateChatScreen() {
       });
     } catch (error) {
       console.error("Failed to send message", error);
+      const errorMessage =
+        (error as Error)?.message ||
+        "We couldn't deliver that message. Please check your connection and try again.";
       Alert.alert(
         "Message failed",
-        "We couldn't deliver that message. Please check your connection and try again."
+        errorMessage
       );
     } finally {
       setIsSending(false);
       setIsUploadingImage(false);
     }
-  }, [coupleId, draft, isSending, pendingImageUri]);
+  }, [coupleId, draft, isSending, pendingImage]);
 
   const formatMessageTime = useCallback((iso?: string) => {
     if (!iso) return "";
@@ -567,7 +585,7 @@ export default function PrivateChatScreen() {
               backgroundColor: palette.background,
             }}
           >
-            {pendingImageUri ? (
+            {pendingImage ? (
               <View
                 style={{
                   marginBottom: 12,
@@ -583,12 +601,12 @@ export default function PrivateChatScreen() {
                   }}
                 >
                   <Image
-                    source={{ uri: pendingImageUri }}
+                    source={{ uri: pendingImage.uri }}
                     style={{ width: 160, height: 120 }}
                     resizeMode="cover"
                   />
                   <Pressable
-                    onPress={() => setPendingImageUri(null)}
+                    onPress={() => setPendingImage(null)}
                     style={{
                       position: "absolute",
                       top: 6,
@@ -684,14 +702,14 @@ export default function PrivateChatScreen() {
                   alignItems: "center",
                   justifyContent: "center",
                   opacity:
-                    (hasDraftText || pendingImageUri) &&
+                    (hasDraftText || pendingImage) &&
                     !isSending &&
                     !isUploadingImage
                       ? 1
                       : 0.4,
                 }}
                 disabled={
-                  !(hasDraftText || pendingImageUri) ||
+                  !(hasDraftText || pendingImage) ||
                   isSending ||
                   isUploadingImage
                 }
