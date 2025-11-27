@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CuteText } from "../../components/CuteText";
 import { Screen } from "../../components/Screen";
 import { useAppData } from "../../context/AppDataContext";
+import { useToast } from "../../context/ToastContext";
 import { messageService } from "../../firebase/services";
 import { usePalette } from "../../hooks/usePalette";
 
@@ -40,12 +41,14 @@ export default function PrivateChatScreen() {
     state: { pairing, profiles, chat, auth },
     dispatch,
   } = useAppData();
+  const { showToast } = useToast();
   const isFocused = useIsFocused();
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [inputHeight, setInputHeight] = useState(40);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const hasDraftText = draft.trim().length > 0;
   const markedReadRef = useRef<Set<string>>(new Set());
   const readPermissionWarnedRef = useRef(false);
@@ -162,10 +165,11 @@ export default function PrivateChatScreen() {
 
       const asset = result.assets[0];
       if (!asset?.uri) {
-        Alert.alert(
-          "No image",
-          "We couldn't read that picture. Please try again."
-        );
+        showToast({
+          tone: "warning",
+          title: "Photo not ready",
+          message: "We couldn't read that picture. Please try again.",
+        });
         return;
       }
 
@@ -179,12 +183,13 @@ export default function PrivateChatScreen() {
       });
     } catch (error) {
       console.error("Failed to select photo", error);
-      Alert.alert(
-        "Photo not ready",
-        "We couldn't prepare that picture. Please try again."
-      );
+      showToast({
+        tone: "warning",
+        title: "Photo not ready",
+        message: "We couldn't prepare that picture. Please try again.",
+      });
     }
-  }, [coupleId, isUploadingImage]);
+  }, [coupleId, isUploadingImage, showToast]);
 
   const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
@@ -202,14 +207,17 @@ export default function PrivateChatScreen() {
       setIsSending(true);
       if (pendingImage) {
         setIsUploadingImage(true);
+        setUploadProgress(0);
         await messageService.sendImageMessage({
           coupleId,
           uri: pendingImage.uri,
           mimeType: pendingImage.mimeType,
           fileName: pendingImage.fileName,
+          onProgress: (percent) => setUploadProgress(percent),
         });
         setPendingImage(null);
         setIsUploadingImage(false);
+        setUploadProgress(null);
       }
       if (trimmed.length) {
         await messageService.sendMessage(coupleId, trimmed);
@@ -224,15 +232,17 @@ export default function PrivateChatScreen() {
       const errorMessage =
         (error as Error)?.message ||
         "We couldn't deliver that message. Please check your connection and try again.";
-      Alert.alert(
-        "Message failed",
-        errorMessage
-      );
+      showToast({
+        tone: "warning",
+        title: "Message not sent",
+        message: errorMessage,
+      });
     } finally {
       setIsSending(false);
       setIsUploadingImage(false);
+      setUploadProgress(null);
     }
-  }, [coupleId, draft, isSending, pendingImage]);
+  }, [coupleId, draft, isSending, pendingImage, showToast]);
 
   const formatMessageTime = useCallback((iso?: string) => {
     if (!iso) return "";
@@ -579,12 +589,12 @@ export default function PrivateChatScreen() {
           </ScrollView>
 
           <View
-            style={{
-              paddingHorizontal: composerHorizontalPadding,
-              paddingTop: 10,
-              backgroundColor: palette.background,
-            }}
-          >
+          style={{
+            paddingHorizontal: composerHorizontalPadding,
+            paddingTop: 10,
+            backgroundColor: palette.background,
+          }}
+        >
             {pendingImage ? (
               <View
                 style={{
@@ -605,6 +615,55 @@ export default function PrivateChatScreen() {
                     style={{ width: 160, height: 120 }}
                     resizeMode="cover"
                   />
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      backgroundColor: "#00000066",
+                      gap: 6,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <CuteText style={{ color: "#fff", fontSize: 13 }}>
+                        {uploadProgress !== null ? "Sending photo…" : "Ready to send"}
+                      </CuteText>
+                      <CuteText style={{ color: "#fff", fontSize: 13 }}>
+                        {uploadProgress !== null
+                          ? `${Math.round(uploadProgress)}%`
+                          : ""}
+                      </CuteText>
+                    </View>
+                    <View
+                      style={{
+                        height: 6,
+                        borderRadius: 999,
+                        backgroundColor: "#ffffff40",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          height: "100%",
+                          width: `${
+                            uploadProgress !== null
+                              ? Math.max(0, Math.min(uploadProgress, 100))
+                              : 0
+                          }%`,
+                          backgroundColor: "#fff",
+                        }}
+                      />
+                    </View>
+                  </View>
                   <Pressable
                     onPress={() => setPendingImage(null)}
                     style={{

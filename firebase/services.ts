@@ -25,6 +25,7 @@ import {
   getStorage,
   ref,
   uploadBytes,
+  uploadBytesResumable,
   getDownloadURL,
   deleteObject
 } from 'firebase/storage';
@@ -130,16 +131,48 @@ const readImageForUpload = async (params: {
   }
 };
 
-const uploadWithRetry = async (
+const uploadWithProgress = async (
   storageRef: ReturnType<typeof ref>,
-  data: Uint8Array,
+  data: Uint8Array | Blob,
   metadata: { contentType: string },
+  onProgress?: (percent: number) => void
+) => {
+  return new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, data, metadata);
+    task.on(
+      'state_changed',
+      (snapshot) => {
+        if (onProgress && snapshot.totalBytes > 0) {
+          const percent = Math.min(
+            100,
+            Math.max(0, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100))
+          );
+          onProgress(percent);
+        }
+      },
+      (error) => {
+        onProgress?.(0);
+        reject(error);
+      },
+      () => {
+        onProgress?.(100);
+        resolve();
+      }
+    );
+  });
+};
+
+const uploadWithProgressRetry = async (
+  storageRef: ReturnType<typeof ref>,
+  data: Uint8Array | Blob,
+  metadata: { contentType: string },
+  onProgress?: (percent: number) => void,
   maxAttempts = 3
 ) => {
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      await uploadBytes(storageRef, data, metadata);
+      await uploadWithProgress(storageRef, data, metadata, onProgress);
       return;
     } catch (err) {
       lastError = err;
@@ -152,54 +185,12 @@ const uploadWithRetry = async (
         throw err;
       }
       await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      onProgress?.(0);
     }
   }
   if (lastError) {
     throw lastError;
   }
-};
-
-const blobToUint8Array = async (blob: Blob): Promise<Uint8Array | null> => {
-  try {
-    const arrayBufferMethod = (blob as any)?.arrayBuffer;
-    if (typeof arrayBufferMethod === 'function') {
-      const buffer = await arrayBufferMethod.call(blob);
-      return new Uint8Array(buffer);
-    }
-  } catch {
-    // ignore and fall through
-  }
-
-  if (typeof FileReader !== 'undefined') {
-    try {
-      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (reader.result instanceof ArrayBuffer) {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Reader did not return ArrayBuffer'));
-          }
-        };
-        reader.onerror = () => reject(reader.error ?? new Error('Failed to read blob'));
-        reader.readAsArrayBuffer(blob);
-      });
-      return new Uint8Array(buffer);
-    } catch {
-      // ignore and fall through
-    }
-  }
-
-  if (typeof Response !== 'undefined') {
-    try {
-      const buffer = await new Response(blob).arrayBuffer();
-      return new Uint8Array(buffer);
-    } catch {
-      // ignore and fall through
-    }
-  }
-
-  return null;
 };
 
 // ============= USER SERVICES =============
@@ -472,9 +463,6 @@ export const messageService = {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
 
-    const startedAt = Date.now();
-    console.info(`[chat] sendMessage start type=${type} length=${text.length}`);
-
     await addDoc(collection(db, 'couples', coupleId, 'messages'), {
       sender: userId,
       text,
@@ -490,7 +478,6 @@ export const messageService = {
       deletedAt: null
     } as DBMessage);
 
-    console.info(`[chat] sendMessage done in ${Date.now() - startedAt}ms`);
   },
 
   async sendImageMessage(params: {
@@ -498,26 +485,18 @@ export const messageService = {
     uri: string;
     mimeType?: string | null;
     fileName?: string | null;
+    onProgress?: (percent: number) => void;
   }): Promise<void> {
-    const { coupleId, uri, mimeType, fileName } = params;
+    const { coupleId, uri, mimeType, fileName, onProgress } = params;
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
 
-    const startedAt = Date.now();
-    console.info(`[chat] sendImageMessage start uri=${uri}`);
-
     const messageRef = doc(collection(db, 'couples', coupleId, 'messages'));
-    const readStartedAt = Date.now();
     const { blob, contentType, extension, size } = await readImageForUpload({
       uri,
       fileName,
       mimeType,
     });
-    console.info(
-      `[chat] image fetched size=${size} bytes in ${Date.now() - readStartedAt}ms`
-    );
-
-    const bytes = await blobToUint8Array(blob);
 
     const storageRef = ref(
       storage,
@@ -525,13 +504,8 @@ export const messageService = {
     );
 
     try {
-      if (bytes) {
-        await uploadWithRetry(storageRef, bytes, { contentType });
-      } else {
-        // Fallback for environments where reading arrayBuffer failed.
-        console.info('[chat] blob upload fallback (no arrayBuffer support)');
-        await uploadBytes(storageRef, blob, { contentType });
-      }
+      // React Native storage works best with Blob uploads; skip Uint8Array to avoid Blob polyfill issues.
+      await uploadWithProgressRetry(storageRef, blob, { contentType }, onProgress);
     } catch (error) {
       const code = (error as { code?: string })?.code;
       const isRetryLimit = code === 'storage/retry-limit-exceeded';
@@ -543,11 +517,6 @@ export const messageService = {
       throw new Error(message);
     }
 
-    console.info(
-      `[chat] image uploaded in ${Date.now() - readStartedAt}ms (includes retries)`
-    );
-
-    const writeStartedAt = Date.now();
     const downloadUrl = await getDownloadURL(storageRef);
 
     try {
@@ -565,12 +534,6 @@ export const messageService = {
         editedAt: null,
         deletedAt: null,
       } as DBMessage);
-
-      console.info(
-        `[chat] message saved in ${Date.now() - writeStartedAt}ms total=${
-          Date.now() - startedAt
-        }ms`
-      );
     } catch (error) {
       try {
         await deleteObject(storageRef);
