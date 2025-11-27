@@ -1,54 +1,49 @@
+import { getAuth } from "firebase/auth";
 import {
+  addDoc,
+  arrayUnion,
+  collection,
+  deleteDoc,
   doc,
-  setDoc,
-  updateDoc,
   getDoc,
   getDocs,
-  addDoc,
-  deleteDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
+  setDoc,
   Timestamp,
+  Unsubscribe,
+  updateDoc,
+  where,
   writeBatch,
-  arrayUnion,
-  arrayRemove,
-  increment,
-  Unsubscribe
-} from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+} from "firebase/firestore";
 import {
+  deleteObject,
+  getDownloadURL,
   getStorage,
   ref,
   uploadBytes,
   uploadBytesResumable,
-  getDownloadURL,
-  deleteObject
-} from 'firebase/storage';
-import { firebaseApp, firestoreDb } from './config';
+} from "firebase/storage";
+import { DEFAULT_LOVE_LANGUAGES } from "../data/loveLanguages";
+import { firebaseApp, firestoreDb } from "./config";
 import {
-  DBUser,
-  DBDevice,
+  daysBetween,
+  DBCalendarEvent,
   DBCouple,
-  DBProfile,
+  DBDevice,
+  DBInvite,
+  DBLocation,
+  DBMemory,
   DBMessage,
+  DBMilestone,
+  DBProfile,
   DBTodoCategory,
   DBTodoItem,
-  DBMemory,
-  DBMilestone,
-  DBLocation,
-  DBInvite,
-  DBNotification,
-  DBCalendarEvent,
+  DBUser,
   timestampToDate,
-  dateToString,
-  daysBetween
-} from './types';
-import { DEFAULT_LOVE_LANGUAGES } from '../data/loveLanguages';
+} from "./types";
 
 const db = firestoreDb;
 const auth = getAuth(firebaseApp);
@@ -57,7 +52,8 @@ const storage = getStorage(firebaseApp);
 const MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024;
 const CHAT_IMAGE_FETCH_TIMEOUT_MS = 20000;
 
-const stripQueryFromUri = (uri: string) => uri.split('?')[0]?.split('#')[0] ?? uri;
+const stripQueryFromUri = (uri: string) =>
+  uri.split("?")[0]?.split("#")[0] ?? uri;
 
 const resolveImageUploadDetails = (
   uri: string,
@@ -68,11 +64,12 @@ const resolveImageUploadDetails = (
   const source = stripQueryFromUri(fileName || uri);
   const extensionMatch = source.match(/\.([a-zA-Z0-9]+)$/);
   const extension = extensionMatch?.[1]?.toLowerCase();
-  const normalizedExtension = extension === 'jpg' ? 'jpeg' : extension ?? 'jpeg';
+  const normalizedExtension =
+    extension === "jpg" ? "jpeg" : extension ?? "jpeg";
   const contentType =
-    mimeType && mimeType.startsWith('image/')
+    mimeType && mimeType.startsWith("image/")
       ? mimeType
-      : headerContentType && headerContentType.startsWith('image/')
+      : headerContentType && headerContentType.startsWith("image/")
       ? headerContentType
       : `image/${normalizedExtension}`;
 
@@ -87,11 +84,19 @@ const readImageForUpload = async (params: {
   fileName?: string | null;
   mimeType?: string | null;
   timeoutMs?: number;
-}): Promise<{ blob: Blob; contentType: string; extension: string; size: number }> => {
-  const { uri, fileName, mimeType, timeoutMs = CHAT_IMAGE_FETCH_TIMEOUT_MS } = params;
+}): Promise<{ blob: Blob; contentType: string; extension: string }> => {
+  const {
+    uri,
+    fileName,
+    mimeType,
+    timeoutMs = CHAT_IMAGE_FETCH_TIMEOUT_MS,
+  } = params;
 
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  const controller =
+    typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
 
   try {
     const response = await fetch(uri, { signal: controller?.signal });
@@ -99,14 +104,16 @@ const readImageForUpload = async (params: {
       throw new Error("We couldn't read that photo from your library.");
     }
 
-    const headerContentType = response.headers?.get?.('Content-Type') ?? '';
+    const headerContentType = response.headers?.get?.("Content-Type") ?? "";
     const blob = await response.blob();
     const size = (blob as any)?.size as number | undefined;
     if (!size || size <= 0) {
-      throw new Error('This photo looks empty. Please pick another one.');
+      throw new Error("This photo looks empty. Please pick another one.");
     }
     if (size >= MAX_CHAT_IMAGE_BYTES) {
-      throw new Error('Images must be under 8 MB. Please pick a smaller photo.');
+      throw new Error(
+        "Images must be under 8 MB. Please pick a smaller photo."
+      );
     }
 
     const { extension, contentType } = resolveImageUploadDetails(
@@ -116,11 +123,11 @@ const readImageForUpload = async (params: {
       headerContentType
     );
 
-    return { blob, contentType, extension, size };
+    return { blob, contentType, extension };
   } catch (error) {
-    if ((error as { name?: string })?.name === 'AbortError') {
+    if ((error as { name?: string })?.name === "AbortError") {
       throw new Error(
-        'The photo took too long to load. Please check your connection and try again.'
+        "The photo took too long to load. Please check your connection and try again."
       );
     }
     throw error;
@@ -140,12 +147,17 @@ const uploadWithProgress = async (
   return new Promise<void>((resolve, reject) => {
     const task = uploadBytesResumable(storageRef, data, metadata);
     task.on(
-      'state_changed',
+      "state_changed",
       (snapshot) => {
         if (onProgress && snapshot.totalBytes > 0) {
           const percent = Math.min(
             100,
-            Math.max(0, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100))
+            Math.max(
+              0,
+              Math.round(
+                (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+              )
+            )
           );
           onProgress(percent);
         }
@@ -178,9 +190,9 @@ const uploadWithProgressRetry = async (
       lastError = err;
       const code = (err as { code?: string })?.code;
       const retryable =
-        code === 'storage/retry-limit-exceeded' ||
-        code === 'storage/unknown' ||
-        code === 'storage/canceled';
+        code === "storage/retry-limit-exceeded" ||
+        code === "storage/unknown" ||
+        code === "storage/canceled";
       if (!retryable || attempt === maxAttempts - 1) {
         throw err;
       }
@@ -197,33 +209,41 @@ const uploadWithProgressRetry = async (
 export const userService = {
   // Create or update user profile
   async createUser(userId: string, data: Partial<DBUser>): Promise<void> {
-    await setDoc(doc(db, 'users', userId), {
-      ...data,
-      uid: userId,
-      createdAt: serverTimestamp(),
-      lastSeenAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+    await setDoc(
+      doc(db, "users", userId),
+      {
+        ...data,
+        uid: userId,
+        createdAt: serverTimestamp(),
+        lastSeenAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   },
 
   // Get user by ID
   async getUser(userId: string): Promise<DBUser | null> {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    return userDoc.exists() ? userDoc.data() as DBUser : null;
+    const userDoc = await getDoc(doc(db, "users", userId));
+    return userDoc.exists() ? (userDoc.data() as DBUser) : null;
   },
 
   // Update user
   async updateUser(userId: string, data: Partial<DBUser>): Promise<void> {
-    await updateDoc(doc(db, 'users', userId), {
+    await updateDoc(doc(db, "users", userId), {
       ...data,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   },
 
-  async uploadAvatar(userId: string, uri: string, currentAvatarUrl?: string | null): Promise<string> {
-    const cleanedUri = uri.split('?')[0]?.split('#')[0] ?? uri;
+  async uploadAvatar(
+    userId: string,
+    uri: string,
+    currentAvatarUrl?: string | null
+  ): Promise<string> {
+    const cleanedUri = uri.split("?")[0]?.split("#")[0] ?? uri;
     const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
-    const extension = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? "jpg";
     const storagePath = `users/${userId}/avatar/${Date.now()}.${extension}`;
     const storageRef = ref(storage, storagePath);
 
@@ -238,7 +258,7 @@ export const userService = {
         const previousRef = ref(storage, currentAvatarUrl);
         await deleteObject(previousRef);
       } catch (deleteError) {
-        console.warn('Unable to delete previous avatar', deleteError);
+        console.warn("Unable to delete previous avatar", deleteError);
       }
     }
 
@@ -247,20 +267,25 @@ export const userService = {
 
   // Update last seen
   async updateLastSeen(userId: string): Promise<void> {
-    await updateDoc(doc(db, 'users', userId), {
-      lastSeenAt: serverTimestamp()
+    await updateDoc(doc(db, "users", userId), {
+      lastSeenAt: serverTimestamp(),
     });
   },
 
   // Register device for push notifications
-  async registerDevice(userId: string, deviceId: string, token: string, platform: 'ios' | 'android'): Promise<void> {
-    await setDoc(doc(db, 'users', userId, 'devices', deviceId), {
+  async registerDevice(
+    userId: string,
+    deviceId: string,
+    token: string,
+    platform: "ios" | "android"
+  ): Promise<void> {
+    await setDoc(doc(db, "users", userId, "devices", deviceId), {
       fcmToken: token,
       platform,
       pushEnabled: true,
-      appVersion: '1.0.0', // Get from app config
+      appVersion: "1.0.0", // Get from app config
       lastSeenAt: serverTimestamp(),
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     } as DBDevice);
   },
 
@@ -270,12 +295,12 @@ export const userService = {
     onError?: (error: Error) => void
   ): Unsubscribe {
     return onSnapshot(
-      doc(db, 'users', userId),
+      doc(db, "users", userId),
       (snapshot) => {
         callback(snapshot.exists() ? (snapshot.data() as DBUser) : null);
       },
       (error) => {
-        console.error('User subscription failed:', error);
+        console.error("User subscription failed:", error);
         onError?.(error);
       }
     );
@@ -289,16 +314,16 @@ export const userService = {
       const avatarRef = ref(storage, avatarUrl);
       await deleteObject(avatarRef);
     } catch (error) {
-      console.warn('Unable to delete avatar', error);
+      console.warn("Unable to delete avatar", error);
     }
-  }
+  },
 };
 
 // ============= COUPLE SERVICES =============
 export const coupleService = {
   // Create new couple
   async createCouple(ownerUid: string, inviteCode: string): Promise<string> {
-    const coupleRef = doc(collection(db, 'couples'));
+    const coupleRef = doc(collection(db, "couples"));
     const coupleId = coupleRef.id;
 
     await setDoc(coupleRef, {
@@ -314,23 +339,23 @@ export const coupleService = {
         enablePush: true,
         enableFlashbacks: true,
         enableLocation: false,
-        theme: 'auto'
+        theme: "auto",
       },
       createdAt: serverTimestamp(),
       pairCompletedAt: null,
-      lastActivityAt: serverTimestamp()
+      lastActivityAt: serverTimestamp(),
     } as DBCouple);
 
     // Create owner's profile
     await profileService.createProfile(coupleId, ownerUid, {
-      displayName: 'You',
-      status: '',
-      about: 'Tell your story...',
-      accentColor: '#FFB3C6',
-      emoji: '💕',
+      displayName: "You",
+      status: "",
+      about: "Tell your story...",
+      accentColor: "#FFB3C6",
+      emoji: "💕",
       loveLanguages: [...DEFAULT_LOVE_LANGUAGES],
       birthday: null,
-      anniversary: null
+      anniversary: null,
     });
 
     return coupleId;
@@ -338,37 +363,40 @@ export const coupleService = {
 
   // Get couple by ID
   async getCouple(coupleId: string): Promise<DBCouple | null> {
-    const coupleDoc = await getDoc(doc(db, 'couples', coupleId));
-    return coupleDoc.exists() ? coupleDoc.data() as DBCouple : null;
+    const coupleDoc = await getDoc(doc(db, "couples", coupleId));
+    return coupleDoc.exists() ? (coupleDoc.data() as DBCouple) : null;
   },
 
   // Update couple settings
-  async updateSettings(coupleId: string, settings: Partial<DBCouple['settings']>): Promise<void> {
+  async updateSettings(
+    coupleId: string,
+    settings: Partial<DBCouple["settings"]>
+  ): Promise<void> {
     const updates: Record<string, unknown> = {
-      lastActivityAt: serverTimestamp()
+      lastActivityAt: serverTimestamp(),
     };
 
     Object.entries(settings).forEach(([key, value]) => {
       updates[`settings.${key}`] = value;
     });
 
-    await updateDoc(doc(db, 'couples', coupleId), updates);
+    await updateDoc(doc(db, "couples", coupleId), updates);
   },
 
   // Set anniversary date
   async setAnniversary(coupleId: string, date: string | null): Promise<void> {
-    await updateDoc(doc(db, 'couples', coupleId), {
+    await updateDoc(doc(db, "couples", coupleId), {
       anniversaryDate: date,
-      lastActivityAt: serverTimestamp()
+      lastActivityAt: serverTimestamp(),
     });
   },
 
   async setInviteMetadata(coupleId: string, inviteCode: string): Promise<void> {
-    await updateDoc(doc(db, 'couples', coupleId), {
+    await updateDoc(doc(db, "couples", coupleId), {
       inviteCode,
       inviteLink: `coupleapp://join/${inviteCode}`,
       qrCodeData: `COUPLE:${inviteCode}`,
-      lastActivityAt: serverTimestamp()
+      lastActivityAt: serverTimestamp(),
     });
   },
 
@@ -388,7 +416,7 @@ export const coupleService = {
     onError?: (error: unknown) => void
   ): Unsubscribe {
     return onSnapshot(
-      doc(db, 'couples', coupleId),
+      doc(db, "couples", coupleId),
       (snapshot) => {
         callback(snapshot.exists() ? (snapshot.data() as DBCouple) : null);
       },
@@ -396,31 +424,47 @@ export const coupleService = {
         onError?.(error);
       }
     );
-  }
+  },
 };
 
 // ============= PROFILE SERVICES =============
 export const profileService = {
   // Create or update profile
-  async createProfile(coupleId: string, userId: string, data: Partial<DBProfile>): Promise<void> {
-    await setDoc(doc(db, 'couples', coupleId, 'profiles', userId), {
-      ...data,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+  async createProfile(
+    coupleId: string,
+    userId: string,
+    data: Partial<DBProfile>
+  ): Promise<void> {
+    await setDoc(
+      doc(db, "couples", coupleId, "profiles", userId),
+      {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   },
 
   // Get profile
-  async getProfile(coupleId: string, userId: string): Promise<DBProfile | null> {
-    const profileDoc = await getDoc(doc(db, 'couples', coupleId, 'profiles', userId));
-    return profileDoc.exists() ? profileDoc.data() as DBProfile : null;
+  async getProfile(
+    coupleId: string,
+    userId: string
+  ): Promise<DBProfile | null> {
+    const profileDoc = await getDoc(
+      doc(db, "couples", coupleId, "profiles", userId)
+    );
+    return profileDoc.exists() ? (profileDoc.data() as DBProfile) : null;
   },
 
   // Get both profiles
-  async getCoupleProfiles(
-    coupleId: string
-  ): Promise<{ me?: (DBProfile & { uid: string }); partner?: (DBProfile & { uid: string }) }> {
-    const profilesSnapshot = await getDocs(collection(db, 'couples', coupleId, 'profiles'));
+  async getCoupleProfiles(coupleId: string): Promise<{
+    me?: DBProfile & { uid: string };
+    partner?: DBProfile & { uid: string };
+  }> {
+    const profilesSnapshot = await getDocs(
+      collection(db, "couples", coupleId, "profiles")
+    );
     const profiles: {
       me?: DBProfile & { uid: string };
       partner?: DBProfile & { uid: string };
@@ -439,13 +483,13 @@ export const profileService = {
 
   subscribeToProfiles(
     coupleId: string,
-    callback: (profiles: Array<{ uid: string; profile: DBProfile }>) => void,
+    callback: (profiles: { uid: string; profile: DBProfile }[]) => void,
     onError?: (error: unknown) => void
   ): Unsubscribe {
     return onSnapshot(
-      collection(db, 'couples', coupleId, 'profiles'),
+      collection(db, "couples", coupleId, "profiles"),
       (snapshot) => {
-        const profiles: Array<{ uid: string; profile: DBProfile }> = [];
+        const profiles: { uid: string; profile: DBProfile }[] = [];
         snapshot.forEach((doc) => {
           profiles.push({ uid: doc.id, profile: doc.data() as DBProfile });
         });
@@ -453,17 +497,21 @@ export const profileService = {
       },
       (error) => onError?.(error)
     );
-  }
+  },
 };
 
 // ============= MESSAGE SERVICES =============
 export const messageService = {
   // Send message
-  async sendMessage(coupleId: string, text: string, type: DBMessage['type'] = 'text'): Promise<void> {
+  async sendMessage(
+    coupleId: string,
+    text: string,
+    type: DBMessage["type"] = "text"
+  ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    await addDoc(collection(db, 'couples', coupleId, 'messages'), {
+    await addDoc(collection(db, "couples", coupleId, "messages"), {
       sender: userId,
       text,
       type,
@@ -475,9 +523,8 @@ export const messageService = {
       clientTimestamp: new Date().toISOString(),
       timestamp: serverTimestamp(),
       editedAt: null,
-      deletedAt: null
+      deletedAt: null,
     } as DBMessage);
-
   },
 
   async sendImageMessage(params: {
@@ -489,10 +536,10 @@ export const messageService = {
   }): Promise<void> {
     const { coupleId, uri, mimeType, fileName, onProgress } = params;
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    const messageRef = doc(collection(db, 'couples', coupleId, 'messages'));
-    const { blob, contentType, extension, size } = await readImageForUpload({
+    const messageRef = doc(collection(db, "couples", coupleId, "messages"));
+    const { blob, contentType, extension } = await readImageForUpload({
       uri,
       fileName,
       mimeType,
@@ -505,14 +552,19 @@ export const messageService = {
 
     try {
       // React Native storage works best with Blob uploads; skip Uint8Array to avoid Blob polyfill issues.
-      await uploadWithProgressRetry(storageRef, blob, { contentType }, onProgress);
+      await uploadWithProgressRetry(
+        storageRef,
+        blob,
+        { contentType },
+        onProgress
+      );
     } catch (error) {
       const code = (error as { code?: string })?.code;
-      const isRetryLimit = code === 'storage/retry-limit-exceeded';
+      const isRetryLimit = code === "storage/retry-limit-exceeded";
       const message =
         (error as Error)?.message ||
         (isRetryLimit
-          ? 'Upload timed out. Please check your connection and try again.'
+          ? "Upload timed out. Please check your connection and try again."
           : "We couldn't upload that photo. Please try again.");
       throw new Error(message);
     }
@@ -522,8 +574,8 @@ export const messageService = {
     try {
       await setDoc(messageRef, {
         sender: userId,
-        text: '',
-        type: 'image',
+        text: "",
+        type: "image",
         mediaUrl: downloadUrl,
         thumbnailUrl: downloadUrl,
         duration: null,
@@ -538,45 +590,49 @@ export const messageService = {
       try {
         await deleteObject(storageRef);
       } catch (cleanupError) {
-        console.warn('Unable to clean up uploaded chat image', cleanupError);
+        console.warn("Unable to clean up uploaded chat image", cleanupError);
       }
       const message =
         (error as Error)?.message ||
-        'The photo uploaded but saving the chat message failed. Please try again.';
+        "The photo uploaded but saving the chat message failed. Please try again.";
       throw new Error(message);
     }
   },
 
   // Add reaction to message
-  async addReaction(coupleId: string, messageId: string, emoji: string): Promise<void> {
+  async addReaction(
+    coupleId: string,
+    messageId: string,
+    emoji: string
+  ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    const messageRef = doc(db, 'couples', coupleId, 'messages', messageId);
+    const messageRef = doc(db, "couples", coupleId, "messages", messageId);
     await updateDoc(messageRef, {
-      [`reactions.${emoji}`]: arrayUnion(userId)
+      [`reactions.${emoji}`]: arrayUnion(userId),
     });
   },
 
   // Mark message as read
   async markAsRead(coupleId: string, messageId: string): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    await updateDoc(doc(db, 'couples', coupleId, 'messages', messageId), {
-      [`readBy.${userId}`]: serverTimestamp()
+    await updateDoc(doc(db, "couples", coupleId, "messages", messageId), {
+      [`readBy.${userId}`]: serverTimestamp(),
     });
   },
 
   // Subscribe to messages
   subscribeToMessages(
     coupleId: string,
-    callback: (messages: Array<{ message: DBMessage; pending: boolean }>) => void,
+    callback: (messages: { message: DBMessage; pending: boolean }[]) => void,
     onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
-      collection(db, 'couples', coupleId, 'messages'),
-      orderBy('timestamp', 'asc')
+      collection(db, "couples", coupleId, "messages"),
+      orderBy("timestamp", "asc")
     );
 
     return onSnapshot(
@@ -590,7 +646,7 @@ export const messageService = {
       },
       (error) => onError?.(error)
     );
-  }
+  },
 };
 
 // ============= TODO SERVICES =============
@@ -598,18 +654,21 @@ export const todoService = {
   // Create category
   async createCategory(
     coupleId: string,
-    data: Omit<DBTodoCategory, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>
+    data: Omit<DBTodoCategory, "id" | "createdAt" | "updatedAt" | "createdBy">
   ): Promise<string> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    const categoryRef = await addDoc(collection(db, 'couples', coupleId, 'todoCategories'), {
-      ...data,
-      hidden: data.hidden ?? false,
-      createdBy: userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    const categoryRef = await addDoc(
+      collection(db, "couples", coupleId, "todoCategories"),
+      {
+        ...data,
+        hidden: data.hidden ?? false,
+        createdBy: userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    );
 
     return categoryRef.id;
   },
@@ -626,7 +685,7 @@ export const todoService = {
     }
   ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     const updates: Record<string, unknown> = {
       updatedAt: serverTimestamp(),
@@ -649,7 +708,7 @@ export const todoService = {
     }
 
     await updateDoc(
-      doc(db, 'couples', coupleId, 'todoCategories', categoryId),
+      doc(db, "couples", coupleId, "todoCategories", categoryId),
       updates
     );
   },
@@ -670,29 +729,32 @@ export const todoService = {
     }
   ): Promise<string> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    const itemRef = await addDoc(collection(db, 'couples', coupleId, 'todoItems'), {
-      categoryId: data.categoryId,
-      categoryKey: data.categoryKey ?? data.categoryId,
-      title: data.title,
-      description: data.notes ?? null,
-      notes: data.notes ?? null,
-      mood: data.mood ?? null,
-      location: data.location ?? null,
-      costEstimate: data.costEstimate ?? null,
-      completed: false,
-      priority: null,
-      assigneeIds: data.assigneeIds,
-      dueDate: data.dueDate ?? null,
-      reminderDate: null,
-      createdBy: userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      completedAt: null,
-      completedBy: null,
-      proofImageUrl: null
-    });
+    const itemRef = await addDoc(
+      collection(db, "couples", coupleId, "todoItems"),
+      {
+        categoryId: data.categoryId,
+        categoryKey: data.categoryKey ?? data.categoryId,
+        title: data.title,
+        description: data.notes ?? null,
+        notes: data.notes ?? null,
+        mood: data.mood ?? null,
+        location: data.location ?? null,
+        costEstimate: data.costEstimate ?? null,
+        completed: false,
+        priority: null,
+        assigneeIds: data.assigneeIds,
+        dueDate: data.dueDate ?? null,
+        reminderDate: null,
+        createdBy: userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        completedAt: null,
+        completedBy: null,
+        proofImageUrl: null,
+      }
+    );
 
     return itemRef.id;
   },
@@ -712,10 +774,10 @@ export const todoService = {
     }
   ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     const updates: Record<string, unknown> = {
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     };
 
     if (data.categoryId !== undefined) {
@@ -743,24 +805,30 @@ export const todoService = {
       updates.notes = data.notes ?? null;
     }
 
-    await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), updates);
+    await updateDoc(doc(db, "couples", coupleId, "todoItems", todoId), updates);
   },
 
   async deleteTodoItem(coupleId: string, todoId: string): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
-    await deleteDoc(doc(db, 'couples', coupleId, 'todoItems', todoId));
+    if (!userId) throw new Error("User not authenticated");
+    await deleteDoc(doc(db, "couples", coupleId, "todoItems", todoId));
   },
 
   // Delete category (and related todos)
   async deleteCategory(coupleId: string, categoryId: string): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    const categoryRef = doc(db, 'couples', coupleId, 'todoCategories', categoryId);
+    const categoryRef = doc(
+      db,
+      "couples",
+      coupleId,
+      "todoCategories",
+      categoryId
+    );
     const itemsQuery = query(
-      collection(db, 'couples', coupleId, 'todoItems'),
-      where('categoryId', '==', categoryId)
+      collection(db, "couples", coupleId, "todoItems"),
+      where("categoryId", "==", categoryId)
     );
     const snapshot = await getDocs(itemsQuery);
 
@@ -787,7 +855,7 @@ export const todoService = {
     }
   ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     let proofImageUrl: string | null = null;
     if (completed && options?.proofPhotoUri) {
@@ -803,14 +871,14 @@ export const todoService = {
       completedAt: completed ? serverTimestamp() : null,
       completedBy: completed ? userId : null,
       proofImageUrl: completed ? proofImageUrl : null,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     };
 
     if (options?.note !== undefined) {
       updates.notes = options.note ?? null;
     }
 
-    await updateDoc(doc(db, 'couples', coupleId, 'todoItems', todoId), updates);
+    await updateDoc(doc(db, "couples", coupleId, "todoItems", todoId), updates);
 
     if (completed && proofImageUrl) {
       await milestoneService.createMilestone(coupleId, {
@@ -819,22 +887,27 @@ export const todoService = {
           options?.milestoneDescription ??
           "A proof photo was added from your to-do list.",
         image: proofImageUrl,
-        type: 'custom',
+        type: "custom",
         dayCount: options?.dayCount ?? null,
       });
     }
   },
 
   // Get todos by category
-  async getTodosByCategory(coupleId: string, categoryId: string): Promise<DBTodoItem[]> {
+  async getTodosByCategory(
+    coupleId: string,
+    categoryId: string
+  ): Promise<DBTodoItem[]> {
     const q = query(
-      collection(db, 'couples', coupleId, 'todoItems'),
-      where('categoryId', '==', categoryId),
-      orderBy('createdAt', 'desc')
+      collection(db, "couples", coupleId, "todoItems"),
+      where("categoryId", "==", categoryId),
+      orderBy("createdAt", "desc")
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DBTodoItem));
+    return snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as DBTodoItem)
+    );
   },
 
   // Subscribe to categories
@@ -844,8 +917,8 @@ export const todoService = {
     onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
-      collection(db, 'couples', coupleId, 'todoCategories'),
-      orderBy('order', 'asc')
+      collection(db, "couples", coupleId, "todoCategories"),
+      orderBy("order", "asc")
     );
 
     return onSnapshot(
@@ -866,9 +939,9 @@ export const todoService = {
     todoId: string,
     uri: string
   ): Promise<string> {
-    const cleanedUri = uri.split('?')[0]?.split('#')[0] ?? uri;
+    const cleanedUri = uri.split("?")[0]?.split("#")[0] ?? uri;
     const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
-    const extension = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? "jpg";
     const storagePath = `couples/${coupleId}/todos/${todoId}/proof/${Date.now()}.${extension}`;
     const storageRef = ref(storage, storagePath);
 
@@ -886,8 +959,8 @@ export const todoService = {
     onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
-      collection(db, 'couples', coupleId, 'todoItems'),
-      orderBy('createdAt', 'desc')
+      collection(db, "couples", coupleId, "todoItems"),
+      orderBy("createdAt", "desc")
     );
 
     return onSnapshot(
@@ -901,7 +974,7 @@ export const todoService = {
       },
       (error) => onError?.(error)
     );
-  }
+  },
 };
 
 // ============= MEMORY SERVICES =============
@@ -910,11 +983,11 @@ export const memoryService = {
   async uploadMemory(
     coupleId: string,
     file: File,
-    type: 'photo' | 'video',
+    type: "photo" | "video",
     caption?: string
   ): Promise<string> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     // Upload to storage
     const timestamp = Date.now();
@@ -929,55 +1002,64 @@ export const memoryService = {
     const thumbnailUrl = imageUrl; // Placeholder
 
     // Add to Firestore
-    const memoryRef = await addDoc(collection(db, 'couples', coupleId, 'memories'), {
-      type,
-      imageUrl,
-      thumbnailUrl,
-      videoUrl: type === 'video' ? imageUrl : null,
-      caption: caption || null,
-      tags: [],
-      isFavorite: false,
-      isPrivate: false,
-      capturedDate: serverTimestamp(),
-      location: null,
-      uploadedBy: userId,
-      uploadedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      faces: [],
-      sceneType: null
-    } as DBMemory);
+    const memoryRef = await addDoc(
+      collection(db, "couples", coupleId, "memories"),
+      {
+        type,
+        imageUrl,
+        thumbnailUrl,
+        videoUrl: type === "video" ? imageUrl : null,
+        caption: caption || null,
+        tags: [],
+        isFavorite: false,
+        isPrivate: false,
+        capturedDate: serverTimestamp(),
+        location: null,
+        uploadedBy: userId,
+        uploadedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        faces: [],
+        sceneType: null,
+      } as DBMemory
+    );
 
     return memoryRef.id;
   },
 
   // Toggle favorite
-  async toggleFavorite(coupleId: string, memoryId: string, isFavorite: boolean): Promise<void> {
-    await updateDoc(doc(db, 'couples', coupleId, 'memories', memoryId), {
+  async toggleFavorite(
+    coupleId: string,
+    memoryId: string,
+    isFavorite: boolean
+  ): Promise<void> {
+    await updateDoc(doc(db, "couples", coupleId, "memories", memoryId), {
       isFavorite,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   },
 
   // Get memories with filters
   async getMemories(
     coupleId: string,
-    filter?: 'all' | 'favorites' | 'photos' | 'videos'
+    filter?: "all" | "favorites" | "photos" | "videos"
   ): Promise<DBMemory[]> {
     let q = query(
-      collection(db, 'couples', coupleId, 'memories'),
-      orderBy('capturedDate', 'desc')
+      collection(db, "couples", coupleId, "memories"),
+      orderBy("capturedDate", "desc")
     );
 
-    if (filter === 'favorites') {
-      q = query(q, where('isFavorite', '==', true));
-    } else if (filter === 'photos') {
-      q = query(q, where('type', '==', 'photo'));
-    } else if (filter === 'videos') {
-      q = query(q, where('type', '==', 'video'));
+    if (filter === "favorites") {
+      q = query(q, where("isFavorite", "==", true));
+    } else if (filter === "photos") {
+      q = query(q, where("type", "==", "photo"));
+    } else if (filter === "videos") {
+      q = query(q, where("type", "==", "video"));
     }
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DBMemory));
+    return snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as DBMemory)
+    );
   },
 
   // Get flashbacks (memories from this day in previous years)
@@ -985,11 +1067,13 @@ export const memoryService = {
     const memories = await this.getMemories(coupleId);
     const today = new Date();
 
-    return memories.filter(memory => {
+    return memories.filter((memory) => {
       const memoryDate = timestampToDate(memory.capturedDate);
-      return memoryDate.getMonth() === today.getMonth() &&
-             memoryDate.getDate() === today.getDate() &&
-             memoryDate.getFullYear() < today.getFullYear();
+      return (
+        memoryDate.getMonth() === today.getMonth() &&
+        memoryDate.getDate() === today.getDate() &&
+        memoryDate.getFullYear() < today.getFullYear()
+      );
     });
   },
 
@@ -999,8 +1083,8 @@ export const memoryService = {
     onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
-      collection(db, 'couples', coupleId, 'memories'),
-      orderBy('capturedDate', 'desc')
+      collection(db, "couples", coupleId, "memories"),
+      orderBy("capturedDate", "desc")
     );
 
     return onSnapshot(
@@ -1014,7 +1098,7 @@ export const memoryService = {
       },
       (error) => onError?.(error)
     );
-  }
+  },
 };
 
 // ============= LOCATION SERVICES =============
@@ -1022,34 +1106,34 @@ export const locationService = {
   // Update location
   async updateLocation(
     coupleId: string,
-    coords: DBLocation['coords'],
+    coords: DBLocation["coords"],
     note?: string
   ): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour TTL
 
-    await setDoc(doc(db, 'couples', coupleId, 'locations', userId), {
+    await setDoc(doc(db, "couples", coupleId, "locations", userId), {
       coords,
       isSharing: true,
       sharingNote: note || null,
       batteryLevel: null, // Get from device
       isEmergency: false,
       timestamp: serverTimestamp(),
-      expiresAt: Timestamp.fromDate(expiresAt)
+      expiresAt: Timestamp.fromDate(expiresAt),
     } as DBLocation);
   },
 
   // Stop sharing location
   async stopSharing(coupleId: string): Promise<void> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
-    await updateDoc(doc(db, 'couples', coupleId, 'locations', userId), {
+    await updateDoc(doc(db, "couples", coupleId, "locations", userId), {
       isSharing: false,
-      timestamp: serverTimestamp()
+      timestamp: serverTimestamp(),
     });
   },
 
@@ -1060,12 +1144,12 @@ export const locationService = {
     callback: (location: DBLocation | null) => void
   ): Unsubscribe {
     return onSnapshot(
-      doc(db, 'couples', coupleId, 'locations', partnerId),
+      doc(db, "couples", coupleId, "locations", partnerId),
       (doc) => {
-        callback(doc.exists() ? doc.data() as DBLocation : null);
+        callback(doc.exists() ? (doc.data() as DBLocation) : null);
       }
     );
-  }
+  },
 };
 
 // ============= INVITE SERVICES =============
@@ -1078,13 +1162,13 @@ export const inviteService = {
     preferredCode?: string
   ): Promise<string> {
     const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('User not authenticated');
+    if (!userId) throw new Error("User not authenticated");
 
     const code = (preferredCode || this.generateInviteCode()).toUpperCase();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 day TTL
 
-    await setDoc(doc(db, 'invites', code), {
+    await setDoc(doc(db, "invites", code), {
       code,
       coupleId,
       ownerUid: userId,
@@ -1095,7 +1179,7 @@ export const inviteService = {
       usedAt: null,
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromDate(expiresAt),
-      shareMethod: null
+      shareMethod: null,
     } as DBInvite);
 
     return code;
@@ -1103,13 +1187,13 @@ export const inviteService = {
 
   // Generate 6-character invite code
   generateInviteCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
-  }
+  },
 };
 
 // ============= MILESTONE SERVICES =============
@@ -1117,12 +1201,20 @@ export const milestoneService = {
   // Check and create automatic milestones
   async checkMilestones(coupleId: string, daysTogether: number): Promise<void> {
     const milestones = [
-      { days: 1, title: 'First Day', description: 'The beginning of your journey' },
-      { days: 7, title: 'First Week', description: 'Seven days of love' },
-      { days: 30, title: 'First Month', description: 'One month together' },
-      { days: 100, title: '100 Days', description: 'Your first hundred days' },
-      { days: 365, title: 'First Year', description: 'One year anniversary' },
-      { days: 1000, title: '1000 Days', description: 'A thousand days of memories' }
+      {
+        days: 1,
+        title: "First Day",
+        description: "The beginning of your journey",
+      },
+      { days: 7, title: "First Week", description: "Seven days of love" },
+      { days: 30, title: "First Month", description: "One month together" },
+      { days: 100, title: "100 Days", description: "Your first hundred days" },
+      { days: 365, title: "First Year", description: "One year anniversary" },
+      {
+        days: 1000,
+        title: "1000 Days",
+        description: "A thousand days of memories",
+      },
     ];
 
     for (const milestone of milestones) {
@@ -1130,8 +1222,8 @@ export const milestoneService = {
         await this.createMilestone(coupleId, {
           title: milestone.title,
           description: milestone.description,
-          type: 'automatic',
-          dayCount: milestone.days
+          type: "automatic",
+          dayCount: milestone.days,
         });
       }
     }
@@ -1143,30 +1235,33 @@ export const milestoneService = {
     data: Partial<DBMilestone>
   ): Promise<string> {
     const { achievedAt, createdAt, ...rest } = data;
-    const milestoneRef = await addDoc(collection(db, 'couples', coupleId, 'milestones'), {
-      ...rest,
-      title: rest.title ?? 'Milestone',
-      description: rest.description ?? '',
-      type: rest.type ?? 'custom',
-      dayCount: rest.dayCount ?? null,
-      image: rest.image ?? 'default-milestone.png',
-      badgeColor: rest.badgeColor ?? '#FFD700',
-      icon: rest.icon ?? 'star',
-      achievedAt: achievedAt ?? serverTimestamp(),
-      createdAt: createdAt ?? serverTimestamp(),
-      createdBy:
-        rest.type === 'custom'
-          ? auth.currentUser?.uid
-          : rest.createdBy ?? null
-    });
+    const milestoneRef = await addDoc(
+      collection(db, "couples", coupleId, "milestones"),
+      {
+        ...rest,
+        title: rest.title ?? "Milestone",
+        description: rest.description ?? "",
+        type: rest.type ?? "custom",
+        dayCount: rest.dayCount ?? null,
+        image: rest.image ?? "default-milestone.png",
+        badgeColor: rest.badgeColor ?? "#FFD700",
+        icon: rest.icon ?? "star",
+        achievedAt: achievedAt ?? serverTimestamp(),
+        createdAt: createdAt ?? serverTimestamp(),
+        createdBy:
+          rest.type === "custom"
+            ? auth.currentUser?.uid
+            : rest.createdBy ?? null,
+      }
+    );
 
     return milestoneRef.id;
   },
 
   async uploadMilestoneImage(coupleId: string, uri: string): Promise<string> {
-    const cleanedUri = uri.split('?')[0]?.split('#')[0] ?? uri;
+    const cleanedUri = uri.split("?")[0]?.split("#")[0] ?? uri;
     const extensionMatch = cleanedUri.match(/\.([a-zA-Z0-9]+)$/);
-    const extension = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const extension = extensionMatch?.[1]?.toLowerCase() ?? "jpg";
     const storagePath = `couples/${coupleId}/milestones/${Date.now()}-${Math.random()
       .toString(16)
       .slice(2)}.${extension}`;
@@ -1189,17 +1284,20 @@ export const milestoneService = {
       dayCount?: number | null;
     }
   ): Promise<string> {
-    const downloadUrl = await this.uploadMilestoneImage(coupleId, data.imageUri);
+    const downloadUrl = await this.uploadMilestoneImage(
+      coupleId,
+      data.imageUri
+    );
     const achievedAtValue = data.achievedAt
       ? Timestamp.fromDate(data.achievedAt)
       : serverTimestamp();
     return this.createMilestone(coupleId, {
       title: data.title,
-      description: data.description ?? '',
+      description: data.description ?? "",
       image: downloadUrl,
-      type: 'custom',
+      type: "custom",
       dayCount: data.dayCount ?? null,
-      achievedAt: achievedAtValue
+      achievedAt: achievedAtValue,
     });
   },
 
@@ -1209,8 +1307,8 @@ export const milestoneService = {
     onError?: (error: unknown) => void
   ): Unsubscribe {
     const q = query(
-      collection(db, 'couples', coupleId, 'milestones'),
-      orderBy('achievedAt', 'desc')
+      collection(db, "couples", coupleId, "milestones"),
+      orderBy("achievedAt", "desc")
     );
 
     return onSnapshot(
@@ -1224,7 +1322,7 @@ export const milestoneService = {
       },
       (error) => onError?.(error)
     );
-  }
+  },
 };
 
 type CalendarEventInput = {
@@ -1320,5 +1418,5 @@ export default {
   location: locationService,
   invite: inviteService,
   milestone: milestoneService,
-  calendar: calendarService
+  calendar: calendarService,
 };

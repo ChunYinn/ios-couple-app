@@ -7,20 +7,38 @@ import { Platform, useColorScheme } from "react-native";
 
 import { usePalette } from "../hooks/usePalette";
 
-type NativeProps = ComponentProps<typeof DateTimePicker>;
+type AllowedDisplay =
+  | "default"
+  | "spinner"
+  | "calendar"
+  | "clock"
+  | "compact"
+  | "inline";
 
-export type AppDatePickerProps = NativeProps;
+export type AppDatePickerProps = {
+  value: Date;
+  onChange: (event: DateTimePickerEvent, date?: Date) => void;
+  mode?: "date" | "time" | "datetime";
+  display?: AllowedDisplay;
+  minimumDate?: Date;
+  maximumDate?: Date;
+};
 export type { DateTimePickerEvent };
 
 export const AppDatePicker = ({
   display,
-  ...rest
+  mode,
+  value,
+  onChange,
+  minimumDate,
+  maximumDate,
 }: AppDatePickerProps) => {
   const palette = usePalette();
   const scheme = useColorScheme();
 
   const resolvedDisplay =
     display ?? (Platform.OS === "ios" ? "spinner" : "calendar");
+  const resolvedMode = mode ?? "date";
 
   const iosProps: Partial<IOSNativeProps> =
     Platform.OS === "ios"
@@ -31,11 +49,19 @@ export const AppDatePicker = ({
         }
       : {};
 
+  const pickerProps = {
+    ...iosProps,
+    value,
+    onChange,
+    minimumDate,
+    maximumDate,
+    display: resolvedDisplay,
+    mode: resolvedMode,
+  };
+
   return (
     <DateTimePicker
-      {...rest}
-      {...iosProps}
-      display={resolvedDisplay}
+      {...(pickerProps as ComponentProps<typeof DateTimePicker>)}
     />
   );
 };

@@ -198,7 +198,12 @@ export type AppAction =
   | { type: "SET_PROFILE_ACCENT"; payload: { accentColor: string } }
   | {
       type: "CREATE_INVITE";
-      payload: { coupleId: string; inviteCode: string; inviteLink: string; qrCodeData: string };
+      payload: {
+        coupleId: string;
+        inviteCode: string;
+        inviteLink: string;
+        qrCodeData: string | null;
+      };
     }
   | {
       type: "SET_PENDING_PAIR";
@@ -211,7 +216,10 @@ export type AppAction =
         partnerProfile: PartnerProfile;
       };
     }
-  | { type: "SET_ANNIVERSARY"; payload: { anniversaryDate: string; daysTogether: number } }
+  | {
+      type: "SET_ANNIVERSARY";
+      payload: { anniversaryDate: string; daysTogether: number };
+    }
   | { type: "RESET_PAIRING" }
   | {
       type: "ADD_TODO_CATEGORY";
@@ -275,7 +283,11 @@ export type AppAction =
     }
   | {
       type: "UPDATE_PROFILE_NOTE";
-      payload: { status?: string; about?: string; loveLanguages?: LoveLanguageValue[] };
+      payload: {
+        status?: string;
+        about?: string;
+        loveLanguages?: LoveLanguageValue[];
+      };
     }
   | {
       type: "UPDATE_SETTINGS";

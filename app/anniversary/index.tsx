@@ -6,7 +6,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Screen } from "../../components/Screen";
 import { CuteText } from "../../components/CuteText";
 import { CuteButton } from "../../components/CuteButton";
-import { AppDatePicker } from "../../components/AppDatePicker";
+import { AppDatePicker, DateTimePickerEvent } from "../../components/AppDatePicker";
 import { usePalette } from "../../hooks/usePalette";
 import { useAppData } from "../../context/AppDataContext";
 import { coupleService, userService } from "../../firebase/services";
@@ -160,7 +160,7 @@ export default function AnniversaryScreen() {
           <AppDatePicker
             value={selectedDate}
             mode="date"
-            onChange={(_, date) => {
+            onChange={(_: DateTimePickerEvent, date?: Date) => {
               setShowDatePicker(Platform.OS === "android");
               if (date) {
                 setSelectedDate(date);

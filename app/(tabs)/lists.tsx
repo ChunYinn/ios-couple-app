@@ -2009,6 +2009,7 @@ const TodoFormModal = ({
 }: TodoFormModalProps) => {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const [title, setTitle] = useState("");
   const [categoryKey, setCategoryKey] = useState(defaultCategoryKey);
   const [notes, setNotes] = useState("");

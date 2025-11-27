@@ -272,7 +272,15 @@ export default function AnniversaryDashboardScreen() {
       : `${month} ${day}, ${fullYear}`;
   };
 
-  const milestoneReels = useMemo(() => {
+  type MilestoneReelItem = {
+    id: string;
+    label: string;
+    image?: string;
+    dayCount: number;
+    achieved: boolean;
+  };
+
+  const milestoneReels: MilestoneReelItem[] = useMemo(() => {
     const daysTogether = dashboard.daysTogether || 0;
     const achievedByDay = new Map(
       milestones
@@ -286,7 +294,7 @@ export default function AnniversaryDashboardScreen() {
         const achieved = achievedByDay.get(step.dayCount);
         return {
           id: achieved ? achieved.id : `step-${step.dayCount}`,
-          label: step.label,
+          label: achieved?.title ?? step.label,
           image: achieved?.image,
           dayCount: step.dayCount,
           achieved: Boolean(achieved),
@@ -533,7 +541,7 @@ export default function AnniversaryDashboardScreen() {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {"label" in item ? item.label : item.title}
+                    {item.label}
                   </CuteText>
                 </View>
               </Pressable>
